@@ -68,10 +68,19 @@ All are GitHub **variables** initially set to `UNCONFIGURED`:
 
 The team plan specifies configurable N/M values but does not choose them. No numeric defaults were invented. The feature implementation must decide scope, storage (env-backed defaults vs database-managed config), concurrency and strict validation before using these reserved names. No existing business logic reads them.
 
-## Pending choices / things not to add yet
+## Photo storage — UploadThing adapter and client helper
 
-- **Photo storage:** PHOTO_STORAGE_PROVIDER is a GitHub variable with `UNCONFIGURED`. The user explicitly deferred the provider choice. Cloudinary, Supabase or S3 credentials are therefore not created. Choose the provider first, then add its exact minimal secret set.
-- **Email verification/password-reset delivery:** no mail provider selected. Do not invent RESEND_API_KEY, SMTP credentials or FROM address requirements before that decision. Basic email/password sessions already work; outbound mail is not configured.
+| Name | GitHub placement | Purpose |
+| --- | --- | --- |
+| PHOTO_STORAGE_PROVIDER | Variable | `uploadthing`, recording the selected provider |
+| UPLOADTHING_TOKEN | Secret | Server-only SDK token from the UploadThing app dashboard; starts as `UNSET` |
+
+Use the [official Express adapter](https://docs.uploadthing.com/backend-adapters/express) and its linked Vue client example. The server authorizes uploads with Better Auth; the browser uploads using the provider-issued URLs. Keep UPLOADTHING_TOKEN out of VITE_* and frontend bundles. MongoDB stores file keys/URLs. No Cloudinary, Supabase or S3 credentials are needed.
+
+The API config loader consumes these settings. A missing/placeholder token disables `/api/uploadthing` with HTTP 503 without breaking auth or health checks. Configured uploads require an authenticated same-origin request and allow one JPEG/PNG/WebP up to 4 MB. The SDK verifies completion callbacks. The browser helper is exported from `@broke-oclock/storage/client`; `apps/web/src/lib/photo-upload.ts` is a thin compatibility re-export. Account/token setup, live-provider verification, deal attachment, persisted ownership and cleanup remain pending; see [photo upload setup](photo-storage.md).
+
+## Pending choices / things not to add yet
+- **Email verification/password-reset flows:** Resend transport and templates exist, but automatic Better Auth hooks and verified sender-domain setup remain unimplemented. Basic sessions work without email; see the Resend section below.
 - **Web map:** Leaflet/public OSM tiles and browser geolocation do not need a Google Maps API key. Tile URL/attribution may stay in reviewed frontend configuration. Do not duplicate private OneMap credentials into VITE_* variables.
 - **Venue/feed/search, comments, bookmarks:** reuse the database/auth boundary; they do not each need another external-service key.
 
@@ -79,4 +88,11 @@ The team plan specifies configurable N/M values but does not choose them. No num
 
 The inventory in `.env.example` includes current runtime, planned deployment and reserved feature keys. GitHub production contains those names except local-only PORT. Empty/UNSET secret examples and UNCONFIGURED decision markers are intentionally invalid, not working defaults. Do not enable planned features until their consumers validate real configuration.
 
-The frontend currently requires **no VITE_* variable** and uses a same-origin `/api/auth` client. Vercel's ordinary Git integration cannot read GitHub Actions secrets automatically. The future trusted deployment workflow must map server credentials only to the API runtime, public routing configuration to the web build, and the deployment token only to the deployment job.
+The frontend currently requires **no VITE_* variable** and uses same-origin `/api/auth`, `/api/uploadthing` and `/api/trpc` clients. Vercel's ordinary Git integration cannot read GitHub Actions secrets automatically. The future trusted deployment workflow must map server credentials only to the API runtime, public routing configuration to the web build, and the deployment token only to the deployment job.
+
+## Resend email package
+
+- `RESEND_API_KEY`: server-only secret; placeholder `UNSET` in GitHub `production` and `.env.example`.
+- `EMAIL_FROM`: sender address on a verified Resend domain; placeholder `UNCONFIGURED` in GitHub `production` variables and `.env.example`.
+
+The email package takes explicit configuration rather than reading process.env. Missing/placeholder credentials disable provider requests. No Better Auth email-verification or password-reset hooks, email endpoint or background sender are enabled; adding credentials alone does not turn those flows on. An API-side consumer must pass the validated configuration when email sending is intentionally integrated. No real email is sent during checks. GitHub-to-Vercel synchronization remains pending.

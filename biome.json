@@ -35,7 +35,45 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended"
+      "preset": "recommended",
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": ["./**", "../**"],
+                "message": "Use a workspace source alias or public @broke-oclock package export, not relative imports."
+              },
+              {
+                "group": [
+                  "@auth/**/*.js",
+                  "@auth/**/*.ts",
+                  "@api/**/*.js",
+                  "@api/**/*.ts",
+                  "@web/**/*.js",
+                  "@web/**/*.ts",
+                  "@db/**/*.js",
+                  "@db/**/*.ts",
+                  "@storage/**/*.js",
+                  "@storage/**/*.ts",
+                  "@scripts/**/*.js",
+                  "@scripts/**/*.ts",
+                  "@contracts/**/*.js",
+                  "@contracts/**/*.ts",
+                  "@integrations/**/*.js",
+                  "@integrations/**/*.ts",
+                  "@email/**/*.js",
+                  "@email/**/*.ts",
+                  "@ui/**/*.js",
+                  "@ui/**/*.ts"
+                ],
+                "message": "Omit .js/.ts extensions from source aliases. Keep .vue and asset extensions."
+              }
+            ]
+          }
+        }
+      }
     }
   },
   "assist": {

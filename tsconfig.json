@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@api/*": ["./apps/api/src/*"],
+      "@web/*": ["./apps/web/src/*"],
+      "@db/*": ["./packages/db/src/*"],
+      "@storage/*": ["./packages/storage/src/*"],
+      "@scripts/*": ["./scripts/*"],
+      "@auth/*": ["./packages/auth/src/*"],
+      "@contracts/*": ["./packages/contracts/src/*"],
+      "@integrations/*": ["./packages/integrations/src/*"],
+      "@email/*": ["./packages/email/src/*"],
+      "@ui/*": ["./packages/ui/src/*"]
+    }
+  },
+  "files": []
+}

@@ -1,7 +1,7 @@
 import { createServer } from 'node:http'
+import { createApp } from '@api/app'
+import { loadConfig } from '@api/config'
 import { db } from '@broke-oclock/db'
-import { createApp } from './app.js'
-import { loadConfig } from './config.js'
 
 export const startServer = () => {
   const config = loadConfig()

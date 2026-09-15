@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { loadEnvironment } from './environment'
+import { loadEnvironment } from '@scripts/environment'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const children = ['apps/api', 'apps/web'].map((directory) =>

@@ -20,10 +20,10 @@
     "db:generate": "bun run scripts/workspace.ts packages/db generate",
     "db:validate": "bun run scripts/workspace.ts packages/db validate",
     "db:push": "bun run scripts/workspace.ts packages/db push",
-    "typecheck": "bun run scripts/workspace.ts packages/db typecheck && bun run scripts/workspace.ts apps/api typecheck && bun run scripts/workspace.ts apps/web typecheck && bun run typecheck:tools",
+    "typecheck": "bun run scripts/workspace.ts packages/db typecheck && bun run scripts/workspace.ts packages/auth typecheck && bun run scripts/workspace.ts packages/storage typecheck && bun run scripts/workspace.ts packages/contracts typecheck && bun run scripts/workspace.ts packages/integrations typecheck && bun run scripts/workspace.ts packages/email typecheck && bun run scripts/workspace.ts packages/ui typecheck && bun run scripts/workspace.ts apps/api typecheck && bun run scripts/workspace.ts apps/web typecheck && bun run typecheck:tools",
     "lint": "biome check . --error-on-warnings",
     "format": "biome check --write .",
-    "test:unit": "bun run scripts/workspace.ts apps/api test:unit && bun run scripts/workspace.ts apps/web test:unit",
+    "test:unit": "bun run scripts/workspace.ts apps/api test:unit && bun run scripts/workspace.ts apps/web test:unit && bun run test:packages",
     "test:integration": "bun run scripts/workspace.ts apps/api test:integration",
     "test:e2e": "playwright test",
     "test": "bun run test:unit",
@@ -32,7 +32,8 @@
     "check:all": "bun run check && bun run test:integration && bun run test:e2e",
     "db:local": "bun run scripts/mongo.ts",
     "typecheck:tools": "tsc --project tsconfig.tools.json --noEmit",
-    "audit": "bun audit --audit-level=high --ignore GHSA-ggr8-5vv4-36mx"
+    "audit": "bun audit --audit-level=high --ignore GHSA-ggr8-5vv4-36mx",
+    "test:packages": "vitest run --config vitest.packages.config.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
@@ -40,7 +41,11 @@
     "@types/bun": "1.4.2",
     "@types/node": "24.13.3",
     "typescript": "~6.0.0",
-    "mongodb-memory-server": "11.2.0"
+    "mongodb-memory-server": "11.2.0",
+    "vitest": "4.1.11"
+  },
+  "overrides": {
+    "effect": "3.21.0"
   },
   "trustedDependencies": []
 }

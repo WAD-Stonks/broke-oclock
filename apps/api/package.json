@@ -7,22 +7,31 @@
     "dev": "bun --watch src/server.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:unit": "vitest run --config vitest.config.ts tests/unit",
-    "test:integration": "vitest run --config vitest.config.ts tests/integration",
+    "test:integration": "vitest run --config vitest.config.ts --no-file-parallelism tests/integration",
     "build": "bun build src/server.ts --target=bun --packages=external --outdir dist",
     "start": "bun dist/server.js"
   },
   "dependencies": {
     "@broke-oclock/db": "workspace:*",
-    "@better-auth/prisma-adapter": "1.7.5",
-    "better-auth": "1.7.5",
     "cors": "2.8.5",
     "express": "5.2.1",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "@broke-oclock/storage": "workspace:*",
+    "@broke-oclock/auth": "workspace:*",
+    "@broke-oclock/contracts": "workspace:*",
+    "@trpc/server": "11.18.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/cors": "^2.8.19",
     "vitest": "4.1.11",
-    "typescript": "~6.0.0"
+    "typescript": "~6.0.0",
+    "@trpc/client": "11.18.0"
+  },
+  "exports": {
+    "./types": {
+      "types": "./src/trpc/root.ts"
+    }
   }
 }

@@ -1,31 +1,21 @@
-import { prismaAdapter } from '@better-auth/prisma-adapter'
-import { db } from '@broke-oclock/db'
-import { betterAuth } from 'better-auth'
+import type { AppConfig } from '@api/config'
+import { createAuth as createSharedAuth } from '@broke-oclock/auth/server'
+import type { Session } from '@broke-oclock/auth/types'
+import type { CurrentUserResponse } from '@broke-oclock/contracts/api'
 
-import type { AppConfig } from './config.js'
-
-export const createAuth = (config: AppConfig) => {
-  return betterAuth({
+export const createAuth = (config: AppConfig) =>
+  createSharedAuth({
     baseURL: config.betterAuthUrl,
-    basePath: '/api/auth',
-    rateLimit: { enabled: true, window: 60, max: 100 },
     secret: config.betterAuthSecret,
-    trustedOrigins: [config.webOrigin],
-    database: prismaAdapter(db, {
-      provider: 'mongodb',
-      transaction: true,
-    }),
-    emailAndPassword: {
-      enabled: true,
-    },
-    advanced: {
-      // Better Auth otherwise skips origin checking under NODE_ENV=test.
-      // Keep the security boundary identical in integration tests and production.
-      disableOriginCheck: false,
-      disableCSRFCheck: false,
-      database: {
-        generateId: false,
-      },
-    },
+    trustedOrigin: config.webOrigin,
   })
-}
+
+export const toCurrentUserResponse = (session: Session): CurrentUserResponse => ({
+  user: {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+    emailVerified: session.user.emailVerified,
+  },
+  session: { expiresAt: session.session.expiresAt.toISOString() },
+})
