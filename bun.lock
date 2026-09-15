@@ -21,13 +21,15 @@
         "@broke-oclock/auth": "workspace:*",
         "@broke-oclock/contracts": "workspace:*",
         "@broke-oclock/db": "workspace:*",
-        "@broke-oclock/rpc": "workspace:*",
         "@broke-oclock/storage": "workspace:*",
+        "@trpc/server": "11.18.0",
         "cors": "2.8.5",
         "express": "5.2.1",
         "helmet": "^8.1.0",
+        "zod": "4.6.5",
       },
       "devDependencies": {
+        "@trpc/client": "11.18.0",
         "@types/cors": "^2.8.19",
         "@types/express": "^5.0.3",
         "typescript": "~6.0.0",
@@ -38,14 +40,17 @@
       "name": "@broke-oclock/web",
       "dependencies": {
         "@broke-oclock/auth": "workspace:*",
-        "@broke-oclock/rpc": "workspace:*",
+        "@broke-oclock/contracts": "workspace:*",
         "@broke-oclock/storage": "workspace:*",
         "@broke-oclock/ui": "workspace:*",
+        "@trpc/client": "11.18.0",
+        "@trpc/server": "11.18.0",
         "bootstrap": "5.3.8",
         "vue": "3.5.38",
         "vue-router": "5.1.0",
       },
       "devDependencies": {
+        "@broke-oclock/api": "workspace:*",
         "@vitejs/plugin-vue": "6.0.8",
         "@vue/test-utils": "2.4.11",
         "@vue/tsconfig": "0.9.1",
@@ -95,23 +100,6 @@
     "packages/integrations": {
       "name": "@broke-oclock/integrations",
       "version": "0.1.0",
-    },
-    "packages/rpc": {
-      "name": "@broke-oclock/rpc",
-      "version": "0.1.0",
-      "dependencies": {
-        "@broke-oclock/auth": "workspace:*",
-        "@broke-oclock/contracts": "workspace:*",
-        "@trpc/client": "11.18.0",
-        "@trpc/server": "11.18.0",
-        "zod": "4.6.5",
-      },
-      "devDependencies": {
-        "@types/express": "^5.0.3",
-      },
-      "peerDependencies": {
-        "express": "^5.2.1",
-      },
     },
     "packages/storage": {
       "name": "@broke-oclock/storage",
@@ -214,8 +202,6 @@
     "@broke-oclock/email": ["@broke-oclock/email@workspace:packages/email"],
 
     "@broke-oclock/integrations": ["@broke-oclock/integrations@workspace:packages/integrations"],
-
-    "@broke-oclock/rpc": ["@broke-oclock/rpc@workspace:packages/rpc"],
 
     "@broke-oclock/storage": ["@broke-oclock/storage@workspace:packages/storage"],
 

@@ -10,8 +10,7 @@
       "@contracts/*": ["./packages/contracts/src/*"],
       "@integrations/*": ["./packages/integrations/src/*"],
       "@email/*": ["./packages/email/src/*"],
-      "@ui/*": ["./packages/ui/src/*"],
-      "@rpc/*": ["./packages/rpc/src/*"]
+      "@ui/*": ["./packages/ui/src/*"]
     }
   },
   "files": []

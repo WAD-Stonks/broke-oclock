@@ -47,8 +47,6 @@
               },
               {
                 "group": [
-                  "@rpc/**/*.js",
-                  "@rpc/**/*.ts",
                   "@auth/**/*.js",
                   "@auth/**/*.ts",
                   "@api/**/*.js",

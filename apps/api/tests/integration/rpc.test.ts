@@ -3,7 +3,8 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { parseConfig } from '@api/config'
-import { createRpcClient } from '@broke-oclock/rpc/client'
+import type { AppRouter } from '@api/trpc/root'
+import { createTRPCClient, httpBatchLink } from '@trpc/client'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -36,14 +37,18 @@ const cookieFrom = (response: Response) =>
     .join('; ')
 
 const clientFor = (cookie = '') =>
-  createRpcClient({
-    url: `${baseURL}/api/trpc`,
-    fetch: async (input: RequestInfo | URL, init?: RequestInit) => {
-      const headers = new Headers(init?.headers)
-      headers.set('Origin', origin)
-      if (cookie) headers.set('Cookie', cookie)
-      return fetch(input, { ...init, headers })
-    },
+  createTRPCClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: `${baseURL}/api/trpc`,
+        fetch: async (input, init) => {
+          const headers = new Headers(init?.headers)
+          headers.set('Origin', origin)
+          if (cookie) headers.set('Cookie', cookie)
+          return fetch(input, { ...init, headers })
+        },
+      }),
+    ],
   })
 
 const signUp = async (name: string): Promise<Credentials> => {

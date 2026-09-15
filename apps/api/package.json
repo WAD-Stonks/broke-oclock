@@ -19,12 +19,19 @@
     "@broke-oclock/storage": "workspace:*",
     "@broke-oclock/auth": "workspace:*",
     "@broke-oclock/contracts": "workspace:*",
-    "@broke-oclock/rpc": "workspace:*"
+    "@trpc/server": "11.18.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
     "@types/cors": "^2.8.19",
     "vitest": "4.1.11",
-    "typescript": "~6.0.0"
+    "typescript": "~6.0.0",
+    "@trpc/client": "11.18.0"
+  },
+  "exports": {
+    "./types": {
+      "types": "./src/trpc/root.ts"
+    }
   }
 }
