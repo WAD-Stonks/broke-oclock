@@ -1,6 +1,6 @@
 # Team implementation plan
 
-Everything below is a planned student-owned feature, not a claim that the starter implements it.
+Everything below is a planned student-owned feature, not a claim that the starter implements it. The [approved database foundation](database-schema.md) now supplies persistence structure, roles and multi-outlet representation; endpoints, state transitions and UI remain unimplemented.
 
 ## 1. Browse and map
 
@@ -10,15 +10,15 @@ Acceptance journey: load seeded map → apply filter → open matching deal. Che
 
 ## 2. Add deal
 
-Title/description/category/type/validity form, OneMap autocomplete, drop-pin fallback, optional compressed image upload, validation, initial unverified state and owner-only edit/delete.
+Title/description/category/type/validity form, address autocomplete (geocoding provider still to be selected), drop-pin fallback, optional compressed image upload, validation, initial pending-review state (community verification is separate) and owner-only edit/delete.
 
-Acceptance journey: login → submit valid deal/photo → see unverified entry. Assert malformed dates and another user's edit/delete are rejected. Choose upload provider and limits before implementing uploads.
+Acceptance journey: login → submit valid deal/photo → see the pending submission in the owner/review view; it is not public before approval. Assert malformed dates and another user's edit/delete are rejected. UploadThing and its documented file limits are selected; attachment authorization remains to implement.
 
 ## 3. Verify and comments
 
 One current vote per user/scope, vote changes, configurable confirmation/dead-report thresholds, freshness, comment create/delete-own and inappropriate-content reports.
 
-Acceptance journey: vote → evidence changes → add/delete own comment. Verify duplicate votes, ownership and abuse handling. Decide outlet-specific vs deal-wide scope and distinguish auto-flagging from moderator removal.
+Acceptance journey: vote → evidence changes → add/delete own comment. Verify duplicate votes, ownership and abuse handling. Express the approved deal-wide scope in the API contract and distinguish auto-flagging from moderator removal.
 
 ## 4. Accounts and saved
 
@@ -42,7 +42,7 @@ Acceptance journey: search merchant → open venue → see correctly scoped hist
 
 - Appoint schema/contract and deploy/README reviewers (no names assumed).
 - Review [draft contracts](contracts.md), freeze an agreed first version, then implement vertical slices.
-- Confirm storage provider, OneMap access, content-reuse permission, moderator roles and threshold policy.
+- UploadThing and USER/MODERATOR/ADMIN are selected. Confirm geocoding-provider access, content-reuse permission, endpoint authorization and threshold policy.
 - Decide a reliable way to support Prisma-only geospatial requirements before implementing radius queries.
 - Build an attributed, permission-safe development seed dataset; the plan's '20 real deals' is a target, not fabricated work. Do not use old source posts as currently valid deals.
 - Integrate into a deployed development environment at least every two weeks; deployment is not provisioned by this starter.

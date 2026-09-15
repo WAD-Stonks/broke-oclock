@@ -8,16 +8,34 @@ generator client {
   output   = "../src/generated/prisma"
 }
 
+enum UserRole {
+  USER
+  MODERATOR
+  ADMIN
+}
+
 model User {
   id            String    @id @default(auto()) @map("_id") @db.ObjectId
   name          String
   email         String    @unique
   emailVerified Boolean
   image         String?
+  role          UserRole  @default(USER)
   createdAt     DateTime
   updatedAt     DateTime
   sessions      Session[]
   accounts      Account[]
+
+  submissions            Deal[]          @relation("DealSubmitter")
+  reviewedDeals          Deal[]          @relation("DealReviewer")
+  votes                  DealVote[]
+  comments               Comment[]
+  bookmarks              Bookmark[]
+  uploadedFiles          UploadedFile[]
+  dealReports            DealReport[]    @relation("DealReporter")
+  resolvedDealReports    DealReport[]    @relation("DealReportResolver")
+  commentReports         CommentReport[] @relation("CommentReporter")
+  resolvedCommentReports CommentReport[] @relation("CommentReportResolver")
 }
 
 model Session {
@@ -60,4 +78,348 @@ model Verification {
   updatedAt  DateTime
 
   @@unique([identifier, value])
+}
+
+// Read docs/database-schema.md before adding product mutations.
+// MongoDB has no foreign keys/check constraints: validate cross-model invariants in the API.
+model Merchant {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+  venues    Venue[]
+  deals     Deal[]
+
+  @@index([name])
+}
+
+model Venue {
+  id         String      @id @default(auto()) @map("_id") @db.ObjectId
+  merchantId String      @db.ObjectId
+  merchant   Merchant    @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name       String
+  address    String
+  area       String?
+  postalCode String?
+  latitude   Float
+  longitude  Float
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  deletedAt  DateTime?
+  deals      DealVenue[]
+
+  @@index([merchantId, name])
+  @@index([latitude, longitude])
+  @@index([area])
+}
+
+model Deal {
+  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  title           String
+  description     String
+  category        String
+  offerType       OfferType
+  terms           String?
+  priceMinor      Int?
+  currency        String            @default("SGD")
+  discountPercent Int?
+  validFrom       DateTime?
+  // Exclusive UTC end; preserve unknown/ambiguous terms rather than inventing dates.
+  validUntil      DateTime?
+  rawValidityText String?
+  applicability   DealApplicability
+  origin          DealOrigin        @default(USER_SUBMITTED)
+  reviewStatus    ReviewStatus      @default(PENDING)
+  // API edits must increment contentVersion and invalidate the old approval.
+  contentVersion  Int               @default(1)
+  reviewedVersion Int?
+  reviewNote      String?
+  reviewedAt      DateTime?
+  publishedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+  merchantId      String?           @db.ObjectId
+  merchant        Merchant?         @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  submittedById   String?           @db.ObjectId
+  submittedBy     User?             @relation("DealSubmitter", fields: [submittedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewedById    String?           @db.ObjectId
+  reviewedBy      User?             @relation("DealReviewer", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  venues          DealVenue[]
+  votes           DealVote[]
+  comments        Comment[]
+  bookmarks       Bookmark[]
+  reports         DealReport[]
+  images          UploadedFile[]
+  sources         DealSource[]
+
+  @@index([reviewStatus, deletedAt, publishedAt])
+  @@index([reviewStatus, deletedAt, validUntil])
+  @@index([reviewStatus, category, publishedAt])
+  @@index([reviewStatus, createdAt])
+  @@index([merchantId, applicability, reviewStatus])
+  @@index([merchantId, validUntil])
+  @@index([submittedById, createdAt])
+  @@index([reviewedById])
+}
+
+model DealVenue {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  dealId    String   @db.ObjectId
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  venueId   String   @db.ObjectId
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt DateTime @default(now())
+
+  @@unique([dealId, venueId])
+  @@index([venueId])
+}
+
+model DealVote {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  dealId    String    @db.ObjectId
+  deal      Deal      @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  value     VoteValue
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([userId, dealId])
+  @@index([dealId, value, updatedAt])
+}
+
+model Comment {
+  id        String          @id @default(auto()) @map("_id") @db.ObjectId
+  dealId    String          @db.ObjectId
+  deal      Deal            @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  authorId  String          @db.ObjectId
+  author    User            @relation(fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  body      String
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  deletedAt DateTime?
+  hiddenAt  DateTime?
+  reports   CommentReport[]
+
+  @@index([dealId, createdAt])
+  @@index([authorId, createdAt])
+}
+
+model Bookmark {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dealId    String   @db.ObjectId
+  deal      Deal     @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, dealId])
+  @@index([userId, createdAt])
+  @@index([dealId])
+}
+
+model DealReport {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  dealId       String       @db.ObjectId
+  deal         Deal         @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reporterId   String       @db.ObjectId
+  reporter     User         @relation("DealReporter", fields: [reporterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(OPEN)
+  resolvedById String?      @db.ObjectId
+  resolvedBy   User?        @relation("DealReportResolver", fields: [resolvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resolution   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([reporterId, dealId])
+  @@index([dealId, status])
+  @@index([status, createdAt])
+  @@index([resolvedById])
+}
+
+model CommentReport {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  commentId    String       @db.ObjectId
+  comment      Comment      @relation(fields: [commentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reporterId   String       @db.ObjectId
+  reporter     User         @relation("CommentReporter", fields: [reporterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reason       ReportReason
+  details      String?
+  status       ReportStatus @default(OPEN)
+  resolvedById String?      @db.ObjectId
+  resolvedBy   User?        @relation("CommentReportResolver", fields: [resolvedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  resolution   String?
+  resolvedAt   DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@unique([reporterId, commentId])
+  @@index([commentId, status])
+  @@index([status, createdAt])
+  @@index([resolvedById])
+}
+
+model UploadedFile {
+  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  // UploadThing key, not a user-supplied URL, is the provider identity.
+  key        String    @unique
+  url        String
+  mimeType   String
+  sizeBytes  Int
+  uploaderId String    @db.ObjectId
+  uploader   User      @relation(fields: [uploaderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dealId     String?   @db.ObjectId
+  deal       Deal?     @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([uploaderId, createdAt])
+  @@index([dealId])
+}
+
+model ImportSource {
+  id             String         @id @default(auto()) @map("_id") @db.ObjectId
+  provider       ImportProvider
+  externalId     String
+  name           String
+  url            String
+  enabled        Boolean        @default(false)
+  cursor         String?
+  leaseToken     String?
+  leaseExpiresAt DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  posts          ImportedPost[]
+  runs           IngestionRun[]
+
+  @@unique([provider, externalId])
+}
+
+model ImportedPost {
+  id                   String       @id @default(auto()) @map("_id") @db.ObjectId
+  sourceId             String       @db.ObjectId
+  source               ImportSource @relation(fields: [sourceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  externalId           String
+  url                  String
+  title                String?
+  // Untrusted provider content: never render without sanitizing and permission review.
+  rawContent           String
+  contentHash          String
+  processedContentHash String?
+  processedAt          DateTime?
+  publishedAt          DateTime?
+  sourceUpdatedAt      DateTime?
+  fetchedAt            DateTime     @default(now())
+  status               ImportStatus @default(NEW)
+  errorCode            String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  deals                DealSource[]
+
+  @@unique([sourceId, externalId])
+  @@index([sourceId, status, fetchedAt])
+  @@index([status, fetchedAt])
+}
+
+model DealSource {
+  id                    String       @id @default(auto()) @map("_id") @db.ObjectId
+  dealId                String       @db.ObjectId
+  deal                  Deal         @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  importedPostId        String       @db.ObjectId
+  importedPost          ImportedPost @relation(fields: [importedPostId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  // Pin the source content used for this deal; refreshing ImportedPost must not rewrite it.
+  sourceContentHash     String
+  sourceContentSnapshot String
+  sourceUrl             String
+  createdAt             DateTime     @default(now())
+
+  @@unique([dealId, importedPostId])
+  @@index([importedPostId])
+}
+
+model IngestionRun {
+  id           String       @id @default(auto()) @map("_id") @db.ObjectId
+  sourceId     String       @db.ObjectId
+  source       ImportSource @relation(fields: [sourceId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status       RunStatus    @default(RUNNING)
+  startedAt    DateTime     @default(now())
+  finishedAt   DateTime?
+  fetchedCount Int          @default(0)
+  createdCount Int          @default(0)
+  updatedCount Int          @default(0)
+  failedCount  Int          @default(0)
+  errorCode    String?
+
+  @@index([sourceId, startedAt])
+  @@index([status, startedAt])
+}
+
+enum OfferType {
+  BUY_ONE_GET_ONE
+  PERCENT_OFF
+  FIXED_PRICE
+  OTHER
+}
+
+enum DealApplicability {
+  SELECTED_OUTLETS
+  ALL_MERCHANT_OUTLETS
+  ONLINE
+  NO_FIXED_LOCATION
+}
+
+enum DealOrigin {
+  USER_SUBMITTED
+  IMPORTED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+enum VoteValue {
+  ALIVE
+  DEAD
+}
+
+enum ReportReason {
+  SPAM
+  MISLEADING
+  INAPPROPRIATE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum ImportProvider {
+  WORDPRESS
+  TELEGRAM
+}
+
+enum ImportStatus {
+  NEW
+  PARSED
+  NEEDS_REVIEW
+  FAILED
+  IGNORED
+}
+
+enum RunStatus {
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
 }
