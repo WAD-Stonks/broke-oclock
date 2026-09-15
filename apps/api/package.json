@@ -1,0 +1,28 @@
+{
+  "name": "@broke-oclock/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test:unit": "vitest run --config vitest.config.ts tests/unit",
+    "test:integration": "vitest run --config vitest.config.ts tests/integration",
+    "build": "bun build src/server.ts --target=bun --packages=external --outdir dist",
+    "start": "bun dist/server.js"
+  },
+  "dependencies": {
+    "@broke-oclock/db": "workspace:*",
+    "@better-auth/prisma-adapter": "1.7.5",
+    "better-auth": "1.7.5",
+    "cors": "2.8.5",
+    "express": "5.2.1",
+    "helmet": "^8.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/cors": "^2.8.19",
+    "vitest": "4.1.11",
+    "typescript": "~6.0.0"
+  }
+}
