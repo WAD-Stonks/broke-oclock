@@ -13,3 +13,4 @@ playwright-report/
 *.pem
 *.key
 .local/
+.vercel/
