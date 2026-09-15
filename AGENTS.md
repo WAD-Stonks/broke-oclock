@@ -6,6 +6,7 @@ This file applies to the whole repository. Read it before editing. This is a pub
 
 - [How to code here: routers, procedures, index.ts and frontend](docs/development-guide.md)
 - [Architecture and ownership](docs/architecture.md)
+- [Database schema, roles and invariants](docs/database-schema.md)
 - [Coding standards and import aliases](docs/coding-standards.md#imports-and-aliases)
 - [AI-use and assessment boundaries](docs/ai-use.md)
 - [Environment inventory](docs/environment-variables.md)
@@ -93,5 +94,5 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 - Never commit `.env`, credentials, generated clients, build output, test reports or dependency directories. No secrets in `VITE_*`, logs or chat.
 - GitHub `production` holds intended deployment settings, but Vercel sync/packaging is not implemented. Do not imply that env placeholders constitute a deployment.
 - Respect the project AI policy: infrastructure, explanations, debugging and tests are permitted assistance; assessed deal business logic, feature endpoints, critical interactivity and major problem-solving remain student-owned. Read and maintain `docs/ai-use.md`; seek instructor clarification for borderline work.
-- Do not silently implement deal CRUD, voting, ingestion, moderation, venue/geospatial rules or photo-ownership persistence as part of infrastructure work.
+- The explicitly approved database schema includes domain records and upload-ownership fields, not working product workflows. Do not silently implement deal CRUD, voting, ingestion, moderation, geospatial rules or upload attachment/callback persistence. Follow docs/database-schema.md for conditional invariants and staff-owned fields.
 - Update the owning docs when changing folders, import conventions, configuration or public contracts. Report verified results separately from remaining limitations.

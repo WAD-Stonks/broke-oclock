@@ -20,6 +20,19 @@ export const createAuth = (config: AuthConfig) => {
       provider: 'mongodb',
       transaction: true,
     }),
+    user: {
+      additionalFields: {
+        role: {
+          type: ['USER', 'MODERATOR', 'ADMIN'],
+          required: false,
+          defaultValue: 'USER',
+          input: false,
+          returned: true,
+        },
+      },
+    },
+    // Staff authorization must use fresh database-backed sessions.
+    session: { cookieCache: { enabled: false } },
     emailAndPassword: {
       enabled: true,
     },
