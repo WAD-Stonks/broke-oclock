@@ -2,7 +2,7 @@
 
 ## Projects and safety boundary
 
-Both projects exist in `noahmhs-projects` (`team_FRUcWuiMYuhmD9AYY8BStn20`). Neither has a Git integration link, deployment, cron or deployment workflow. Both checked-in Vercel configs set `git.deploymentEnabled: false` as an additional guard. Local builds are not deployments. Do not run bare `vercel`, `vercel deploy`, connect Git, change protection, or apply the Atlas schema without explicit approval.
+Both projects exist in `noahmhs-projects` (`team_FRUcWuiMYuhmD9AYY8BStn20`) and are connected to `WAD-Stonks/broke-oclock`. Automatic Git deployment creation is disabled in each project's settings (`gitProviderOptions.createDeployments: "disabled"`); both checked-in Vercel configs also set `git.deploymentEnabled: false` as an additional guard. Neither project has a deployment, and no cron or deployment workflow is configured. Git connection and local builds are not deployments. Do not enable automatic deployments, run bare `vercel` or `vercel deploy`, change protection, or apply the Atlas schema without explicit approval.
 
 - Web: [broke-oclock-web](https://vercel.com/noahmhs-projects/broke-oclock-web), ID `prj_6U8UcFhnd4LDw97qaROzzuMRhkWq`, root `apps/web`, framework Vite, output `dist`.
 - API: [broke-oclock-api](https://vercel.com/noahmhs-projects/broke-oclock-api), ID `prj_lPCumjeKv8KG8TOS1ATPyA9vDbyk`, root `apps/api`, custom Build Output API (framework setting Other).
@@ -33,9 +33,9 @@ The API project's production configuration contains:
 - `BETTER_AUTH_URL=https://broke-oclock-web.vercel.app`
 - `PHOTO_STORAGE_PROVIDER=uploadthing`
 
-The web needs no private environment variables. Nothing has been copied from local `.env` or from GitHub secrets. GitHub Environment secrets cannot be read back via GitHub CLI and are not automatically transferred by Vercel Git integration.
+Manage runtime values directly in **broke-oclock-api → Settings → Environment Variables → Production**. The web currently needs no environment variables. GitHub Environment secrets cannot be read back via GitHub CLI and are not automatically transferred by Vercel Git integration. GitHub-to-Vercel secret synchronization is not planned; existing GitHub settings are retained but are not the Vercel runtime source.
 
-Before deployment, securely populate `DATABASE_URL` and the existing intended `BETTER_AUTH_SECRET` in the API project. Do not replace a previously used auth secret casually. Add `UPLOADTHING_TOKEN` only when live uploads are intended; without it uploads return 503. Resend flows remain disabled/unimplemented. Do not populate the API with VERCEL_TOKEN, reserved OneMap settings, or other unused credentials.
+Before deployment, verify that `DATABASE_URL` and the existing intended `BETTER_AUTH_SECRET` are securely populated in the API project's Production environment. Manual entry is the chosen setup method, not proof that credentials have been entered or validated. Do not replace a previously used auth secret casually. Add `UPLOADTHING_TOKEN` only when live uploads are intended; without it uploads return 503. Resend flows remain disabled/unimplemented. Do not populate the API with VERCEL_TOKEN, reserved OneMap settings, or other unused credentials. Environment entry does not authorize deployment.
 
 Vercel's default SSO protection is preserved (`all_except_custom_domains`). That protection can block unauthenticated requests to the assigned vercel.app domains, including the cross-project proxy. Decide approved public-production access/custom domains or a supported server-side bypass before deployment. Do not put a bypass token in frontend code or silently turn protection off.
 
