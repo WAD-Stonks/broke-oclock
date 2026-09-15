@@ -77,7 +77,7 @@ Use `bun run test`, not `bun test`, for this project's Vitest tests.
 
 ## Folder structure and coding standards
 
-Start here before writing feature code:
+Start with [How to code here](docs/development-guide.md) for the router/procedures/index.ts convention, a registration walkthrough, frontend calls and the development checklist. Then consult:
 
 1. [Architecture and folder ownership](docs/architecture.md)
 2. [Coding standards](docs/coding-standards.md)
