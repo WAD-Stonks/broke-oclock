@@ -12,7 +12,7 @@
     "dev": "bun --watch src/server.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:unit": "vitest run --config vitest.config.ts tests/unit",
-    "test:integration": "vitest run --config vitest.config.ts tests/integration",
+    "test:integration": "vitest run --config vitest.config.ts --no-file-parallelism tests/integration",
     "build": "bun build src/server.ts --target=bun --packages=external --outdir dist",
     "start": "bun dist/server.js"
   },
