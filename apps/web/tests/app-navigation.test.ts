@@ -1,8 +1,8 @@
 import { flushPromises, mount } from '@vue/test-utils'
+import App from '@web/App.vue'
+import routes from '@web/router/routes'
 import { describe, expect, it } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import App from '../src/App.vue'
-import routes from '../src/router/routes'
 
 async function mountAt(path: string) {
   const router = createRouter({

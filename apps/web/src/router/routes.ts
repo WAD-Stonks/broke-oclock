@@ -1,7 +1,7 @@
+import GettingStartedPage from '@web/pages/GettingStartedPage.vue'
+import HomePage from '@web/pages/HomePage.vue'
+import NotFoundPage from '@web/pages/NotFoundPage.vue'
 import type { RouteRecordRaw } from 'vue-router'
-import GettingStartedPage from '../pages/GettingStartedPage.vue'
-import HomePage from '../pages/HomePage.vue'
-import NotFoundPage from '../pages/NotFoundPage.vue'
 
 const routes: RouteRecordRaw[] = [
   {

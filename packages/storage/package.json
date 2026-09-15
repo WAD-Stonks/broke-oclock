@@ -1,0 +1,28 @@
+{
+  "name": "@broke-oclock/storage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": {
+      "browser": null,
+      "default": "./src/server.ts"
+    },
+    "./client": "./src/client.ts",
+    "./types": {
+      "types": "./src/types.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "uploadthing": "7.7.4"
+  },
+  "peerDependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3"
+  }
+}
