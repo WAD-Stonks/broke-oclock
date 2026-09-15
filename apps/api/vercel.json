@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "git": { "deploymentEnabled": false },
+  "buildCommand": "cd ../.. && bun run db:generate && bun run scripts/build-vercel-api.ts"
+}

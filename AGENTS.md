@@ -10,6 +10,7 @@ This file applies to the whole repository. Read it before editing. This is a pub
 - [Coding standards and import aliases](docs/coding-standards.md#imports-and-aliases)
 - [AI-use and assessment boundaries](docs/ai-use.md)
 - [Environment inventory](docs/environment-variables.md)
+- [Vercel setup and no-deployment boundary](docs/vercel-setup.md)
 - [Testing](docs/testing.md) and [security](docs/security.md)
 
 ## Folder map
@@ -92,7 +93,7 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 - Review the full diff and commit only authorized changes. Never reset, force-push or discard unrelated work.
 - Open/update a PR with scope and actual test results. Wait for the latest commit's `quality` check. Never merge or enable auto-merge without Noah's explicit authorization for that PR; review bypass and green CI are not merge permission.
 - Never commit `.env`, credentials, generated clients, build output, test reports or dependency directories. No secrets in `VITE_*`, logs or chat.
-- GitHub `production` holds intended deployment settings, but Vercel sync/packaging is not implemented. Do not imply that env placeholders constitute a deployment.
+- GitHub `production` holds intended deployment settings. Vercel projects and build packaging are prepared, but secret sync, production readiness and deployment remain unapproved. Both Vercel Git-deployment configs are disabled; do not connect Git, deploy, change protection or apply the Atlas schema without explicit approval. See docs/vercel-setup.md.
 - Respect the project AI policy: infrastructure, explanations, debugging and tests are permitted assistance; assessed deal business logic, feature endpoints, critical interactivity and major problem-solving remain student-owned. Read and maintain `docs/ai-use.md`; seek instructor clarification for borderline work.
 - The explicitly approved database schema includes domain records and upload-ownership fields, not working product workflows. Do not silently implement deal CRUD, voting, ingestion, moderation, geospatial rules or upload attachment/callback persistence. Follow docs/database-schema.md for conditional invariants and staff-owned fields.
 - Update the owning docs when changing folders, import conventions, configuration or public contracts. Report verified results separately from remaining limitations.
