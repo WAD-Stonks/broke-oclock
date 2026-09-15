@@ -1,0 +1,46 @@
+{
+  "name": "broke-oclock",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "bun@1.4.2",
+  "engines": {
+    "bun": ">=1.4.2",
+    "node": ">=22.18.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "setup": "bun run scripts/setup.ts && bun run db:generate",
+    "dev": "bun run scripts/dev.ts",
+    "dev:web": "bun run scripts/workspace.ts apps/web dev",
+    "dev:api": "bun run scripts/workspace.ts apps/api dev",
+    "db:generate": "bun run scripts/workspace.ts packages/db generate",
+    "db:validate": "bun run scripts/workspace.ts packages/db validate",
+    "db:push": "bun run scripts/workspace.ts packages/db push",
+    "typecheck": "bun run scripts/workspace.ts packages/db typecheck && bun run scripts/workspace.ts apps/api typecheck && bun run scripts/workspace.ts apps/web typecheck && bun run typecheck:tools",
+    "lint": "biome check . --error-on-warnings",
+    "format": "biome check --write .",
+    "test:unit": "bun run scripts/workspace.ts apps/api test:unit && bun run scripts/workspace.ts apps/web test:unit",
+    "test:integration": "bun run scripts/workspace.ts apps/api test:integration",
+    "test:e2e": "playwright test",
+    "test": "bun run test:unit",
+    "build": "bun run scripts/workspace.ts apps/api build && bun run scripts/workspace.ts apps/web build",
+    "check": "bun run lint && bun run db:validate && bun run typecheck && bun run test:unit && bun run build",
+    "check:all": "bun run check && bun run test:integration && bun run test:e2e",
+    "db:local": "bun run scripts/mongo.ts",
+    "typecheck:tools": "tsc --project tsconfig.tools.json --noEmit",
+    "audit": "bun audit --audit-level=high --ignore GHSA-ggr8-5vv4-36mx"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.12",
+    "@playwright/test": "1.61.1",
+    "@types/bun": "1.4.2",
+    "@types/node": "24.13.3",
+    "typescript": "~6.0.0",
+    "mongodb-memory-server": "11.2.0"
+  },
+  "trustedDependencies": []
+}

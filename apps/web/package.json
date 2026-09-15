@@ -1,0 +1,27 @@
+{
+  "name": "@broke-oclock/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host localhost --strictPort",
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "better-auth": "1.7.5",
+    "bootstrap": "5.3.8",
+    "vue": "3.5.38",
+    "vue-router": "5.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.8",
+    "@vue/test-utils": "2.4.11",
+    "@vue/tsconfig": "0.9.1",
+    "jsdom": "29.1.1",
+    "typescript": ">=6.0.0 <7.0.0",
+    "vite": "8.1.5",
+    "vitest": "4.1.11",
+    "vue-tsc": "3.3.7"
+  }
+}

@@ -1,0 +1,56 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #212529;
+  background: #f8f9fa;
+}
+
+body {
+  min-width: 320px;
+  margin: 0;
+}
+
+.navbar-brand:focus-visible,
+.nav-link:focus-visible,
+a:focus-visible,
+.btn:focus-visible {
+  outline: 3px solid rgba(13, 110, 253, 0.4);
+  outline-offset: 3px;
+}
+
+.nav-link.router-link-exact-active {
+  color: var(--bs-primary);
+  font-weight: 600;
+}
+
+.starter-intro {
+  max-width: 48rem;
+  padding: clamp(2rem, 8vw, 6rem) 0;
+}
+
+.setup-copy {
+  max-width: 48rem;
+}
+
+.module-list {
+  border-top: 1px solid var(--bs-border-color);
+}
+
+.module-list dt,
+.module-list dd {
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+@media (max-width: 575.98px) {
+  .navbar-nav {
+    gap: 1rem;
+  }
+
+  .module-list dt {
+    padding-bottom: 0.35rem;
+    border-bottom: 0;
+  }
+
+  .module-list dd {
+    padding-top: 0.35rem;
+  }
+}

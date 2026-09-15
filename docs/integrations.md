@@ -1,0 +1,36 @@
+# Integration decisions and official sources
+
+These integrations are planned; the starter does not scrape channels, schedule jobs, upload images or provision external accounts.
+
+## Maps and location
+
+- [Leaflet](https://leafletjs.com/reference.html): map UI. [OpenStreetMap tile policy](https://operations.osmfoundation.org/policies/tiles/): visible attribution, correct HTTPS tile URL, referer/caching requirements, no bulk download. OSM's public tile service is best-effort, not unlimited hosting.
+- [OneMap API docs](https://www.onemap.gov.sg/apidocs/): Singapore address search/geocoding. Register and confirm the required credentials/access policy before implementation. Keep provider credentials server-side and debounce/cache requests. Do not assume unauthenticated unlimited access.
+- A meaningful OneMap/WordPress API integration should satisfy the course's external-API requirement; a public HTML scraper alone does not. Check the final use with the instructor.
+
+## Ingestion corrections to the team draft
+
+- WordPress varies by host. The verified Scoobify endpoint is `https://public-api.wordpress.com/wp/v2/sites/scoobifydaily.com/posts`, not an assumed `/wp-json/wp/v2/posts` path on every site. On the setup check, the newest returned post was dated 2025-07-03. This is NOT proof of a fresh current-deal supply. Re-evaluate source suitability before depending on it.
+- Public Telegram previews such as `https://t.me/s/thiscounted` are HTML, not a Telegram Bot API history endpoint. Fetch server-side with permission-aware reuse, attribution, stable channel/message IDs, bounded rate/backoff and edited-message handling.
+- Emoji structure is helpful but not a guaranteed schema. Keep raw text, parsing errors and review state. Source dedupe and promotion dedupe are different; merchant/date overlap is a candidate match, not sufficient proof of equivalence.
+- Public availability is not permission to copy photos/full text into this public repository. Keep fixtures minimal, attributed and authorized; synthetic edge fixtures should be labelled synthetic. Never publish Telegram credentials or private-channel data.
+- Do not enable a cron job until the parser, source-policy review, idempotency and failure handling are tested. Team-proposed polling intervals are design choices, not published rate limits.
+
+## Storage and deployment
+
+Photo storage remains undecided (e.g. Cloudinary, Supabase Storage, or controlled server storage). Auth remains Better Auth regardless of storage provider. Choose content types/size limits, ownership, upload credentials and deletion policy before adding endpoints. No upload account is configured by the starter.
+
+Deployment should preferably serve the SPA and `/api` under one site, with HTTPS and reverse proxy rules. Otherwise configure explicit origin/cookie policy and test it in the actual browser. Vite's dev proxy is not production infrastructure. Database/user secrets belong in the hosting platform, never in `VITE_*`.
+
+## Stack references
+
+- [Vue quick start](https://vuejs.org/guide/quick-start.html) · [Vue + TypeScript](https://vuejs.org/guide/typescript/composition-api.html) · [Vue Router](https://router.vuejs.org/guide/)
+- [TypeScript handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
+- [Vite](https://vite.dev/guide/) · [Vite environment variables](https://vite.dev/guide/env-and-mode) · [Bootstrap + Vite](https://getbootstrap.com/docs/5.3/getting-started/vite/)
+- [Express routing](https://expressjs.com/en/guide/routing/) · [middleware](https://expressjs.com/en/guide/using-middleware/) · [CORS](https://expressjs.com/en/resources/middleware/cors/)
+- [Prisma MongoDB compatibility](https://prisma.io/docs/orm/v7/core-concepts/supported-databases/mongodb): use compatible Prisma 6.19, not Prisma7 PostgreSQL examples. MongoDB uses `db push`, not Prisma Migrate; replica sets are required for transactions.
+- [Better Auth installation](https://better-auth.com/docs/installation) · [Express](https://better-auth.com/docs/integrations/express) · [Prisma adapter](https://better-auth.com/docs/adapters/prisma) · [Vue client](https://better-auth.com/docs/concepts/client) · [email/password](https://better-auth.com/docs/authentication/email-password) · [security](https://better-auth.com/docs/reference/security)
+- [Playwright](https://playwright.dev/docs/intro) · [test practices](https://playwright.dev/docs/best-practices) · [auth testing](https://playwright.dev/docs/auth)
+- [Vitest](https://vitest.dev/guide/) · [Vue Test Utils](https://test-utils.vuejs.org/guide/)
+- [Bun](https://bun.sh/docs) · [Biome](https://biomejs.dev/guides/getting-started/)
+- [Local MongoDB test helper](https://typegoose.github.io/mongodb-memory-server/docs/guides/quick-start-guide/)
