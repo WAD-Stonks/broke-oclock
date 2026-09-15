@@ -1,37 +1,39 @@
 import { createServer } from 'node:http'
+import { createTRPCRouter, protectedProcedure, publicProcedure } from '@api/trpc/init'
+import type { AppRouter } from '@api/trpc/root'
 import type { CurrentUserResponse } from '@broke-oclock/contracts/api'
-import type { createRpcClient } from '@rpc/client'
-import { createExpressMiddleware } from '@rpc/express'
-import { protectedProcedure, publicProcedure, router } from '@rpc/server'
+import { db } from '@broke-oclock/db'
+import type { CreateTRPCClient } from '@trpc/client'
+import { createExpressMiddleware } from '@trpc/server/adapters/express'
 import express from 'express'
 import { expect, expectTypeOf, it } from 'vitest'
 
-const policyRouter = router({
+const policyRouter = createTRPCRouter({
   write: publicProcedure.mutation(() => ({ ok: true })),
   private: protectedProcedure.query(({ ctx }) => ctx.session.user.id),
 })
 
 it('rejects mutations without the exact trusted origin', async () => {
-  const caller = policyRouter.createCaller({ session: null, hasTrustedOrigin: false })
+  const caller = policyRouter.createCaller({ db, session: null, hasTrustedOrigin: false })
   await expect(caller.write()).rejects.toMatchObject({ code: 'FORBIDDEN' })
 })
 
 it('permits a public mutation with the trusted origin', async () => {
-  const caller = policyRouter.createCaller({ session: null, hasTrustedOrigin: true })
+  const caller = policyRouter.createCaller({ db, session: null, hasTrustedOrigin: true })
   expect(await caller.write()).toEqual({ ok: true })
 })
 
 it('requires a real session even when the origin is trusted', async () => {
-  const caller = policyRouter.createCaller({ session: null, hasTrustedOrigin: true })
+  const caller = policyRouter.createCaller({ db, session: null, hasTrustedOrigin: true })
   await expect(caller.private()).rejects.toMatchObject({ code: 'UNAUTHORIZED' })
 })
 
-type Client = ReturnType<typeof createRpcClient>
+type Client = CreateTRPCClient<AppRouter>
 expectTypeOf<Awaited<ReturnType<Client['me']['query']>>>().toEqualTypeOf<CurrentUserResponse>()
 
 it('redacts unexpected internal errors over the real Express transport', async () => {
   const app = express()
-  const failingRouter = router({
+  const failingRouter = createTRPCRouter({
     broken: publicProcedure.query(() => {
       throw new Error('private provider detail')
     }),
@@ -40,7 +42,7 @@ it('redacts unexpected internal errors over the real Express transport', async (
     '/trpc',
     createExpressMiddleware({
       router: failingRouter,
-      createContext: () => ({ session: null, hasTrustedOrigin: false }),
+      createContext: () => ({ db, session: null, hasTrustedOrigin: false }),
     }),
   )
   const server = createServer(app)

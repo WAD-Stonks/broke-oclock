@@ -15,7 +15,9 @@
     "@broke-oclock/storage": "workspace:*",
     "@broke-oclock/auth": "workspace:*",
     "@broke-oclock/ui": "workspace:*",
-    "@broke-oclock/rpc": "workspace:*"
+    "@trpc/server": "11.18.0",
+    "@trpc/client": "11.18.0",
+    "@broke-oclock/contracts": "workspace:*"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "6.0.8",
@@ -25,6 +27,7 @@
     "typescript": ">=6.0.0 <7.0.0",
     "vite": "8.1.5",
     "vitest": "4.1.11",
-    "vue-tsc": "3.3.7"
+    "vue-tsc": "3.3.7",
+    "@broke-oclock/api": "workspace:*"
   }
 }

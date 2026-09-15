@@ -66,7 +66,7 @@ bun run db:generate      # generate ignored Prisma Client
 bun run db:validate      # validate Prisma schema
 bun run format           # Biome format/import fixes
 bun run check            # lint + schema + types + unit tests + builds
-bun run test:packages    # email/WordPress transports and tRPC policy tests
+bun run test:packages    # email/WordPress transport tests
 bun run test:integration # isolated real MongoDB/auth/tRPC HTTP tests
 bunx playwright install chromium
 bun run test:e2e         # browser starter tests
@@ -90,7 +90,7 @@ Start here before writing feature code:
 
 Read [AGENTS.md](AGENTS.md) for agent workflow and [import conventions](docs/coding-standards.md#imports-and-aliases) for extensionless workspace aliases.
 
-`apps/web` owns Vue and `apps/api` owns HTTP/configuration/request identity. Shared packages own `auth` (Better Auth), `db` (Prisma), `storage` (UploadThing), `rpc` (tRPC router/client), `contracts` (Zod schemas/inferred DTOs), `integrations` (read-only WordPress transport), `email` (disabled-until-configured Resend) and `ui` (BootstrapVueNext/AppShell). `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
+`apps/web` owns Vue and `apps/api` owns HTTP/configuration/request identity. Shared packages own `auth` (Better Auth), `db` (Prisma), `storage` (UploadThing), `contracts` (Zod schemas/inferred DTOs), `integrations` (read-only WordPress transport), `email` (disabled-until-configured Resend) and `ui` (BootstrapVueNext/AppShell). `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
 
 ## Verified starter checks
 
@@ -123,4 +123,4 @@ AI-assisted portions: initial scaffolding, generic framework/auth boilerplate, t
 
 ## Typed Express API
 
-Express mounts tRPC at `/api/trpc`. Use `api.health.query()` and authenticated `api.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the shared router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](packages/rpc/README.md). Domain procedures remain student-authored work.
+Express mounts tRPC at `/api/trpc`. Use `api.health.query()` and authenticated `api.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). Domain procedures remain student-authored work.

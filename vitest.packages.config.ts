@@ -4,7 +4,7 @@ export default defineConfig({
   resolve: { tsconfigPaths: true },
   test: {
     environment: 'node',
-    include: ['packages/{email,integrations,rpc}/tests/**/*.test.ts'],
+    include: ['packages/{email,integrations}/tests/**/*.test.ts'],
     restoreMocks: true,
     unstubGlobals: true,
     testTimeout: 15_000,
