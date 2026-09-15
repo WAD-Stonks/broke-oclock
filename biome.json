@@ -47,6 +47,8 @@
               },
               {
                 "group": [
+                  "@rpc/**/*.js",
+                  "@rpc/**/*.ts",
                   "@auth/**/*.js",
                   "@auth/**/*.ts",
                   "@api/**/*.js",
@@ -58,7 +60,15 @@
                   "@storage/**/*.js",
                   "@storage/**/*.ts",
                   "@scripts/**/*.js",
-                  "@scripts/**/*.ts"
+                  "@scripts/**/*.ts",
+                  "@contracts/**/*.js",
+                  "@contracts/**/*.ts",
+                  "@integrations/**/*.js",
+                  "@integrations/**/*.ts",
+                  "@email/**/*.js",
+                  "@email/**/*.ts",
+                  "@ui/**/*.js",
+                  "@ui/**/*.ts"
                 ],
                 "message": "Omit .js/.ts extensions from source aliases. Keep .vue and asset extensions."
               }

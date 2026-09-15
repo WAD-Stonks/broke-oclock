@@ -6,13 +6,13 @@
       Project starter — deal features are not implemented yet.
     </p>
     <p class="mb-0">
-      <RouterLink class="btn btn-primary" to="/getting-started">
+      <BButton variant="primary" to="/getting-started">
         Read the developer setup
-      </RouterLink>
+      </BButton>
     </p>
   </section>
 </template>
 
 <script setup lang="ts">
-import { RouterLink } from 'vue-router'
+import { BButton } from '@broke-oclock/ui'
 </script>

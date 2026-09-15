@@ -1,0 +1,36 @@
+{
+  "name": "@broke-oclock/rpc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./server": {
+      "browser": null,
+      "default": "./src/server.ts"
+    },
+    "./express": {
+      "browser": null,
+      "default": "./src/express.ts"
+    },
+    "./client": "./src/client.ts",
+    "./types": {
+      "types": "./src/types.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@broke-oclock/auth": "workspace:*",
+    "@broke-oclock/contracts": "workspace:*",
+    "@trpc/server": "11.18.0",
+    "@trpc/client": "11.18.0",
+    "zod": "4.6.5"
+  },
+  "peerDependencies": {
+    "express": "^5.2.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3"
+  }
+}

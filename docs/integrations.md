@@ -1,6 +1,6 @@
 # Integration decisions and official sources
 
-Most integrations are planned. UploadThing has a generic authenticated SDK adapter and browser helper; the starter does not scrape channels, schedule jobs, implement deal submission or provision external accounts.
+Domain integrations remain planned. UploadThing has an authenticated adapter/browser helper, WordPress.com has a typed read-only transport, and Resend has fail-closed email infrastructure/templates; the starter does not scrape channels, schedule jobs, implement deal submission or provision external accounts.
 
 ## Maps and location
 
@@ -27,6 +27,8 @@ Deployment should preferably serve the SPA and `/api` under one site, with HTTPS
 ## Stack references
 
 - [Vue quick start](https://vuejs.org/guide/quick-start.html) · [Vue + TypeScript](https://vuejs.org/guide/typescript/composition-api.html) · [Vue Router](https://router.vuejs.org/guide/)
+- [tRPC Express adapter](https://trpc.io/docs/server/adapters/express) · [framework-independent typed client](https://trpc.io/docs/client/vanilla/setup) · [Zod](https://zod.dev/)
+- [BootstrapVueNext setup](https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs) · [Resend send API](https://resend.com/docs/api-reference/emails/send-email)
 - [TypeScript handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
 - [Vite](https://vite.dev/guide/) · [Vite environment variables](https://vite.dev/guide/env-and-mode) · [Bootstrap + Vite](https://getbootstrap.com/docs/5.3/getting-started/vite/)
 - [Express routing](https://expressjs.com/en/guide/routing/) · [middleware](https://expressjs.com/en/guide/using-middleware/) · [CORS](https://expressjs.com/en/resources/middleware/cors/)

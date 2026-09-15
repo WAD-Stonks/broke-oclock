@@ -6,7 +6,12 @@
       "@db/*": ["./packages/db/src/*"],
       "@storage/*": ["./packages/storage/src/*"],
       "@scripts/*": ["./scripts/*"],
-      "@auth/*": ["./packages/auth/src/*"]
+      "@auth/*": ["./packages/auth/src/*"],
+      "@contracts/*": ["./packages/contracts/src/*"],
+      "@integrations/*": ["./packages/integrations/src/*"],
+      "@email/*": ["./packages/email/src/*"],
+      "@ui/*": ["./packages/ui/src/*"],
+      "@rpc/*": ["./packages/rpc/src/*"]
     }
   },
   "files": []
