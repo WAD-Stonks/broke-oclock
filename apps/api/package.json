@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./photo-router": {
+      "types": "./src/uploads.ts"
+    }
+  },
   "scripts": {
     "dev": "bun --watch src/server.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
@@ -12,12 +17,13 @@
     "start": "bun dist/server.js"
   },
   "dependencies": {
-    "@broke-oclock/db": "workspace:*",
     "@better-auth/prisma-adapter": "1.7.5",
+    "@broke-oclock/db": "workspace:*",
     "better-auth": "1.7.5",
     "cors": "2.8.5",
     "express": "5.2.1",
-    "helmet": "^8.1.0"
+    "helmet": "^8.1.0",
+    "uploadthing": "7.7.4"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",
