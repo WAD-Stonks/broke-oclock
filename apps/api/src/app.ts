@@ -6,6 +6,7 @@ import helmet from 'helmet'
 
 import { createAuth } from './auth.js'
 import type { AppConfig } from './config.js'
+import { createPhotoRouter } from './uploads.js'
 
 export const createApp = (config: AppConfig): Express => {
   const auth = createAuth(config)
@@ -27,6 +28,11 @@ export const createApp = (config: AppConfig): Express => {
   })
 
   app.all('/api/auth/*splat', toNodeHandler(auth))
+
+  app.use(
+    '/api/uploadthing',
+    createPhotoRouter(config, (headers) => auth.api.getSession({ headers })),
+  )
 
   app.use(express.json({ limit: '100kb' }))
 

@@ -1,6 +1,6 @@
 # Integration decisions and official sources
 
-These integrations are planned; the starter does not scrape channels, schedule jobs, upload images or provision external accounts.
+Most integrations are planned. UploadThing has a generic authenticated SDK adapter and browser helper; the starter does not scrape channels, schedule jobs, implement deal submission or provision external accounts.
 
 ## Maps and location
 
@@ -18,7 +18,9 @@ These integrations are planned; the starter does not scrape channels, schedule j
 
 ## Storage and deployment
 
-Photo storage remains undecided (e.g. Cloudinary, Supabase Storage, or controlled server storage). Auth remains Better Auth regardless of storage provider. Choose content types/size limits, ownership, upload credentials and deletion policy before adding endpoints. No upload account is configured by the starter.
+Photo storage uses **UploadThing**, wired through a generic authenticated SDK adapter and browser helper. Use its [Express adapter](https://docs.uploadthing.com/backend-adapters/express) with the linked Vue client example. The API owns the server-only `UPLOADTHING_TOKEN`; `PHOTO_STORAGE_PROVIDER=uploadthing` records the provider decision. Auth remains Better Auth: validate the session before issuing upload permission, enforce image types/size/count and verify ownership when attaching or deleting a file. Store the resulting file key/URL in MongoDB, not the image binary. Client-side compression and orphan-file cleanup remain implementation work.
+
+The [free plan](https://uploadthing.com/pricing) currently includes 2 GB shared across apps; private files and region selection are paid features. Treat free-tier deal images as public, not suitable for sensitive documents. No UploadThing account is provisioned by this change. The SDK endpoint and client helper are implemented; a real token and live-provider verification are still required. See [photo upload setup](photo-storage.md). Cloudinary/Supabase/S3 credentials are not needed.
 
 Deployment should preferably serve the SPA and `/api` under one site, with HTTPS and reverse proxy rules. Otherwise configure explicit origin/cookie policy and test it in the actual browser. Vite's dev proxy is not production infrastructure. Database/user secrets belong in the hosting platform, never in `VITE_*`.
 

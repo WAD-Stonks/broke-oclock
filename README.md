@@ -55,7 +55,7 @@ bun run dev
 
 ## Environment variables
 
-See [the complete environment inventory](docs/environment-variables.md) and `.env.example`. They distinguish current API settings, planned Vercel deployment settings and reserved OneMap/ingestion/moderation settings. Production values belong in the repository’s GitHub `production` environment; photo-storage and mail-provider credentials remain pending. Existing `.env` files are preserved by setup.
+See [the complete environment inventory](docs/environment-variables.md) and `.env.example`. They distinguish current API settings, planned Vercel deployment settings and reserved OneMap/ingestion/moderation settings. Production values belong in the repository’s GitHub `production` environment; UploadThing is selected for photos, with its server token still to configure; the mail provider remains pending. Existing `.env` files are preserved by setup.
 
 ## Commands
 
@@ -91,7 +91,7 @@ Start here before writing feature code:
 
 ## Verified starter checks
 
-- `bun run check:all`: 18 unit tests, 3 real-HTTP auth/database integration tests and 4 Chromium tests passed; schema validation, typechecks and both builds passed.
+- `bun run check:all` covers unit tests, real-HTTP auth/database/upload integration tests and Chromium checks, plus schema validation, typechecks and both builds. UploadThing provider responses in tests are explicitly synthetic; a live upload requires a configured account/token.
 - The compiled API was also started with Bun and exercised through real signup, session lookup and logout; disposable probe records were removed.
 - The actual Vue Better Auth client successfully reached `/api/auth/get-session` through the Vite proxy in a browser.
 - Fresh-clone and GitHub CI results are recorded by the CI run, not inferred from local tests. These are starter checks, not coverage of unimplemented product features.
@@ -105,7 +105,7 @@ Start here before writing feature code:
 5. Channel Ingestion — WordPress/Telegram parsing, provenance and admin review.
 6. Venue Pages & Feed — history, search and list browsing.
 
-No map, live deal CRUD, parser, votes, bookmarks, photo upload or venue history is claimed implemented by this starter. Storage/deployment providers and domain contracts are not frozen. The team's source plan is reflected in `docs/feature-plan.md`; explicit stack decisions override its alternative auth suggestions.
+No map, live deal CRUD, parser, votes, bookmarks, deal-photo submission flow or venue history is claimed implemented by this starter. Generic [UploadThing infrastructure](docs/photo-storage.md) is available for the team to integrate. UploadThing is selected for photo storage and Vercel for deployment; integration work and domain-contract decisions remain pending. The team's source plan is reflected in `docs/feature-plan.md`; explicit stack decisions override its alternative auth suggestions.
 
 ## Security and assessment notes
 
