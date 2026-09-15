@@ -1,7 +1,8 @@
-import { spawnSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { parseConfig } from '@api/config'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
@@ -151,13 +152,13 @@ beforeAll(async () => {
   // Never consume a configured DATABASE_URL: always use this fresh disposable replica set.
   const databaseUrl = mongo.getUri(`integration_${randomUUID().replaceAll('-', '')}`)
   vi.stubEnv('DATABASE_URL', databaseUrl)
-  const pushed = spawnSync('bun', ['run', '--cwd', 'packages/db', 'push'], {
+  // Do not block the event loop: the in-memory Mongo process needs its output drained.
+  await promisify(execFile)('bun', ['run', '--cwd', 'packages/db', 'push'], {
     cwd: root,
     env: { ...process.env, DATABASE_URL: databaseUrl },
     encoding: 'utf8',
     timeout: 60_000,
   })
-  if (pushed.status !== 0) throw new Error(`Disposable schema push failed: ${pushed.stderr}`)
 
   const { db } = await import('@broke-oclock/db')
   disconnect = () => db.$disconnect()
