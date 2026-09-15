@@ -87,7 +87,7 @@ Start here before writing feature code:
 7. [Contribution and PR workflow](CONTRIBUTING.md)
 8. [AI-use disclosure and course boundaries](docs/ai-use.md)
 
-`apps/web` owns Vue, `apps/api` owns HTTP/auth/server logic, `packages/db` owns Prisma, and `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
+`apps/web` owns Vue, `apps/api` owns HTTP/auth/server logic, `packages/db` owns Prisma, `packages/storage` owns the shared UploadThing integration, and `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
 
 ## Verified starter checks
 

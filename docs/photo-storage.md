@@ -2,11 +2,12 @@
 
 ## Implemented infrastructure
 
-- `apps/api/src/uploads.ts`: Express SDK adapter at `/api/uploadthing`; route slug `photoUploader`.
+- `packages/storage/src/server.ts`: reusable UploadThing adapter, file policy and `photoUploader` contract. The package accepts explicit SDK options and a request-identity resolver; it does not import apps or read environment variables.
+- `apps/api/src/uploads.ts`: mounts the adapter at `/api/uploadthing` with app-specific Better Auth/origin checks and callback configuration.
 - `apps/api/src/config.ts`: consumes PHOTO_STORAGE_PROVIDER and server-only UPLOADTHING_TOKEN. Without a real configured value, uploads return 503; the rest of the starter still starts.
-- `apps/web/src/lib/photo-upload.ts`: typed `uploadPhoto(file, options)` helper using the same-origin `/api/uploadthing` route. Supports AbortSignal and the SDK progress callback. No VITE_* secret or extra public API URL needed.
-- `@broke-oclock/api/photo-router` exports **types only** for SDK inference. The browser must never runtime-import server code; the package export intentionally has no runtime target.
-- UploadThing 7.7.4 is pinned in API and web. Root `effect: 3.21.0` override fixes GHSA-38f7-945m-qr2g; do not remove until the SDK ships a patched compatible dependency. The pre-existing Prisma CLI advisory exception is separate and unchanged.
+- `packages/storage/src/client.ts`: typed `uploadPhoto(file, options)` helper, re-exported by `apps/web/src/lib/photo-upload.ts` for existing app-local callers, using the same-origin `/api/uploadthing` route. Supports AbortSignal and the SDK progress callback. No VITE_* secret or extra public API URL needed.
+- `@broke-oclock/storage/types` exports **types only** for SDK inference. `/client` is browser-safe and `/server` explicitly rejects browser resolution. There is no root barrel mixing client/server exports and no web-to-API package dependency.
+- UploadThing 7.7.4 is pinned once in the storage package. Root `effect: 3.21.0` override fixes GHSA-38f7-945m-qr2g; do not remove until the SDK ships a patched compatible dependency. The pre-existing Prisma CLI advisory exception is separate and unchanged.
 
 ## Configuration
 
@@ -21,7 +22,7 @@ The free plan includes 2 GB shared across apps. It lists private files and regio
 ## Client usage
 
 ```ts
-import { uploadPhoto } from './lib/photo-upload'
+import { uploadPhoto } from '@broke-oclock/storage/client'
 
 // Call from the student-owned form after selecting/compressing an image.
 const photo = await uploadPhoto(file, {
@@ -31,7 +32,7 @@ const photo = await uploadPhoto(file, {
 // photo: { key, url, uploadedBy }
 ```
 
-The example assumes a caller in `apps/web/src`; adjust the relative import for your component. `file`, `abortController` and `updateProgress` above are caller-owned values, not implemented application state. Supply an actual File and handle promise rejection. A browser login/session cookie is required. The helper is not yet attached to the assessed deal form.
+Existing app-local callers can also use the thin `apps/web/src/lib/photo-upload.ts` re-export. `file`, `abortController` and `updateProgress` above are caller-owned values, not implemented application state. Supply an actual File and handle promise rejection. A browser login/session cookie is required. The helper is not yet attached to the assessed deal form.
 
 ## Security boundaries and remaining work
 

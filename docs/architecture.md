@@ -18,7 +18,8 @@ broke-oclock/
 │           ├── modules/      Feature routes, validation, services, repositories
 │           └── ...           Generic app/config/auth lifecycle (see actual files)
 ├── packages/
-│   └── db/                   Prisma schema, generation and shared DB client
+│   ├── db/                   Prisma schema, generation and shared DB client
+│   └── storage/              UploadThing server/client entry points and shared types
 ├── e2e/                      Playwright user-journey tests
 ├── scripts/                  Local setup/development/test orchestration
 ├── docs/                     Team rules, contracts, testing and sources
@@ -34,6 +35,7 @@ broke-oclock/
 - Routes validate transport input and enforce authentication/authorization, then call a feature service. Services own student-authored business rules. Repositories own typed Prisma operations. Do not put every query directly in route handlers.
 - A feature module can start with a route and service; add repository/DTO files when useful, not empty layers for ceremony.
 - Do not import internals across feature modules. Agree public interfaces and shared contracts first. Add `packages/contracts` only when real browser-safe DTO/schema sharing is needed; never export Prisma models to browsers as API contracts.
+- `packages/storage` owns UploadThing SDK setup, upload policy, the browser helper and shared types. Apps depend on this package, never on each other. Use `/client` in browser code and `/server` only in the API; `/types` is type-only. The API loads credentials and supplies already-authenticated request identity. The package does not import app code or read environment variables.
 - `packages/db` owns the one Prisma schema. The schema owner reviews changes but is not the only person allowed to contribute.
 - Use the native MongoDB provider through Prisma 6.19. No raw SQL, `$runCommandRaw`, `$queryRaw`, `$aggregateRaw` or direct-driver shortcuts in application code. Discuss unsupported geo/index operations before choosing a workaround.
 - Better Auth owns password hashing, account/session records and session cookies. Feature ownership and moderator permission checks remain server-side application responsibilities.
@@ -51,6 +53,6 @@ Server module names can follow domain ownership (`deals`, `venues`, `community`,
 
 ## Source-document reconciliation
 
-The supplied team plan is the starting point, not an already frozen contract. Its JWT/Supabase/Firebase auth suggestions are superseded by the team's explicit Better Auth choice. Leaflet/OSM + OneMap replace earlier Google Maps suggestions. Storage provider, moderator roles, thresholds, multi-outlet scope and deployment remain team decisions.
+The supplied team plan is the starting point, not an already frozen contract. Its JWT/Supabase/Firebase auth suggestions are superseded by the team's explicit Better Auth choice. Leaflet/OSM + OneMap replace earlier Google Maps suggestions. UploadThing is selected for storage and Vercel for hosting; moderator roles, thresholds, multi-outlet scope and deployment wiring remain team decisions.
 
 Do not ship a fake `currentUser` in production. Development fixtures must be explicit, isolated and never bypass real API authorization. The starter supplies a real auth integration boundary instead.
