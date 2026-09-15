@@ -6,7 +6,7 @@ A WAD2 team project for discovering Singapore student deals, with maps, communit
 
 ## Stack
 
-- Vue 3 + TypeScript + Vite; Bootstrap CSS; Vue Router
+- Vue 3 + TypeScript + Vite; BootstrapVueNext + Bootstrap; Vue Router
 - Express + Better Auth (email/password, session cookies)
 - Prisma 6.19 + MongoDB replica set — Prisma7 currently does not support MongoDB
 - Bun workspaces and one lockfile; Biome only (no ESLint/Prettier/Oxlint)
@@ -55,7 +55,7 @@ bun run dev
 
 ## Environment variables
 
-See [the complete environment inventory](docs/environment-variables.md) and `.env.example`. They distinguish current API settings, planned Vercel deployment settings and reserved OneMap/ingestion/moderation settings. Production values belong in the repository’s GitHub `production` environment; UploadThing is selected for photos, with its server token still to configure; the mail provider remains pending. Existing `.env` files are preserved by setup.
+See [the complete environment inventory](docs/environment-variables.md) and `.env.example`. They distinguish current API settings, planned Vercel deployment settings and reserved OneMap/ingestion/moderation settings. Production values belong in the repository’s GitHub `production` environment; UploadThing is selected for photos, with its server token still to configure; Resend is selected with fail-closed placeholders and no automatic auth email flows. Existing `.env` files are preserved by setup.
 
 ## Commands
 
@@ -66,7 +66,8 @@ bun run db:generate      # generate ignored Prisma Client
 bun run db:validate      # validate Prisma schema
 bun run format           # Biome format/import fixes
 bun run check            # lint + schema + types + unit tests + builds
-bun run test:integration # isolated real MongoDB/auth HTTP tests
+bun run test:packages    # email/WordPress transports and tRPC policy tests
+bun run test:integration # isolated real MongoDB/auth/tRPC HTTP tests
 bunx playwright install chromium
 bun run test:e2e         # browser starter tests
 bun run check:all        # full local verification
@@ -89,11 +90,11 @@ Start here before writing feature code:
 
 Read [AGENTS.md](AGENTS.md) for agent workflow and [import conventions](docs/coding-standards.md#imports-and-aliases) for extensionless workspace aliases.
 
-`apps/web` owns Vue, `apps/api` owns HTTP/auth/server logic, `packages/auth` owns shared Better Auth integration, `packages/db` owns Prisma, `packages/storage` owns the shared UploadThing integration, and `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
+`apps/web` owns Vue and `apps/api` owns HTTP/configuration/request identity. Shared packages own `auth` (Better Auth), `db` (Prisma), `storage` (UploadThing), `rpc` (tRPC router/client), `contracts` (Zod schemas/inferred DTOs), `integrations` (read-only WordPress transport), `email` (disabled-until-configured Resend) and `ui` (BootstrapVueNext/AppShell). `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
 
 ## Verified starter checks
 
-- `bun run check:all` covers unit tests, real-HTTP auth/database/upload integration tests and Chromium checks, plus schema validation, typechecks and both builds. UploadThing provider responses in tests are explicitly synthetic; a live upload requires a configured account/token.
+- `bun run check:all` covers unit tests, real-HTTP auth/database/upload/tRPC integration tests and Chromium checks, plus schema validation, typechecks and both builds. UploadThing provider responses in tests are explicitly synthetic; a live upload requires a configured account/token.
 - The compiled API was also started with Bun and exercised through real signup, session lookup and logout; disposable probe records were removed.
 - The actual Vue Better Auth client successfully reached `/api/auth/get-session` through the Vite proxy in a browser.
 - Fresh-clone and GitHub CI results are recorded by the CI run, not inferred from local tests. These are starter checks, not coverage of unimplemented product features.
@@ -119,3 +120,7 @@ This repo is public. Never commit `.env`, credentials, user data, session-state 
 Auth boilerplate is not a production readiness guarantee: review email verification/reset delivery, moderator authorization, deployment cookies/HTTPS, abuse controls and provider policies before launch. No cloud deployment is created here.
 
 AI-assisted portions: initial scaffolding, generic framework/auth boilerplate, tests, CI and documentation. Core assessed application logic remains student-owned. See [the full disclosure](docs/ai-use.md). The final course submission requires setup/run/test instructions and disclosure in `README.txt`; the included README.txt points to these maintained guides and is not a claim of final-submission readiness.
+
+## Typed Express API
+
+Express mounts tRPC at `/api/trpc`. Use `api.health.query()` and authenticated `api.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the shared router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](packages/rpc/README.md). Domain procedures remain student-authored work.

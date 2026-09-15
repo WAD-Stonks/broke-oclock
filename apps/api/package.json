@@ -17,7 +17,9 @@
     "express": "5.2.1",
     "helmet": "^8.1.0",
     "@broke-oclock/storage": "workspace:*",
-    "@broke-oclock/auth": "workspace:*"
+    "@broke-oclock/auth": "workspace:*",
+    "@broke-oclock/contracts": "workspace:*",
+    "@broke-oclock/rpc": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

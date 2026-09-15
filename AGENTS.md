@@ -13,7 +13,7 @@ This file applies to the whole repository. Read it before editing. This is a pub
 ## Folder map
 
 ```text
-apps/web/                  Vue SPA + Bootstrap, browser code only
+apps/web/                  Vue SPA + BootstrapVueNext/Bootstrap, browser code only
   src/pages/               Route-level screens
   src/router/              Routes and UX-only navigation guards
   src/components/          Genuinely shared presentation components
@@ -42,6 +42,11 @@ packages/storage/          Shared UploadThing infrastructure
   src/server.ts            SDK adapter and file policy; server only
   src/client.ts            Typed browser upload helper
   src/types.ts             Type-only public contracts
+packages/rpc/              Express tRPC adapter, typed Vue client and request-scoped auth
+packages/contracts/        Zod schemas/inferred JSON types for current infrastructure endpoints
+packages/integrations/     Read-only external-provider transports; no ingestion logic
+packages/email/            Opt-in Resend transport/templates; no active auth email hooks
+packages/ui/               BootstrapVueNext provider/components and shared AppShell
 scripts/                   Bun setup/dev/env/database orchestration
 e2e/                      Playwright browser journeys
 docs/                     Decisions, scope, setup and team conventions
@@ -52,11 +57,11 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 
 ## Imports and package boundaries
 
-- Use extensionless source aliases: `@api/*`, `@web/*`, `@auth/*`, `@db/*`, `@storage/*`, `@scripts/*`. Their canonical paths are in root `tsconfig.json`.
+- Use extensionless source aliases: `@api/*`, `@web/*`, `@auth/*`, `@db/*`, `@storage/*`, `@rpc/*`, `@contracts/*`, `@integrations/*`, `@email/*`, `@ui/*`, `@scripts/*`. Their canonical paths are in root `tsconfig.json`.
 - Example inside storage: `export type { PhotoFileRouter, PhotoStorageOptions } from '@storage/server'`. Do not use `./server.js`, `./server` or `../` source imports.
 - Keep genuine `.vue`, `.css` and asset extensions. Keep third-party and `node:` package names unchanged.
-- Across workspaces, use public `@broke-oclock/db`, `@broke-oclock/auth/{client,server,node,types}` or `@broke-oclock/storage/{client,server,types}` exports. Never reach into another workspace with its private source alias. Apps must not depend on each other, and packages must not import apps.
-- Browser code uses auth/storage `/client` and type-only contracts, never `/server`, the database, auth-server code or secrets. Do not make a mixed client/server barrel.
+- Across workspaces, use public `@broke-oclock/db`, `@broke-oclock/auth/{client,server,node,types}` or `@broke-oclock/storage/{client,server,types}` exports. Other public entry points are `@broke-oclock/contracts/api`, `@broke-oclock/integrations/server`, `@broke-oclock/email/server` and `@broke-oclock/ui`, `@broke-oclock/ui/styles.css`, and `@broke-oclock/rpc/{client,server,express,types}`. Never reach into another workspace with its private source alias. Apps must not depend on each other, and packages must not import apps.
+- Browser code uses auth/storage/rpc `/client`, type-only router definitions and browser-safe contract schemas, never `/server`, the database, auth-server code, email/integration server modules or secrets. Do not make a mixed client/server barrel.
 - The API owns env loading, HTTP mounting and feature authorization; auth owns reusable session/auth machinery, and storage receives already-verified request-scoped identity. Neither package imports an app.
 - TypeScript, Bun, Vite and Vitest must all resolve aliases. Run real tests/builds after changing resolution; a typecheck alone is insufficient. Native Node needs bundling/resolution support.
 - Relative filesystem URLs, package export paths and generated code are not authored module-import style. Do not rename build output or edit generated Prisma files to satisfy this convention.
@@ -67,7 +72,7 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 - Install with `bun install --frozen-lockfile --ignore-scripts`; run `bun run setup` for initial local setup and Prisma generation. Preserve existing `.env` values.
 - Use Prisma's MongoDB provider and typed client. MongoDB needs a replica set; tests use disposable replicas. Never run tests or schema changes against production. Do not use raw-query shortcuts.
 - Run `bun run format`, `bun run check:all`, `bun run audit` and `git diff --check` before pushing. `check:all` includes lint, schema validation, all workspace/tool typechecks, unit/integration tests, builds and Playwright.
-- Use `bun run test`, not `bun test`; Vitest and Bun's native runner are different. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
+- Use `bun run test`, not `bun test`; Vitest and Bun's native runner are different. `bun run test:packages` runs email/integration transport and RPC policy tests and is included in the unit-test gate. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
 - Keep provider mocks explicit. Synthetic UploadThing responses are not proof of a live hosted upload. The existing narrow Prisma CLI audit exception is documented; do not add suppressions casually.
 - Inspect the actual browser import graph after moving shared code. Keep server secrets and modules out of browser bundles.
 

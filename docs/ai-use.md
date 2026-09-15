@@ -1,6 +1,6 @@
 # AI assistance disclosure and assessment boundaries
 
-This repository was initially scaffolded with Hermes Agent assistance at the team's request. AI-assisted portions include workspace/tool configuration (including source aliases, import lint rules and AGENTS.md guidance), generic framework/auth integration boilerplate (including the shared `packages/auth` factory/client extraction), starter pages, tests, CI and documentation. Team members must review, understand and maintain these parts and update this disclosure as work changes.
+This repository was initially scaffolded with Hermes Agent assistance at the team's request. AI-assisted portions include workspace/tool configuration (including source aliases, import lint rules and AGENTS.md guidance), generic framework/auth integration boilerplate (including the shared `packages/auth` factory/client extraction), starter pages, shared infrastructure schemas, Express+tRPC health/current-user wiring and presentational shell/BootstrapVueNext integration, opt-in Resend/read-only WordPress transport boilerplate, tests, CI and documentation. Team members must review, understand and maintain these parts and update this disclosure as work changes.
 
 The WAD2 project brief permits assistance for ideation/design inspiration, explanations/debugging hints, starter snippets, test cases/sample inputs/mock data. It prohibits relying on AI for core business logic, backend feature endpoints, critical frontend interactivity and major implementation problem-solving.
 

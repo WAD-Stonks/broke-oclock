@@ -9,11 +9,13 @@ Integration suites run serially to avoid concurrent first-download races in the 
 ## Test layers
 
 - **Vitest unit**: pure functions, configuration, Vue render/navigation and component behaviour. Fast and no real database required.
-- **Vitest integration**: actual Express + Better Auth + Prisma HTTP flows against a disposable MongoDB replica set. No production database or real accounts. The helper may download a MongoDB binary on its first run.
-- **Playwright E2E**: starter page/navigation/layout smoke tests now; each student adds their actual product journeys as features land. Scaffold smoke coverage is NOT the final project core-feature coverage.
+- **Vitest package**: Resend and WordPress transports with explicit fetch mocks; tRPC procedure policies and compile-time client inference. No real emails are sent.
+- **Vitest integration**: actual Express + tRPC + Better Auth + Prisma HTTP flows against a disposable MongoDB replica set. No production database or real accounts. The helper may download a MongoDB binary on its first run.
+- **Playwright E2E**: starter page/navigation/layout and same-origin auth/upload/RPC client smoke tests now (provider/client transport fixtures are synthetic); each student adds their actual product journeys as features land. Scaffold smoke coverage is NOT the final project core-feature coverage.
 
 ```sh
 bun run test:unit
+bun run test:packages
 bun run test:integration
 bunx playwright install chromium
 bun run test:e2e
