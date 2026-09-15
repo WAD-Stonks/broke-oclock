@@ -1,6 +1,6 @@
 # Contributing
 
-1. Follow README setup and the [folder guide](docs/architecture.md).
+1. Follow README setup, [AGENTS.md](AGENTS.md), the [folder guide](docs/architecture.md) and [import conventions](docs/coding-standards.md#imports-and-aliases).
 2. Pick one workstream from [the feature plan](docs/feature-plan.md). Agree shared DTO/schema changes first.
 3. Branch from current `main`: `feature/<short-name>`, `fix/<short-name>`, `docs/<short-name>`. No `codex/` prefix.
 4. Keep changes small. Add Vitest tests and the relevant Playwright journey; never use real accounts or production databases in tests.

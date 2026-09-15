@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-import { loadEnvironment, repositoryRoot } from './environment'
+import { loadEnvironment, repositoryRoot } from '@scripts/environment'
 
 const [workspace, ...args] = process.argv.slice(2)
 if (!workspace || args.length === 0) throw new Error('Usage: workspace.ts <workspace> <script>')

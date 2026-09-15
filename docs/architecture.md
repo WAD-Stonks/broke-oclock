@@ -29,6 +29,10 @@ broke-oclock/
 └── bun.lock                  The sole dependency lockfile
 ```
 
+## Agent entry point and imports
+
+Start with root [AGENTS.md](../AGENTS.md) for agent workflow, ownership, verification and assessment boundaries. The [import conventions](coding-standards.md#imports-and-aliases) define `@api`, `@web`, `@db`, `@storage` and `@scripts` source aliases. Root `tsconfig.json` owns their paths. Use public `@broke-oclock/*` exports across workspaces, not relative imports or another package's private alias. Vue and asset imports retain their real extensions; TypeScript source imports omit `.js` and `.ts`.
+
 ## Dependency boundaries
 
 - Browser code never imports `apps/api`, `packages/db`, server environment, Prisma or secrets.

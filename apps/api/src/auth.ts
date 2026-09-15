@@ -1,8 +1,7 @@
+import type { AppConfig } from '@api/config'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { db } from '@broke-oclock/db'
 import { betterAuth } from 'better-auth'
-
-import type { AppConfig } from './config.js'
 
 export const createAuth = (config: AppConfig) => {
   return betterAuth({

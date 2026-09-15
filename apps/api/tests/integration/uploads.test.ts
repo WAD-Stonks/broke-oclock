@@ -2,9 +2,9 @@ import { spawnSync } from 'node:child_process'
 import { createHmac, randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { parseConfig } from '@api/config'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { parseConfig } from '../../src/config'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const origin = 'http://localhost:5173'
@@ -161,7 +161,7 @@ beforeAll(async () => {
 
   const { db } = await import('@broke-oclock/db')
   disconnect = () => db.$disconnect()
-  const { createApp } = await import('../../src/app')
+  const { createApp } = await import('@api/app')
   const secret = randomBytes(32).toString('hex')
   const enabledConfig = parseConfig({
     DATABASE_URL: databaseUrl,

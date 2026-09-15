@@ -9,5 +9,6 @@
     "types": ["bun", "node"],
     "allowImportingTsExtensions": true
   },
-  "include": ["scripts/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"]
+  "include": ["scripts/**/*.ts", "e2e/**/*.ts", "playwright.config.ts"],
+  "extends": "./tsconfig.json"
 }

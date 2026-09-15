@@ -1,1 +1,1 @@
-export type { PhotoFileRouter, PhotoStorageOptions } from './server.js'
+export type { PhotoFileRouter, PhotoStorageOptions } from '@storage/server'

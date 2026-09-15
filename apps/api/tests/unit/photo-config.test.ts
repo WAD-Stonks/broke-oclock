@@ -1,5 +1,5 @@
+import { parseConfig } from '@api/config'
 import { describe, expect, it } from 'vitest'
-import { parseConfig } from '../../src/config'
 
 const environment = {
   BETTER_AUTH_SECRET: 'unit-test-only-secret-not-a-real-credential',

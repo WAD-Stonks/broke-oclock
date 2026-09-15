@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import AppShell from '@web/components/AppShell.vue'
+import SiteHeader from '@web/components/SiteHeader.vue'
 import { RouterView } from 'vue-router'
-import AppShell from './components/AppShell.vue'
-import SiteHeader from './components/SiteHeader.vue'
 </script>
 
 <template>

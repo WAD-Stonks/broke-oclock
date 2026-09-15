@@ -1,2 +1,2 @@
-export type { Account, Session, User, Verification } from './client.js'
-export { db, PrismaClient } from './client.js'
+export type { Account, Session, User, Verification } from '@db/client'
+export { db, PrismaClient } from '@db/client'

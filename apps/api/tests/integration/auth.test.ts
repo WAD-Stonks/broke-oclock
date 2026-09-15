@@ -2,9 +2,9 @@ import { spawnSync } from 'node:child_process'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { createServer, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
+import { parseConfig } from '@api/config'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { parseConfig } from '../../src/config'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const origin = 'http://localhost:5173'
@@ -46,7 +46,7 @@ beforeAll(async () => {
   if (pushed.status !== 0) throw new Error(`Disposable schema push failed: ${pushed.stderr}`)
   const { db } = await import('@broke-oclock/db')
   disconnect = () => db.$disconnect()
-  const { createApp } = await import('../../src/app')
+  const { createApp } = await import('@api/app')
   server = createServer()
   await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve))
   const address = server.address()

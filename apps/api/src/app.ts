@@ -1,12 +1,11 @@
+import { createAuth } from '@api/auth'
+import type { AppConfig } from '@api/config'
+import { createPhotoRouter } from '@api/uploads'
 import { db } from '@broke-oclock/db'
 import { fromNodeHeaders, toNodeHandler } from 'better-auth/node'
 import cors from 'cors'
 import express, { type ErrorRequestHandler, type Express } from 'express'
 import helmet from 'helmet'
-
-import { createAuth } from './auth.js'
-import type { AppConfig } from './config.js'
-import { createPhotoRouter } from './uploads.js'
 
 export const createApp = (config: AppConfig): Express => {
   const auth = createAuth(config)
