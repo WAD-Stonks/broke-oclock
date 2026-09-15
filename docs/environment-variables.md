@@ -33,7 +33,7 @@ Consumers: `apps/api/src/config.ts`, `apps/api/src/auth.ts`, `packages/db/prisma
 | VERCEL_WEB_PROJECT_ID | Variable | Frontend project's ID |
 | API_ORIGIN | Variable | HTTPS API deployment origin used when generating the frontend `/api` rewrite |
 
-These names are reserved for the future deployment workflow. Current `quality` CI tests/builds the app with disposable local configuration; it does not deploy, sync environment values or consume production secrets. API entry-point, Prisma packaging and web rewrite/SPA fallback work are still required.
+These names are reserved for the future deployment workflow. Current `quality` CI tests/builds the app with disposable local configuration; it does not deploy, sync environment values or consume production secrets. API packaging and web rewrite/SPA fallback are now prepared; see [Vercel setup](vercel-setup.md). No GitHub secret sync or deployment job exists, and production secrets/access-protection decisions are still required.
 
 ## Planned OneMap integration — Add Deal and ingestion
 
