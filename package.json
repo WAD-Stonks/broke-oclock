@@ -20,7 +20,7 @@
     "db:generate": "bun run scripts/workspace.ts packages/db generate",
     "db:validate": "bun run scripts/workspace.ts packages/db validate",
     "db:push": "bun run scripts/workspace.ts packages/db push",
-    "typecheck": "bun run scripts/workspace.ts packages/db typecheck && bun run scripts/workspace.ts apps/api typecheck && bun run scripts/workspace.ts apps/web typecheck && bun run typecheck:tools",
+    "typecheck": "bun run scripts/workspace.ts packages/db typecheck && bun run scripts/workspace.ts packages/storage typecheck && bun run scripts/workspace.ts apps/api typecheck && bun run scripts/workspace.ts apps/web typecheck && bun run typecheck:tools",
     "lint": "biome check . --error-on-warnings",
     "format": "biome check --write .",
     "test:unit": "bun run scripts/workspace.ts apps/api test:unit && bun run scripts/workspace.ts apps/web test:unit",
