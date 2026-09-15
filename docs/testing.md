@@ -1,5 +1,9 @@
 # Testing guide
 
+## CI triggers
+
+The `quality` workflow runs only for pull requests targeting `main`: when opened, reopened or updated with new commits. It does not run on pushes/merges to `main` or manual dispatch. The required pre-merge `quality` check and all test steps remain unchanged. Deployment is a separate concern; this workflow does not deploy.
+
 ## Test layers
 
 - **Vitest unit**: pure functions, configuration, Vue render/navigation and component behaviour. Fast and no real database required.
