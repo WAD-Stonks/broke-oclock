@@ -12,13 +12,12 @@
     "start": "bun dist/server.js"
   },
   "dependencies": {
-    "@better-auth/prisma-adapter": "1.7.5",
     "@broke-oclock/db": "workspace:*",
-    "better-auth": "1.7.5",
     "cors": "2.8.5",
     "express": "5.2.1",
     "helmet": "^8.1.0",
-    "@broke-oclock/storage": "workspace:*"
+    "@broke-oclock/storage": "workspace:*",
+    "@broke-oclock/auth": "workspace:*"
   },
   "devDependencies": {
     "@types/express": "^5.0.3",

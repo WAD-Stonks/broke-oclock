@@ -17,10 +17,9 @@
       "name": "@broke-oclock/api",
       "version": "0.1.0",
       "dependencies": {
-        "@better-auth/prisma-adapter": "1.7.5",
+        "@broke-oclock/auth": "workspace:*",
         "@broke-oclock/db": "workspace:*",
         "@broke-oclock/storage": "workspace:*",
-        "better-auth": "1.7.5",
         "cors": "2.8.5",
         "express": "5.2.1",
         "helmet": "^8.1.0",
@@ -35,8 +34,8 @@
     "apps/web": {
       "name": "@broke-oclock/web",
       "dependencies": {
+        "@broke-oclock/auth": "workspace:*",
         "@broke-oclock/storage": "workspace:*",
-        "better-auth": "1.7.5",
         "bootstrap": "5.3.8",
         "vue": "3.5.38",
         "vue-router": "5.1.0",
@@ -51,6 +50,21 @@
         "vitest": "4.1.11",
         "vue-tsc": "3.3.7",
       },
+    },
+    "packages/auth": {
+      "name": "@broke-oclock/auth",
+      "version": "0.1.0",
+      "dependencies": {
+        "@better-auth/prisma-adapter": "1.7.5",
+        "@broke-oclock/db": "workspace:*",
+        "better-auth": "1.7.5",
+      },
+      "peerDependencies": {
+        "vue": "^3.5.38",
+      },
+      "optionalPeers": [
+        "vue",
+      ],
     },
     "packages/db": {
       "name": "@broke-oclock/db",
@@ -137,6 +151,8 @@
     "@bramus/specificity": ["@bramus/specificity@2.4.2", "", { "dependencies": { "css-tree": "^3.0.0" }, "bin": { "specificity": "bin/cli.js" } }, "sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw=="],
 
     "@broke-oclock/api": ["@broke-oclock/api@workspace:apps/api"],
+
+    "@broke-oclock/auth": ["@broke-oclock/auth@workspace:packages/auth"],
 
     "@broke-oclock/db": ["@broke-oclock/db@workspace:packages/db"],
 

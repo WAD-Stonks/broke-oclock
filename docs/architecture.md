@@ -18,6 +18,7 @@ broke-oclock/
 │           ├── modules/      Feature routes, validation, services, repositories
 │           └── ...           Generic app/config/auth lifecycle (see actual files)
 ├── packages/
+│   ├── auth/                 Shared Better Auth server/client/types and Node adapter
 │   ├── db/                   Prisma schema, generation and shared DB client
 │   └── storage/              UploadThing server/client entry points and shared types
 ├── e2e/                      Playwright user-journey tests
@@ -31,7 +32,7 @@ broke-oclock/
 
 ## Agent entry point and imports
 
-Start with root [AGENTS.md](../AGENTS.md) for agent workflow, ownership, verification and assessment boundaries. The [import conventions](coding-standards.md#imports-and-aliases) define `@api`, `@web`, `@db`, `@storage` and `@scripts` source aliases. Root `tsconfig.json` owns their paths. Use public `@broke-oclock/*` exports across workspaces, not relative imports or another package's private alias. Vue and asset imports retain their real extensions; TypeScript source imports omit `.js` and `.ts`.
+Start with root [AGENTS.md](../AGENTS.md) for agent workflow, ownership, verification and assessment boundaries. The [import conventions](coding-standards.md#imports-and-aliases) define `@api`, `@web`, `@auth`, `@db`, `@storage` and `@scripts` source aliases. Root `tsconfig.json` owns their paths. Use public `@broke-oclock/*` exports across workspaces, not relative imports or another package's private alias. Vue and asset imports retain their real extensions; TypeScript source imports omit `.js` and `.ts`.
 
 ## Dependency boundaries
 
@@ -39,10 +40,22 @@ Start with root [AGENTS.md](../AGENTS.md) for agent workflow, ownership, verific
 - Routes validate transport input and enforce authentication/authorization, then call a feature service. Services own student-authored business rules. Repositories own typed Prisma operations. Do not put every query directly in route handlers.
 - A feature module can start with a route and service; add repository/DTO files when useful, not empty layers for ceremony.
 - Do not import internals across feature modules. Agree public interfaces and shared contracts first. Add `packages/contracts` only when real browser-safe DTO/schema sharing is needed; never export Prisma models to browsers as API contracts.
+- `packages/auth` owns Better Auth setup, its Prisma adapter, Vue client and inferred session/user types. It depends on `packages/db`, never an app. The API injects validated configuration and mounts its Node handler; feature authorization stays in API routes. Consume `/client`, `/server`, `/node` and type-only `/types` public entry points.
 - `packages/storage` owns UploadThing SDK setup, upload policy, the browser helper and shared types. Apps depend on this package, never on each other. Use `/client` in browser code and `/server` only in the API; `/types` is type-only. The API loads credentials and supplies already-authenticated request identity. The package does not import app code or read environment variables.
 - `packages/db` owns the one Prisma schema. The schema owner reviews changes but is not the only person allowed to contribute.
 - Use the native MongoDB provider through Prisma 6.19. No raw SQL, `$runCommandRaw`, `$queryRaw`, `$aggregateRaw` or direct-driver shortcuts in application code. Discuss unsupported geo/index operations before choosing a workaround.
 - Better Auth owns password hashing, account/session records and session cookies. Feature ownership and moderator permission checks remain server-side application responsibilities.
+
+## Potential future packages (not scaffolded)
+
+Keep the current shared packages focused: `auth`, `db` and `storage`. Extract another package only when real code needs a shared boundary, not to create empty folders.
+
+- `contracts`: browser-safe API DTOs and shared validation schemas once actual feature contracts exist. Do not export Prisma records as API contracts.
+- `integrations`: typed third-party API clients (for example WordPress or a selected geocoder) when the first integration is implemented. Parsing, deduplication, moderation and other assessed business rules stay in their API domain modules.
+- `email`: provider SDK and reusable templates if transactional auth email is approved and implemented. This does not enable verification/password-reset flows by itself.
+- `ui`: shared Vue components/design tokens if another frontend genuinely needs them. With one SPA, use `apps/web/src/components` for now.
+
+Root TypeScript/Biome configuration is already shared; a separate config package and a generic utils package are not needed currently.
 
 ## Six workstreams
 

@@ -21,11 +21,12 @@ Use extensionless `@`-prefixed aliases for authored TypeScript imports and re-ex
 
 - `@api/*` → `apps/api/src/*`
 - `@web/*` → `apps/web/src/*`
+- `@auth/*` → `packages/auth/src/*`
 - `@db/*` → `packages/db/src/*`
 - `@storage/*` → `packages/storage/src/*`
 - `@scripts/*` → `scripts/*`
 
-These are workspace-internal source aliases. Cross-workspace imports must use public package exports such as `@broke-oclock/db` and `@broke-oclock/storage/client`, `/server` or `/types`, not another workspace's internal alias. Apps never import each other. Browser code must not import the API, database or storage-server implementation, even through an alias.
+These are workspace-internal source aliases. Cross-workspace imports must use public package exports such as `@broke-oclock/db`, `@broke-oclock/auth/client` and `@broke-oclock/storage/client`, `/server` or `/types`, not another workspace's internal alias. Apps never import each other. Browser code must not import the API, database or storage-server implementation, even through an alias.
 
 ```ts
 // Inside the API

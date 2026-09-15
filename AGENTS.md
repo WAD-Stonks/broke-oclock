@@ -25,7 +25,7 @@ apps/api/                  Express HTTP boundary + Better Auth
   src/app.ts               Testable Express app composition
   src/server.ts            Local Bun server lifecycle
   src/config.ts            Server environment parsing
-  src/auth.ts              Better Auth configuration
+  src/auth.ts              Maps validated env config into the shared auth factory
   src/uploads.ts           Upload auth/origin checks and route mounting
   src/modules/             Domain routes, services and repositories
   tests/unit/              Pure configuration/unit tests
@@ -33,6 +33,11 @@ apps/api/                  Express HTTP boundary + Better Auth
 packages/db/               Prisma schema, generated client and shared DB access
   prisma/schema.prisma     Canonical database schema
   src/generated/           Generated output; never edit or commit it
+packages/auth/             Shared Better Auth integration (depends on db)
+  src/server.ts            Auth factory and Prisma adapter; server only
+  src/node.ts              HTTP handler/header adapters; server only
+  src/client.ts            Same-origin Vue auth client
+  src/types.ts             Type-only Auth/Session/User contracts
 packages/storage/          Shared UploadThing infrastructure
   src/server.ts            SDK adapter and file policy; server only
   src/client.ts            Typed browser upload helper
@@ -47,12 +52,12 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 
 ## Imports and package boundaries
 
-- Use extensionless source aliases: `@api/*`, `@web/*`, `@db/*`, `@storage/*`, `@scripts/*`. Their canonical paths are in root `tsconfig.json`.
+- Use extensionless source aliases: `@api/*`, `@web/*`, `@auth/*`, `@db/*`, `@storage/*`, `@scripts/*`. Their canonical paths are in root `tsconfig.json`.
 - Example inside storage: `export type { PhotoFileRouter, PhotoStorageOptions } from '@storage/server'`. Do not use `./server.js`, `./server` or `../` source imports.
 - Keep genuine `.vue`, `.css` and asset extensions. Keep third-party and `node:` package names unchanged.
-- Across workspaces, use public `@broke-oclock/db` or `@broke-oclock/storage/{client,server,types}` exports. Never reach into another workspace with its private source alias. Apps must not depend on each other, and packages must not import apps.
-- Browser code uses storage `/client` and type-only contracts, never `/server`, the database, auth-server code or secrets. Do not make a mixed client/server barrel.
-- The API owns env loading, authentication and authorization; storage accepts explicit config and already-verified request-scoped identity.
+- Across workspaces, use public `@broke-oclock/db`, `@broke-oclock/auth/{client,server,node,types}` or `@broke-oclock/storage/{client,server,types}` exports. Never reach into another workspace with its private source alias. Apps must not depend on each other, and packages must not import apps.
+- Browser code uses auth/storage `/client` and type-only contracts, never `/server`, the database, auth-server code or secrets. Do not make a mixed client/server barrel.
+- The API owns env loading, HTTP mounting and feature authorization; auth owns reusable session/auth machinery, and storage receives already-verified request-scoped identity. Neither package imports an app.
 - TypeScript, Bun, Vite and Vitest must all resolve aliases. Run real tests/builds after changing resolution; a typecheck alone is insufficient. Native Node needs bundling/resolution support.
 - Relative filesystem URLs, package export paths and generated code are not authored module-import style. Do not rename build output or edit generated Prisma files to satisfy this convention.
 

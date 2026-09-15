@@ -5,7 +5,8 @@
       "@web/*": ["./apps/web/src/*"],
       "@db/*": ["./packages/db/src/*"],
       "@storage/*": ["./packages/storage/src/*"],
-      "@scripts/*": ["./scripts/*"]
+      "@scripts/*": ["./scripts/*"],
+      "@auth/*": ["./packages/auth/src/*"]
     }
   },
   "files": []
