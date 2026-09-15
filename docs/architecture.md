@@ -82,4 +82,6 @@ Do not ship a fake `currentUser` in production. Development fixtures must be exp
 
 ## API-owned tRPC
 
+New domain layout: `src/trpc/routers/<domain>/index.ts` + `procedures/<operation>.ts`. See [How to code here](development-guide.md) for responsibilities, import direction and complete documentation-only examples. No domain folders are pre-created for unimplemented work.
+
 The API owns context, reusable procedures and the root/feature routers under src/trpc. The web owns the framework-independent client and imports only AppRouter through the API type-only export. See [layout, security and usage](trpc.md). Response schemas stay shared only where there are real consumers; no runtime router package or Next/React-specific machinery is required.

@@ -4,6 +4,7 @@ This file applies to the whole repository. Read it before editing. This is a pub
 
 ## Read first
 
+- [How to code here: routers, procedures, index.ts and frontend](docs/development-guide.md)
 - [Architecture and ownership](docs/architecture.md)
 - [Coding standards and import aliases](docs/coding-standards.md#imports-and-aliases)
 - [AI-use and assessment boundaries](docs/ai-use.md)
@@ -55,6 +56,13 @@ docs/                     Decisions, scope, setup and team conventions
 ```
 
 The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `ingestion-admin` and `venues-feed`. API domains are `deals`, `venues`, `community`, `account` and `ingestion`; they need not mirror screens one-for-one. Read the owning module README before editing. Route handlers/procedures own validation and authorization. They may use ctx.db directly for simple typed queries; extract app-local services/repositories for real complexity or reuse. Do not create empty abstraction layers. See docs/trpc.md for the T3-style layout.
+
+## New API domain convention
+
+- Follow docs/development-guide.md: `src/trpc/routers/<domain>/index.ts` assembles named procedures from `procedures/<operation>.ts`; register that router under a namespace in `src/trpc/root.ts`.
+- One named procedure per file. Use `createTRPCRouter`, `publicProcedure` and `protectedProcedure` from `@api/trpc/init`; do not create another tRPC instance or Express mount per feature.
+- Procedure files must not import their parent index or root. Keep index/root focused on assembly; extract substantive app-local logic only when needed.
+- The current small `routers/infrastructure.ts` and top-level health/me paths are intentionally unchanged. The guide's example router is illustrative, not a deployed endpoint; do not rename existing API paths just to match the new-domain convention.
 
 ## Imports and package boundaries
 

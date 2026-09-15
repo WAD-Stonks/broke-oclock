@@ -9,6 +9,8 @@
 
 ## Naming and layout
 
+For API feature work, follow the [router/procedure/index.ts walkthrough](development-guide.md). Use one domain folder with a thin index.ts and one named procedure per operation file; keep root.ts for namespace registration.
+
 - Vue SFCs: `PascalCase.vue`, `<script setup lang="ts">`; views end in `Page.vue` where consistent.
 - TypeScript files/folders: `kebab-case`; variables/functions `camelCase`; types `PascalCase`.
 - Prefer named arrow functions. Return explicit public DTOs, not entire database records. Use type-only imports for types.

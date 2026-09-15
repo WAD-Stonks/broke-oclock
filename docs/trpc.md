@@ -13,6 +13,10 @@ apps/api/src/
 apps/web/src/lib/api-client.ts    Typed client and inferred RouterInputs/RouterOutputs
 ```
 
+## Adding a domain router
+
+Use `routers/<domain>/index.ts` to assemble named exports from `procedures/<operation>.ts`, then register that domain in root.ts. Read the [step-by-step development guide](development-guide.md) for complete illustrative files and how the keys become frontend calls. The existing flat infrastructure.ts remains a small compatibility case, not a claim that the example folders already exist.
+
 ## Ownership and inference
 
 The API owns its context, procedures, HTTP adapter and future domain implementation. Context is created afresh for each request and contains the shared database client plus a verified session. Register student-authored domain subrouters in root.ts; keep validation and authorization at the procedure boundary. Extract app-local services/repositories when complexity or reuse warrants them, not as mandatory empty layers.
