@@ -15,6 +15,36 @@
 - Feature code belongs under its module; shared components only when genuinely reused. Avoid dumping application logic into `utils.ts` or `App.vue`.
 - Keep components focused, pass typed props, emit typed events. Derived state belongs in `computed`; avoid watchers that merely copy state.
 
+## Imports and aliases
+
+Use extensionless `@`-prefixed aliases for authored TypeScript imports and re-exports, including type-only and dynamic imports. Do not write `./`, `../`, or pretend `.js` filenames for TypeScript source.
+
+- `@api/*` → `apps/api/src/*`
+- `@web/*` → `apps/web/src/*`
+- `@db/*` → `packages/db/src/*`
+- `@storage/*` → `packages/storage/src/*`
+- `@scripts/*` → `scripts/*`
+
+These are workspace-internal source aliases. Cross-workspace imports must use public package exports such as `@broke-oclock/db` and `@broke-oclock/storage/client`, `/server` or `/types`, not another workspace's internal alias. Apps never import each other. Browser code must not import the API, database or storage-server implementation, even through an alias.
+
+```ts
+// Inside the API
+import { createApp } from '@api/app'
+import { db } from '@broke-oclock/db'
+
+// Inside the web app: keep real Vue/asset extensions
+import SiteHeader from '@web/components/SiteHeader.vue'
+import '@web/assets/main.css'
+import { uploadPhoto } from '@broke-oclock/storage/client'
+
+// Inside the storage package
+export type { PhotoFileRouter, PhotoStorageOptions } from '@storage/server'
+```
+
+Root `tsconfig.json` is the single alias map; workspace and tooling TS configs inherit it. Bun resolves these paths directly. Vite and both Vitest configs enable `resolve.tsconfigPaths`; no duplicate Vite alias table or extra plugin is needed. Distinct prefixes avoid one package's `@/` resolving into another app's source. VS Code prefers non-relative, minimal imports.
+
+Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on these source aliases. Keep `.vue`, `.css` and other genuine asset extensions. Third-party package specifiers and `node:` built-ins keep their actual names. This rule is not a ban on relative filesystem URLs, package export targets, browser-served URLs in E2E tests, generated Prisma internals or emitted JavaScript. Do not hand-edit generated files. Native Node does not understand TypeScript path aliases by itself: use the supported Bun/Vite runners, and resolve/bundle aliases when adding deployment tooling.
+
 ## API and data safety
 
 - Validate params/query/body, bound page sizes and input lengths, and return stable HTTP status/error codes. Do not trust a frontend-selected owner/user ID.

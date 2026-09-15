@@ -1,7 +1,7 @@
+import type { AppConfig } from '@api/config'
 import { createPhotoUploadHandler } from '@broke-oclock/storage/server'
 import { fromNodeHeaders } from 'better-auth/node'
 import { type ErrorRequestHandler, json, type Request, Router } from 'express'
-import type { AppConfig } from './config.js'
 
 type UploadSession = { user: { id: string } } | null
 type GetSession = (headers: Headers) => Promise<UploadSession>

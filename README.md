@@ -86,6 +86,8 @@ Start here before writing feature code:
 6. [Integration caveats and official docs](docs/integrations.md)
 7. [Contribution and PR workflow](CONTRIBUTING.md)
 
+Read [import conventions](docs/coding-standards.md#imports-and-aliases) for extensionless workspace aliases.
+
 `apps/web` owns Vue, `apps/api` owns HTTP/auth/server logic, `packages/db` owns Prisma, `packages/storage` owns the shared UploadThing integration, and `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
 
 ## Verified starter checks

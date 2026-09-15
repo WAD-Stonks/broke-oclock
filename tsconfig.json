@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@api/*": ["./apps/api/src/*"],
+      "@web/*": ["./apps/web/src/*"],
+      "@db/*": ["./packages/db/src/*"],
+      "@storage/*": ["./packages/storage/src/*"],
+      "@scripts/*": ["./scripts/*"]
+    }
+  },
+  "files": []
+}

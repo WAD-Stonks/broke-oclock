@@ -1,5 +1,5 @@
+import type { PhotoFileRouter } from '@storage/types'
 import { genUploader } from 'uploadthing/client'
-import type { PhotoFileRouter } from './types.js'
 
 // Type-only server contract: no server/auth/database implementation enters the browser.
 const { uploadFiles } = genUploader<PhotoFileRouter>({ url: '/api/uploadthing' })
