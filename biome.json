@@ -47,6 +47,8 @@
               },
               {
                 "group": [
+                  "@auth/**/*.js",
+                  "@auth/**/*.ts",
                   "@api/**/*.js",
                   "@api/**/*.ts",
                   "@web/**/*.js",

@@ -1,6 +1,6 @@
 import type { AppConfig } from '@api/config'
+import { fromNodeHeaders } from '@broke-oclock/auth/node'
 import { createPhotoUploadHandler } from '@broke-oclock/storage/server'
-import { fromNodeHeaders } from 'better-auth/node'
 import { type ErrorRequestHandler, json, type Request, Router } from 'express'
 
 type UploadSession = { user: { id: string } } | null

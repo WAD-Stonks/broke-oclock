@@ -9,11 +9,11 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "better-auth": "1.7.5",
     "bootstrap": "5.3.8",
     "vue": "3.5.38",
     "vue-router": "5.1.0",
-    "@broke-oclock/storage": "workspace:*"
+    "@broke-oclock/storage": "workspace:*",
+    "@broke-oclock/auth": "workspace:*"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "6.0.8",
