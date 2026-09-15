@@ -53,6 +53,10 @@ bun run dev
 
 `db:push` changes the database configured in `.env`: check the target first. Do not use it blindly against production. MongoDB uses schema push, not Prisma Migrate migration files. Regenerate Prisma Client after schema changes.
 
+## Environment variables
+
+See [the complete environment inventory](docs/environment-variables.md) and `.env.example`. They distinguish current API settings, planned Vercel deployment settings and reserved OneMap/ingestion/moderation settings. Production values belong in the repository’s GitHub `production` environment; photo-storage and mail-provider credentials remain pending. Existing `.env` files are preserved by setup.
+
 ## Commands
 
 ```sh
