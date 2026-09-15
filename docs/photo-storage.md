@@ -12,10 +12,10 @@
 ## Configuration
 
 1. Create an app on [UploadThing](https://uploadthing.com/dashboard), and copy its SDK token from API Keys.
-2. Replace GitHub `production` secret UPLOADTHING_TOKEN with that token. PHOTO_STORAGE_PROVIDER is `uploadthing`.
+2. When enabling production uploads, enter UPLOADTHING_TOKEN directly in **Vercel → broke-oclock-api → Settings → Environment Variables → Production**. PHOTO_STORAGE_PROVIDER is `uploadthing`. Do not add the token to the web project.
 3. For local development, set the same two keys in ignored root `.env`. Existing `.env` is deliberately not overwritten by setup. Never commit or paste the token into chat.
-4. Restart the API after environment changes. GitHub production secrets are not automatically present locally or in Vercel: deployment mapping remains separate unfinished work.
-5. In production, the configured BETTER_AUTH_URL origin plus `/api/uploadthing` is the callback URL. The future web rewrite must forward this path, its query string/body and UploadThing signature headers to Express. UploadThing must be able to reach the endpoint without a login wall or Vercel deployment protection challenge. Only the browser upload initiation needs a session; provider callbacks are authenticated by SDK signatures.
+4. Restart the local API after local environment changes. Vercel environment changes apply to a subsequent deployment, which still requires explicit approval. GitHub secrets do not automatically reach either environment; secret synchronization is not planned. Both Vercel projects remain Git-connected with automatic deployments disabled; see [Vercel setup](vercel-setup.md).
+5. In production, the configured BETTER_AUTH_URL origin plus `/api/uploadthing` is the callback URL. The checked-in web rewrite forwards this path; verify its query string/body and UploadThing signature headers reach Express during an approved deployment. UploadThing must be able to reach the endpoint without a login wall or Vercel deployment protection challenge. Only the browser upload initiation needs a session; provider callbacks are authenticated by SDK signatures.
 
 The free plan includes 2 GB shared across apps. It lists private files and region selection as paid features. Use this setup only for public deal photos, never confidential documents. Monitor usage and remove orphaned uploads before expanding beyond a demonstration.
 
