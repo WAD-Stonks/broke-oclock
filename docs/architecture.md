@@ -47,7 +47,7 @@ Start with root [AGENTS.md](../AGENTS.md) for agent workflow, ownership, verific
 - Do not import internals across feature modules. Agree public interfaces and shared contracts first. Use `packages/contracts` for real browser-safe DTO/schema sharing; never export Prisma models to browsers as API contracts.
 - `packages/auth` owns Better Auth setup, its Prisma adapter, Vue client and inferred session/user types. It depends on `packages/db`, never an app. The API injects validated configuration and mounts its Node handler; feature authorization belongs in request handlers/procedures and app-owned domain services. Consume `/client`, `/server`, `/node` and type-only `/types` public entry points.
 - `packages/storage` owns UploadThing SDK setup, upload policy, the browser helper and shared types. Apps share its implementation through this package. Use `/client` in browser code and `/server` only in the API; `/types` is type-only. The API loads credentials and supplies already-authenticated request identity. The package does not import app code or read environment variables.
-- `packages/db` owns the one Prisma schema. The schema owner reviews changes but is not the only person allowed to contribute.
+- `packages/db` owns the one Prisma schema. The schema owner reviews changes but is not the only person allowed to contribute. See [the implemented persistence foundation](database-schema.md); product workflows are not implemented by schema relations.
 - Use the native MongoDB provider through Prisma 6.19. No raw SQL, `$runCommandRaw`, `$queryRaw`, `$aggregateRaw` or direct-driver shortcuts in application code. Discuss unsupported geo/index operations before choosing a workaround.
 - Better Auth owns password hashing, account/session records and session cookies. Feature ownership and moderator permission checks remain server-side application responsibilities.
 
@@ -76,7 +76,7 @@ Server module names can follow domain ownership (`deals`, `venues`, `community`,
 
 ## Source-document reconciliation
 
-The supplied team plan is the starting point, not an already frozen contract. Its JWT/Supabase/Firebase auth suggestions are superseded by the team's explicit Better Auth choice. Leaflet/OSM + OneMap replace earlier Google Maps suggestions. UploadThing is selected for storage and Vercel for hosting; moderator roles, thresholds, multi-outlet scope and deployment wiring remain team decisions.
+The supplied team plan is the starting point, not an already frozen contract. Its JWT/Supabase/Firebase auth suggestions are superseded by the team's explicit Better Auth choice. Leaflet/OSM replaces earlier Google Maps rendering suggestions. OneMap remains a suggestion in the source plan, not a selected geocoder. UploadThing is selected for storage and Vercel for hosting; the approved User roles and multi-outlet schema are documented in [database-schema.md](database-schema.md). Thresholds, geocoding-provider choice and deployment wiring remain separate decisions.
 
 Do not ship a fake `currentUser` in production. Development fixtures must be explicit, isolated and never bypass real API authorization. The starter supplies a real auth integration boundary instead.
 
