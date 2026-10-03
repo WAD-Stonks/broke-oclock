@@ -114,17 +114,26 @@ afterAll(async () => {
 })
 
 describe('real HTTP tRPC + Better Auth session context', () => {
-  it('calls health through the typed RPC client', async () => {
-    await expect(clientFor().health.query()).resolves.toEqual({ ok: true })
+  it('calls health through the namespaced typed RPC client', async () => {
+    await expect(clientFor().infrastructure.health.query()).resolves.toEqual({ ok: true })
+  })
+
+  it.each(['health', 'me'])('removes the legacy top-level %s RPC path', async (path) => {
+    const response = await request(`/api/trpc/${path}`, undefined, firstAccount.cookie)
+    expect(response.status).toBe(404)
+    const payload = await response.json()
+    expect(payload.error?.data?.code).toBe('NOT_FOUND')
   })
 
   it('rejects an anonymous me query with UNAUTHORIZED', async () => {
-    await expect(clientFor().me.query()).rejects.toMatchObject({ data: { code: 'UNAUTHORIZED' } })
+    await expect(clientFor().infrastructure.me.query()).rejects.toMatchObject({
+      data: { code: 'UNAUTHORIZED' },
+    })
   })
 
   it('uses the real signup cookie and returns only the public session shape', async () => {
     const account = firstAccount
-    const profile = await clientFor(account.cookie).me.query()
+    const profile = await clientFor(account.cookie).infrastructure.me.query()
 
     expect(profile).toEqual({
       user: {
@@ -145,13 +154,13 @@ describe('real HTTP tRPC + Better Auth session context', () => {
 
   it('invalidates the RPC me query after real Better Auth logout', async () => {
     const account = await signUp('Logout User')
-    await expect(clientFor(account.cookie).me.query()).resolves.toMatchObject({
+    await expect(clientFor(account.cookie).infrastructure.me.query()).resolves.toMatchObject({
       user: { email: account.email },
     })
 
     const logout = await request('/api/auth/sign-out', {}, account.cookie)
     expect(logout.status).toBe(200)
-    await expect(clientFor(account.cookie).me.query()).rejects.toMatchObject({
+    await expect(clientFor(account.cookie).infrastructure.me.query()).rejects.toMatchObject({
       data: { code: 'UNAUTHORIZED' },
     })
   })
@@ -159,8 +168,8 @@ describe('real HTTP tRPC + Better Auth session context', () => {
   it('keeps concurrent clients on their own session identities', async () => {
     const [first, second] = [firstAccount, secondAccount]
     const [firstProfile, secondProfile] = await Promise.all([
-      clientFor(first.cookie).me.query(),
-      clientFor(second.cookie).me.query(),
+      clientFor(first.cookie).infrastructure.me.query(),
+      clientFor(second.cookie).infrastructure.me.query(),
     ])
 
     expect(firstProfile.user.email).toBe(first.email)
@@ -170,7 +179,7 @@ describe('real HTTP tRPC + Better Auth session context', () => {
 
   it('rejects unexpected procedure input through raw HTTP with Zod BAD_REQUEST', async () => {
     const input = encodeURIComponent(JSON.stringify({ unexpected: true }))
-    const response = await fetch(`${baseURL}/api/trpc/health?input=${input}`, {
+    const response = await fetch(`${baseURL}/api/trpc/infrastructure.health?input=${input}`, {
       headers: { Origin: origin },
     })
 
@@ -179,7 +188,7 @@ describe('real HTTP tRPC + Better Auth session context', () => {
     expect(payload.error?.data?.code).toBe('BAD_REQUEST')
   })
   it('rejects oversized batches before running procedures', async () => {
-    const paths = Array.from({ length: 21 }, () => 'health').join(',')
+    const paths = Array.from({ length: 21 }, () => 'infrastructure.health').join(',')
     const response = await fetch(`${baseURL}/api/trpc/${paths}?batch=1`)
     expect(response.status).toBe(400)
     const body = await response.json()

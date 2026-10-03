@@ -123,4 +123,4 @@ AI-assisted portions: initial scaffolding, generic framework/auth boilerplate, t
 
 ## Typed Express API
 
-Express mounts tRPC at `/api/trpc`. Use `api.health.query()` and authenticated `api.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). Domain procedures remain student-authored work.
+Express mounts tRPC at `/api/trpc`. Use `api.infrastructure.health.query()` and authenticated `api.infrastructure.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). Domain procedures remain student-authored work.

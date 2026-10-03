@@ -7,7 +7,9 @@ apps/api/src/
   trpc/context.ts                 Request context: db, real Better Auth session, trusted-origin flag
   trpc/init.ts                    createTRPCRouter, publicProcedure, protectedProcedure
   trpc/root.ts                    Root appRouter and its inferred AppRouter type
-  trpc/routers/infrastructure.ts  Existing health/me procedures
+  trpc/routers/infrastructure/index.ts  Assembles the infrastructure router
+  trpc/routers/infrastructure/procedures/health.ts  Public health query
+  trpc/routers/infrastructure/procedures/me.ts      Authenticated session query
   rpc.ts                         Official Express adapter and request/body/batch limits
   auth.ts                        Auth config mapping and allowlisted session JSON projection
 apps/web/src/lib/api-client.ts    Typed client and inferred RouterInputs/RouterOutputs
@@ -15,7 +17,7 @@ apps/web/src/lib/api-client.ts    Typed client and inferred RouterInputs/RouterO
 
 ## Adding a domain router
 
-Use `routers/<domain>/index.ts` to assemble named exports from `procedures/<operation>.ts`, then register that domain in root.ts. Read the [step-by-step development guide](development-guide.md) for complete illustrative files and how the keys become frontend calls. The existing flat infrastructure.ts remains a small compatibility case, not a claim that the example folders already exist.
+Use `routers/<domain>/index.ts` to assemble named exports from `procedures/<operation>.ts`, then register that domain in root.ts. Read the [step-by-step development guide](development-guide.md) for complete illustrative files and how the keys become frontend calls. Infrastructure follows this same convention. The root registers `infrastructure: infrastructureRouter` and `ingestion: ingestionRouter`; it does not spread procedures.
 
 ## Ownership and inference
 
@@ -31,11 +33,11 @@ Do not import API implementation through private @api aliases from the web app o
 
 ```ts
 import { api } from '@web/lib/api-client'
-const health = await api.health.query()
-const currentUser = await api.me.query()
+const health = await api.infrastructure.health.query()
+const currentUser = await api.infrastructure.me.query()
 ```
 
-The existing top-level health/me paths remain unchanged. packages/contracts remains because REST/RPC share response schemas and the web/API share a batch limit; don't create one parallel DTO for every inferred procedure. New feature inputs can be defined alongside their procedure, with a shared schema only when another consumer needs it.
+Health and current-user queries are namespaced as `/api/trpc/infrastructure.health` and `/api/trpc/infrastructure.me`. The old top-level tRPC `health` and `me` paths have been removed; update any external callers. REST health/current-user endpoints, Better Auth and UploadThing endpoints are unchanged. packages/contracts remains because REST/RPC share response schemas and the web/API share a batch limit; don't create one parallel DTO for every inferred procedure. New feature inputs can be defined alongside their procedure, with a shared schema only when another consumer needs it.
 
 ## Preserved behaviour
 

@@ -4,7 +4,9 @@ import { expect, expectTypeOf, it } from 'vitest'
 
 it('infers current-user output directly from the API router', () => {
   const client = createRpcClient()
-  expectTypeOf<RouterOutputs['me']>().toEqualTypeOf<CurrentUserResponse>()
-  expectTypeOf<Awaited<ReturnType<typeof client.me.query>>>().toEqualTypeOf<CurrentUserResponse>()
-  expect(client.me.query).toBeTypeOf('function')
+  expectTypeOf<RouterOutputs['infrastructure']['me']>().toEqualTypeOf<CurrentUserResponse>()
+  expectTypeOf<
+    Awaited<ReturnType<typeof client.infrastructure.me.query>>
+  >().toEqualTypeOf<CurrentUserResponse>()
+  expect(client.infrastructure.me.query).toBeTypeOf('function')
 })
