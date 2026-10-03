@@ -20,7 +20,7 @@ apps/api/src/trpc/
 
 `<domain>` and `<operation>` are naming placeholders, not literal folders. Use kebab-case filenames, camelCase exports, and an operation name that describes the action. Create files for implemented work, not empty folders for the whole backlog.
 
-**Current code versus this convention:** the starter currently keeps its two infrastructure procedures in `routers/infrastructure.ts`. They are spread into the root to preserve `api.health` and `api.me`. New domain routers should use the folder convention above. The `example/` walkthrough below is documentation only; it is not a registered API or a shipped feature.
+**Current code:** both `infrastructure` and `ingestion` use this folder convention. `root.ts` registers router namespaces only; it does not define or spread individual procedures. The `example/` walkthrough below is documentation only; it is not a registered API or a shipped feature.
 
 ### What each file does
 
@@ -79,17 +79,19 @@ Illustrative replacement for `apps/api/src/trpc/root.ts` after adding the exampl
 ```ts
 import { createTRPCRouter } from '@api/trpc/init'
 import { exampleRouter } from '@api/trpc/routers/example'
-import { infrastructureProcedures } from '@api/trpc/routers/infrastructure'
+import { infrastructureRouter } from '@api/trpc/routers/infrastructure'
+import { ingestionRouter } from '@api/trpc/routers/ingestion'
 
 export const appRouter = createTRPCRouter({
-  ...infrastructureProcedures,
+  infrastructure: infrastructureRouter,
+  ingestion: ingestionRouter,
   example: exampleRouter,
 })
 
 export type AppRouter = typeof appRouter
 ```
 
-The root key `example` sets the namespace: `api.example.health`, served through `/api/trpc/example.health`. Merely naming a folder `example` does not register it. Keep the existing infrastructure spread so current `api.health` and `api.me` callers do not break. Do not spread new domain procedures into the root; namespace them to avoid collisions.
+The root key `example` sets the namespace: `api.example.health`, served through `/api/trpc/example.health`. Merely naming a folder `example` does not register it. Keep every domain, including infrastructure, under its router namespace. Use `api.infrastructure.health` and `api.infrastructure.me`; the former top-level tRPC health/me aliases are not registered. Do not spread procedures into the root.
 
 ### D. Call it from the web app
 
@@ -102,7 +104,7 @@ const result = await api.example.health.query()
 // result.ok is inferred as true
 ```
 
-This call does not exist in the current starter until the illustrative files/root registration are added. The currently available calls are `api.health.query()` and authenticated `api.me.query()`.
+This call does not exist in the current starter until the illustrative files/root registration are added. The currently available calls are `api.infrastructure.health.query()` and authenticated `api.infrastructure.me.query()`.
 
 Use `.query(input)` for queries and `.mutate(input)` for mutations. These return promises: they are not React hooks. Our client is the framework-independent tRPC client, not `createTRPCReact` or an installed Vue Query integration.
 
@@ -147,7 +149,7 @@ Reuse inferred types when needed:
 ```ts
 import type { RouterOutputs } from '@web/lib/api-client'
 
-type CurrentUserResponse = RouterOutputs['me']
+type CurrentUserResponse = RouterOutputs['infrastructure']['me']
 ```
 
 Use BootstrapVueNext through the UI package, semantic labelled controls and accessible error feedback. Frontend guards improve UX but never replace server authorization. Keep API runtime, secrets and database code out of Vue imports.
