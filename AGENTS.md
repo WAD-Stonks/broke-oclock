@@ -64,7 +64,7 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 - Follow docs/development-guide.md: `src/trpc/routers/<domain>/index.ts` assembles named procedures from `procedures/<operation>.ts`; register that router under a namespace in `src/trpc/root.ts`.
 - One named procedure per file. Use `createTRPCRouter`, `publicProcedure` and `protectedProcedure` from `@api/trpc/init`; do not create another tRPC instance or Express mount per feature.
 - Procedure files must not import their parent index or root. Keep index/root focused on assembly; extract substantive app-local logic only when needed.
-- The current small `routers/infrastructure.ts` and top-level health/me paths are intentionally unchanged. The guide's example router is illustrative, not a deployed endpoint; do not rename existing API paths just to match the new-domain convention.
+- `root.ts` assembles router namespaces only, not individual procedure definitions or procedure spreads. Infrastructure follows `routers/infrastructure/index.ts` plus one procedure per file; use `api.infrastructure.health` and `api.infrastructure.me`. The guide's example router remains illustrative, not a deployed endpoint.
 
 ## Imports and package boundaries
 
