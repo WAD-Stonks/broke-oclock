@@ -21,6 +21,7 @@
         "@broke-oclock/auth": "workspace:*",
         "@broke-oclock/contracts": "workspace:*",
         "@broke-oclock/db": "workspace:*",
+        "@broke-oclock/integrations": "workspace:*",
         "@broke-oclock/storage": "workspace:*",
         "@trpc/server": "11.18.0",
         "cors": "2.8.5",

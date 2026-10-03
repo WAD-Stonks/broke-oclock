@@ -4,6 +4,11 @@ export type AppConfig = {
   betterAuthUrl: string
   betterAuthSecret: string
   databaseUrl: string
+  ingestion?: {
+    enabled: boolean
+    reuseApproved: boolean
+    oneMap?: { email: string; password: string }
+  }
   photoStorage?: { token: string; isDev: boolean }
 }
 
@@ -53,12 +58,33 @@ const parsePhotoStorage = (env: Environment): AppConfig['photoStorage'] => {
   return { token, isDev: env.NODE_ENV === 'development' }
 }
 
+const parseFlag = (env: Environment, name: string): boolean => {
+  const value = env[name]?.trim()
+  if (!value || value === 'false') return false
+  if (value === 'true') return true
+  throw new Error(`${name} must be true or false`)
+}
+const parseIngestion = (env: Environment): AppConfig['ingestion'] => {
+  const email = env.ONEMAP_EMAIL?.trim()
+  const password = env.ONEMAP_EMAIL_PASSWORD?.trim()
+  const configured =
+    email &&
+    password &&
+    ![email, password].some((value) => ['UNSET', 'UNCONFIGURED'].includes(value))
+  return {
+    enabled: parseFlag(env, 'INGESTION_ENABLED'),
+    reuseApproved: parseFlag(env, 'MONEYDIGEST_REUSE_APPROVED'),
+    ...(configured ? { oneMap: { email, password } } : {}),
+  }
+}
+
 export const parseConfig = (env: Environment): AppConfig => {
   const betterAuthSecret = requiredString(env, 'BETTER_AUTH_SECRET')
   if (betterAuthSecret.length < 32)
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters')
   return {
     port: parsePort(env.PORT),
+    ingestion: parseIngestion(env),
     photoStorage: parsePhotoStorage(env),
     webOrigin: parseOrigin(env.WEB_ORIGIN?.trim() || 'http://localhost:5173', 'WEB_ORIGIN'),
     betterAuthUrl: parseOrigin(

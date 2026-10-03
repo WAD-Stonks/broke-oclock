@@ -1,5 +1,6 @@
 import { createAuth, toCurrentUserResponse } from '@api/auth'
 import type { AppConfig } from '@api/config'
+import type { IngestionRuntime } from '@api/modules/ingestion/runtime'
 import { createRpcMiddleware } from '@api/rpc'
 import { createPhotoRouter } from '@api/uploads'
 import { fromNodeHeaders, toNodeHandler } from '@broke-oclock/auth/node'
@@ -9,7 +10,10 @@ import cors from 'cors'
 import express, { type ErrorRequestHandler, type Express } from 'express'
 import helmet from 'helmet'
 
-export const createApp = (config: AppConfig): Express => {
+export const createApp = (
+  config: AppConfig,
+  options: { ingestion?: IngestionRuntime } = {},
+): Express => {
   const auth = createAuth(config)
   const app = express()
 
@@ -35,7 +39,7 @@ export const createApp = (config: AppConfig): Express => {
     createPhotoRouter(config, (headers) => auth.api.getSession({ headers })),
   )
 
-  app.use('/api/trpc', createRpcMiddleware(config, auth))
+  app.use('/api/trpc', createRpcMiddleware(config, auth, options.ingestion))
   app.use(express.json({ limit: '100kb' }))
 
   app.get('/api/ready', async (_request, response) => {

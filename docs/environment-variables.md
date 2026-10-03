@@ -35,28 +35,29 @@ Consumers: `apps/api/src/config.ts`, `apps/api/src/auth.ts`, `packages/db/prisma
 
 These retained names are not required for manual Vercel runtime environment entry. No deployment workflow or GitHub secret-sync job exists or is being added. Current `quality` CI tests/builds the app with disposable local configuration; it does not deploy, sync environment values or consume production secrets. API packaging and web rewrite/SPA fallback are prepared; see [Vercel setup](vercel-setup.md). Verify production credentials and resolve access protection before any separately approved deployment.
 
-## Planned OneMap integration — Add Deal and ingestion
+## OneMap adapter: optional ingestion-admin lookup
 
-| Name | GitHub placement | Purpose |
+| Name | Vercel API placement | Purpose |
 | --- | --- | --- |
-| ONEMAP_EMAIL | Secret | Registered OneMap account email |
+| ONEMAP_EMAIL | Secret | Registered OneMap account email; optional until lookup is enabled |
 | ONEMAP_EMAIL_PASSWORD | Secret | That OneMap account's password, not an unrelated email mailbox credential |
-| ONEMAP_BASE_URL | Variable | `https://www.onemap.gov.sg` |
+| ONEMAP_BASE_URL | Legacy reference | `https://www.onemap.gov.sg`; the adapter uses the fixed official host and does not consume this override |
 
-[Official authentication docs](https://www.onemap.gov.sg/apidocs/authentication) use email/password to obtain an expiring access token. A future server-side integration must acquire/cache/renew tokens; do not make a short-lived ONEMAP_TOKEN a manually maintained permanent production secret. No OneMap request is made by this starter. These are intended future server-side consumers, not frontend build variables.
+The server-side adapter acquires, caches and renews expiring access tokens using the [official authentication API](https://www.onemap.gov.sg/apidocs/authentication). API config validates the optional credential pair; missing or placeholder credentials leave lookup unavailable without breaking auth or health checks. Do not maintain a short-lived ONEMAP_TOKEN as a permanent production secret or copy credentials into frontend variables. The ingestion admin lookup is wired to this transport; Add Deal remains a separate consumer integration. Authenticated live-provider acceptance and production credential entry remain pending. See [ingestion setup](ingestion.md).
 
-## Planned channel ingestion
+## MoneyDigest ingestion: default-off manual administration
 
-| Name | GitHub placement | Purpose |
+| Name | Vercel API placement | Purpose |
 | --- | --- | --- |
-| SCOOBIFY_POSTS_URL | Variable | Verified WordPress.com posts endpoint, not an assumed self-hosted `/wp-json/` endpoint |
-| TELEGRAM_PREVIEW_URL | Variable | Public ThisCounted HTML preview source |
-| INGESTION_ENABLED | Variable | `false` until importer, permissions, idempotency and error handling are ready |
-| CRON_SECRET | Secret | Reserved credential for a future authenticated scheduled-job endpoint |
+| INGESTION_ENABLED | Variable | `false` by default; API opt-in for bounded manual imports |
+| MONEYDIGEST_REUSE_APPROVED | Variable | `false` until publisher reuse has been confirmed |
+| SCOOBIFY_POSTS_URL | Legacy reference | Historical WordPress source; not consumed by the importer |
+| TELEGRAM_PREVIEW_URL | Legacy reference | Historical preview source; no Telegram scraper is implemented |
+| CRON_SECRET | Reserved secret | Future authenticated scheduled-job endpoint; no current consumer |
 
-The sources in `.env.example` need no WordPress username/password, Telegram bot token, Telegram API ID or private-account session. Public content still needs attribution/reuse review. The latest verified Scoobify post was from 2025: assess freshness before relying on it for current offers.
+The fixed-host MoneyDigest transport needs no WordPress username/password. Import requests require both opt-in flags, an enabled matching ImportSource record and a current ADMIN role. Account/source provisioning is a separate approved operation. A public API does not establish publisher reuse permission. The source audit found Scoobify's newest returned post dated 3 July 2025; it is not the promised live feed. Automated checks use synthetic publisher responses and disposable databases, not live publication copies.
 
-No cron job or handler is currently configured. On Vercel, the schedule belongs in deployment configuration (`vercel.json`), not a magical INGESTION_CRON env var; verify the selected plan's scheduling limits before promising 15–30-minute updates. A future trigger must reject missing/placeholder CRON_SECRET, not accept a shared sample value.
+No cron job or handler is configured. The existing manual-run API does not create scheduling. A future schedule requires separately reviewed deployment configuration and an authenticated trigger. Keep CRON_SECRET unset until that consumer exists.
 
 ## Reserved trust/moderation settings — Community
 
