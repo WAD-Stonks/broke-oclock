@@ -29,7 +29,9 @@ it('requires a real session even when the origin is trusted', async () => {
 })
 
 type Client = CreateTRPCClient<AppRouter>
-expectTypeOf<Awaited<ReturnType<Client['me']['query']>>>().toEqualTypeOf<CurrentUserResponse>()
+expectTypeOf<
+  Awaited<ReturnType<Client['infrastructure']['me']['query']>>
+>().toEqualTypeOf<CurrentUserResponse>()
 
 it('redacts unexpected internal errors over the real Express transport', async () => {
   const app = express()
