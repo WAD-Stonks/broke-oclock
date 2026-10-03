@@ -1,5 +1,6 @@
 import GettingStartedPage from '@web/pages/GettingStartedPage.vue'
 import HomePage from '@web/pages/HomePage.vue'
+import IngestionAdminPage from '@web/pages/IngestionAdminPage.vue'
 import NotFoundPage from '@web/pages/NotFoundPage.vue'
 import type { RouteRecordRaw } from 'vue-router'
 
@@ -13,6 +14,11 @@ const routes: RouteRecordRaw[] = [
     path: '/getting-started',
     name: 'getting-started',
     component: GettingStartedPage,
+  },
+  {
+    path: '/admin/ingestion',
+    name: 'ingestion-admin',
+    component: IngestionAdminPage,
   },
   {
     path: '/:pathMatch(.*)*',

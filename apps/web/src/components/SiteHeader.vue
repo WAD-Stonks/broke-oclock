@@ -12,9 +12,10 @@ import { RouterLink } from 'vue-router'
       <RouterLink class="navbar-brand fw-semibold text-primary" to="/">
         Broke O'Clock
       </RouterLink>
-      <div class="navbar-nav ms-auto flex-row gap-3">
+      <div class="navbar-nav ms-auto flex-row flex-wrap gap-3">
         <RouterLink class="nav-link px-0" to="/">Home</RouterLink>
         <RouterLink class="nav-link px-0" to="/getting-started">Getting started</RouterLink>
+        <RouterLink class="nav-link px-0" to="/admin/ingestion">Ingestion admin</RouterLink>
       </div>
     </nav>
   </header>
