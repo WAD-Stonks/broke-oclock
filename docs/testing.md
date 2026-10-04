@@ -28,6 +28,12 @@ Use role/label selectors, isolated records and assertions on observable outcomes
 
 Browser artifacts are ignored under `test-results/` and `playwright-report/`. Never commit a Playwright auth-state JSON containing session cookies. CI uploads failure artifacts only; inspect them for personal data before sharing externally.
 
+## Platform-admin verification
+
+See [platform-admin contracts](platform-admin.md). The API suite uses real cookies and disposable MongoDB for permissions, privilege escalation, optimistic versions, concurrent changes and audit rollback. Vue and browser suites exercise the real UI with synthetic API responses, including account/request actions and 320/390/1280px layouts. They do not replace a connected browser-to-API-to-database acceptance journey or a separately approved live demo.
+
+A new worktree without `.env` needs a non-connecting DATABASE_URL for Prisma validation, for example `DATABASE_URL=mongodb://127.0.0.1:1/platform_admin_validation_only bun run check:all`. Each integration suite replaces it with its own disposable replica-set URI before schema setup. No existing application database is used.
+
 ## Final project testing obligations
 
 The official brief asks for at least E2E testing of core features. Unit tests supplement, not replace, the main user journeys. Each workstream's acceptance path is in [feature-plan.md](feature-plan.md). README instructions must remain runnable on a fresh clone.

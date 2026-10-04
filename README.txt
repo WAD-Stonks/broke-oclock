@@ -15,7 +15,8 @@ TEST: bunx playwright install chromium; bun run check:all
 Full setup, folder structure, coding standards, limitations and official links:
 README.md and docs/architecture.md, docs/coding-standards.md, docs/testing.md.
 
-Core product features remain for implementation.
+ADMIN: /admin/accounts; contracts and teammate handoffs in docs/platform-admin.md.
+No account deletion, automatic admin provisioning or live imports are enabled.
 
 Before final submission add the real deployed URL, presentation/video links,
 team contributions, complete feature/test coverage and safe grading-access

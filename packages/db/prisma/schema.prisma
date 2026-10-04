@@ -11,6 +11,7 @@ generator client {
 
 enum UserRole {
   USER
+  MERCHANT
   MODERATOR
   ADMIN
 }
@@ -22,6 +23,7 @@ model User {
   emailVerified Boolean
   image         String?
   role          UserRole  @default(USER)
+  platformVersion Int?
   createdAt     DateTime
   updatedAt     DateTime
   sessions      Session[]
@@ -37,6 +39,81 @@ model User {
   resolvedDealReports    DealReport[]    @relation("DealReportResolver")
   commentReports         CommentReport[] @relation("CommentReporter")
   resolvedCommentReports CommentReport[] @relation("CommentReportResolver")
+}
+
+// One shared write serializes access decisions, including mutually demoting admins.
+// This is a coordination record, never an administrator bootstrap.
+// One retained row per account/outlet; revocation never deletes identity/history.
+model StallGrant {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  venueId String @db.ObjectId
+  version Int @default(1)
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, venueId])
+  @@index([venueId])
+}
+
+model PlatformAccessFence {
+  id String @id @map("_id")
+  version Int @default(0)
+}
+
+enum MerchantRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Re-submission creates a new record; prior decisions/messages remain history.
+// All submissions and decisions take PlatformAccessFence before checking pending.
+model MerchantAccessRequest {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  userId String @db.ObjectId
+  venueId String @db.ObjectId
+  userName String
+  userEmail String
+  venueName String
+  merchantName String
+  message String
+  status MerchantRequestStatus @default(PENDING)
+  version Int @default(1)
+  reviewNote String?
+  reviewedById String? @db.ObjectId
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([status, id])
+  @@index([userId, venueId, status])
+}
+
+enum PlatformAuditAction {
+  ROLE_CHANGED
+  STALL_GRANTED
+  STALL_REVOKED
+  REQUEST_SUBMITTED
+  REQUEST_APPROVED
+  REQUEST_REJECTED
+}
+
+// Append-only through the application. No edit/delete procedure is exposed.
+// Snapshot names and allowlisted facts, never auth Account/Session/secret payloads.
+model PlatformAudit {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  actorId String @db.ObjectId
+  actorName String
+  action PlatformAuditAction
+  targetUserId String @db.ObjectId
+  venueId String? @db.ObjectId
+  note String
+  roleBefore UserRole?
+  roleAfter UserRole?
+  createdAt DateTime @default(now())
+
+  @@index([targetUserId, id])
 }
 
 model Session {
