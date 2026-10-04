@@ -72,6 +72,8 @@ Root TypeScript/Biome configuration is shared; no additional config or generic u
 5. `ingestion-admin`: admin status/review UI. Server `ingestion` owns WordPress/Telegram fetching, parsing, dedupe and scheduling.
 6. `venues-feed`: venue history, search and the non-map feed.
 
+Noah's additional `platform-admin` workstream owns `/admin/accounts`, the `platformAdmin` router, role changes, merchant-request reviews, stall grants and audit history. Kang En retains user-facing merchant requests and Isaac retains merchant promotion management. See [the handoff and authorization contract](platform-admin.md).
+
 Server module names can follow domain ownership (`deals`, `venues`, `community`, `account`, `ingestion`) rather than duplicating every screen. `deals` serves browse and submit. Coordinate shared routes rather than creating duplicate Deal models.
 
 ## Source-document reconciliation

@@ -2,7 +2,7 @@
 
 A WAD2 team project for discovering Singapore student deals, with maps, community evidence and attributed imports.
 
-**Status: project starter, not a finished deals application.** The repository provides development tooling, generic auth/database integration, a Vue starter and test infrastructure. The six product workstreams remain student-owned implementation work.
+**Status: partial implementation, not a finished deals application.** Alongside the auth/database and test foundation, the repository includes default-off ingestion and platform administration. See [ingestion](docs/ingestion.md), [platform-admin scope and teammate handoffs](docs/platform-admin.md), and [AI-use disclosure](docs/ai-use.md). Remaining product work and course-policy clearance are not implied by these implementations.
 
 ## Stack
 
@@ -108,7 +108,7 @@ Read [AGENTS.md](AGENTS.md) for agent workflow and [import conventions](docs/cod
 5. Channel Ingestion — WordPress/Telegram parsing, provenance and admin review.
 6. Venue Pages & Feed — history, search and list browsing.
 
-No map, live deal CRUD, parser, votes, bookmarks, deal-photo submission flow or venue history is claimed implemented by this starter. Generic [UploadThing infrastructure](docs/photo-storage.md) is available for the team to integrate. UploadThing is selected for photo storage and Vercel for deployment; integration work and domain-contract decisions remain pending. The team's source plan is reflected in `docs/feature-plan.md`; explicit stack decisions override its alternative auth suggestions.
+Ingestion parsing/review and platform administration are implemented in their documented modules. No public map, merchant deal CRUD, community votes, bookmarks, deal-photo submission flow or venue history is claimed complete. Generic [UploadThing infrastructure](docs/photo-storage.md) is available for the team to integrate. UploadThing is selected for photo storage and Vercel for deployment; integration work and domain-contract decisions remain pending. The team's source plan is reflected in `docs/feature-plan.md`; explicit stack decisions override its alternative auth suggestions.
 
 ## Security and assessment notes
 
@@ -119,8 +119,8 @@ This repo is public. Never commit `.env`, credentials, user data, session-state 
 
 Auth boilerplate is not a production readiness guarantee: review email verification/reset delivery, moderator authorization, deployment cookies/HTTPS, abuse controls and provider policies before launch. No cloud deployment is created here.
 
-AI-assisted portions: initial scaffolding, generic framework/auth boilerplate, tests, CI and documentation. Core assessed application logic remains student-owned. See [the full disclosure](docs/ai-use.md). The final course submission requires setup/run/test instructions and disclosure in `README.txt`; the included README.txt points to these maintained guides and is not a claim of final-submission readiness.
+AI-assisted portions include initial scaffolding, framework/auth integration, ingestion and platform-admin feature implementations, tests, CI and documentation. These features are not claimed as student-authored; instructor clearance is needed under the recorded course restrictions. See [the full disclosure](docs/ai-use.md). The final course submission requires setup/run/test instructions and disclosure in `README.txt`; the included README.txt points to these maintained guides and is not a claim of final-submission readiness.
 
 ## Typed Express API
 
-Express mounts tRPC at `/api/trpc`. Use `api.infrastructure.health.query()` and authenticated `api.infrastructure.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). Domain procedures remain student-authored work.
+Express mounts tRPC at `/api/trpc`. Use `api.infrastructure.health.query()` and authenticated `api.infrastructure.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). The `ingestion` and `platformAdmin` namespaces contain the disclosed AI-assisted feature work; other domain workflows remain separate.

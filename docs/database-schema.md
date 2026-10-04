@@ -2,13 +2,13 @@
 
 ## Scope and decisions
 
-This change implements persistence structure, not the assessed product workflows. Source: [team plan](https://docs.google.com/document/d/1Tj4s3xBzRgj3255Rf8mGqqgy_3idha1lteUk-BQzPFw/edit), plus Noah's confirmed decisions in this discussion:
+The original schema change supplied persistence structure. Ingestion and platform-administration workflows have since been added; see [ingestion](ingestion.md) and [platform administration](platform-admin.md) for their implemented boundaries. Source: [team plan](https://docs.google.com/document/d/1Tj4s3xBzRgj3255Rf8mGqqgy_3idha1lteUk-BQzPFw/edit), plus Noah's confirmed decisions in this discussion:
 
 - Keep Prisma 6.19.3, MongoDB and Better Auth 1.7.5; no dependency upgrade or provider change.
-- One `User.role`: `USER`, `MODERATOR`, `ADMIN`; default `USER`. No MEMBER or role array. Store it on Better Auth's existing User model, register it as a server-owned additional field, and forbid client input on signup/profile updates.
-- USER submissions require review before public publication. Staff policy: MODERATOR reviews submissions/reports; ADMIN also manages roles/import administration. The role hierarchy is a future endpoint policy, not enforcement supplied by the database.
+- One `User.role`: `USER`, `MERCHANT`, `MODERATOR`, `ADMIN`; default `USER`. MERCHANT requires an explicit active stall grant and is not a brand-wide capability. No MEMBER or role array. Store it on Better Auth's existing User model, register it as a server-owned additional field, and forbid client input on signup/profile updates.
+- USER submissions require review before public publication. Staff policy: MODERATOR reviews submissions/reports; ADMIN also manages roles/import administration. The database alone does not enforce the hierarchy. Current ADMIN enforcement lives in the ingestion and platform-admin procedures; future moderation and merchant endpoints must enforce their own scope.
 - Promotions support selected outlets, all outlets of a merchant, online, or other no-fixed-location use. Votes remain deal-wide, as in the team plan.
-- No feature endpoints, permission-management endpoint, voting thresholds, parser, scheduler, seed data, provider calls or production database writes.
+- The original schema-only slice did not include feature endpoints. Current platform-admin endpoints and persistence are documented below; ingestion is documented separately. No voting thresholds, scheduler, production seed data or production database writes are introduced.
 
 ## Implementation plan and acceptance
 
@@ -50,7 +50,7 @@ MongoDB has no foreign keys/check constraints here. Prisma relation metadata is 
 - USER_SUBMITTED deals require a real submitter; imported deals retain DealSource provenance. Staff sets review status/reviewer/publication fields, never client payloads.
 - Validate date order, category vocabulary, numeric bounds and offer-type/amount consistency. Prices use integer minor units (default currency SGD); MongoDB's Prisma connector does not support Decimal. Percentage discounts are integers; display terms remain available for nonstandard offers.
 - Attach only confirmed uploads owned by the acting user. Derive uploader identity and provider metadata server-side, not from a submitted URL. The existing uploader still permits one photo per upload request; this schema does not change that policy or persist callbacks automatically.
-- Only authors delete their own comments/submissions; staff actions require server-side checks using the current database-backed session role. Never authorize using browser state or user-provided role values. Role changes require a separately reviewed admin workflow and auditing.
+- Only authors delete their own comments/submissions; staff actions require server-side checks using the current database-backed session role. Never authorize using browser state or user-provided role values. Role changes use the versioned, transactionally audited platform-admin workflow; other feature ownership checks remain the responsibility of their endpoints.
 - Report targets, reviewer IDs and role eligibility must be checked at write time. Do not treat index uniqueness as permission to mutate someone else's record.
 - Import leases require atomic acquisition, ownership-token comparison, bounded expiry and matching release. Cursors advance only under an agreed successful-processing policy; no scheduler is wired here. Per-post status and processedContentHash support resuming the latest snapshot. Historical per-run/post attempt logs and a complete immutable revision archive are deferred; aggregate run counters must not be presented as full replay/audit evidence.
 
@@ -73,7 +73,13 @@ Numeric latitude/longitude fields support bounded typed bbox filtering. They are
 - Generate/validate locally without applying the configured application database. Integration tests push only to their own disposable replica set, never the existing DATABASE_URL.
 - MongoDB uses `prisma db push`, not Prisma Migrate. No migrations directory or destructive push flags.
 - `role @default(USER)` is additive. Prisma supplies the default when reading a missing field, but `db push` does not backfill old documents; filters can distinguish missing/null fields. Before a real deployment, inventory existing User documents with typed Prisma, confirm missing-role behaviour and explicitly approve any required backfill. Never overwrite an existing MODERATOR/ADMIN role. Explicit null/invalid stored roles require remediation rather than silent promotion.
-- No existing user is promoted. Initial admin provisioning, role-management endpoints, deployment and application of this schema to Atlas remain separate approved operations.
+- No existing user is automatically promoted. Role-management endpoints are implemented in platform administration. Initial admin provisioning, deployment and application of this schema to Atlas remain separately approved operations.
+
+## Platform-administration additions
+
+`User.platformVersion` tracks access changes. `MerchantAccessRequest` records versioned requests and review snapshots; `StallGrant` is unique per user/venue and preserves revoked rows; `PlatformAudit` is application-level append-only action history; `PlatformAccessFence` serializes permission writes. Existing missing/null account versions are treated as zero. These records do not authorize merchant endpoints unless those endpoints adopt the transactional capability helper.
+
+See [platform administration](platform-admin.md) for invariants, API contracts, audit limitations and the `submitMerchantAccessRequest` / `requireMerchantStall` handoffs. Account deletion remains unavailable. Schema generation and test-owned schema pushes do not apply these changes to a live database.
 
 ## Sources and skill selection
 
