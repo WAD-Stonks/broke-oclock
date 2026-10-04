@@ -1,126 +1,195 @@
-# Broke O'Clock
+# LoBangers
 
-A WAD2 team project for discovering Singapore student deals, with maps, community evidence and attributed imports.
+**IS216 Web Application Development II | G9 | Team Stonkers - LoBangers**
 
-**Status: partial implementation, not a finished deals application.** Alongside the auth/database and test foundation, the repository includes default-off ingestion and platform administration. See [ingestion](docs/ingestion.md), [platform-admin scope and teammate handoffs](docs/platform-admin.md), and [AI-use disclosure](docs/ai-use.md). Remaining product work and course-policy clearance are not implied by these implementations.
+LoBangers is a Singapore food-deal discovery project built around one question: **what discounted food is near me right now?** It brings scattered promotions into a searchable map and feed, combines community submissions with availability reports, and gives stall owners a separate dashboard for their authorised promotions.
 
-## Stack
+The GitHub repository and workspace retain the technical name `broke-oclock`.
 
-- Vue 3 + TypeScript + Vite; BootstrapVueNext + Bootstrap; Vue Router
-- Express + Better Auth (email/password, session cookies)
-- Prisma 6.19 + MongoDB replica set — Prisma7 currently does not support MongoDB
-- Bun workspaces and one lockfile; Biome only (no ESLint/Prettier/Oxlint)
-- Vitest for unit/integration tests; Playwright for browser E2E
+## Proposal and project scope
+
+This README follows the [shared project proposal](https://docs.google.com/document/d/1asblldD4jfM9ypkjNeQ-47ydnXJ5j_z3MA2ysA-ehjs/edit), including its 4 October 2026 update and Week 8 plan. The proposal defines intended product scope; the implementation status below records what is present in this repository.
+
+### Planned user experience
+
+- **Discover food deals:** clustered map markers and a non-map feed, with shared category, cuisine, promotional-price range in SGD, distance and validity filters. Deal details include conditions and source attribution. Deals without a fixed outlet stay in the list rather than receiving invented map pins.
+- **Contribute deals:** authenticated submission with title, category, cuisine, promotional price, validity dates, photo and OneMap address selection or a dropped pin. Users manage their own submissions; new submissions begin unverified.
+- **Keep information current:** one changeable availability vote per user/deal, comments, reports and freshness indicators. Scheduled expiry remains separate from community reports; outlet-specific reports must not end a chain-wide promotion everywhere.
+- **Manage personal activity:** registration/login/logout, profiles, bookmarks, saved deals and a user's own submissions.
+- **Manage merchant promotions:** request merchant access, receive admin approval for named stalls, then create, view, edit, delete or end promotions for those stalls only.
+- **Administer the platform:** a separate dashboard for account/role management, merchant approvals, stall links, ingestion monitoring and action history. Account deletion requires an agreed retention/anonymisation policy.
+- **Aggregate external deals:** import permitted public-source records, parse and deduplicate them, preserve attribution and expose import results/failures.
+
+**Stretch scope:** venue deal history and promotion-frequency insights. The core discovery, contribution and merchant flows take priority.
+
+## Team ownership and cross-review
+
+1. **Ashley Tan Min Yee, Venue Pages and Feed.** List/feed, search, venue summaries, cuisine and price filters; venue-history analytics are stretch work. **Reviewer: Allison Margaret Loo Li Houng.**
+2. **Damien Law Yong Chung, Verification and Comments.** Availability votes, comments, reports, freshness indicators and agreed thresholds. **Reviewer: Leong Zhi Xin Isaac.**
+3. **Lwin Moe Htet (Noah), Ingestion and Platform Administration.** Permitted-source integration, parsing, geocoding, deduplication, import monitoring, account/role management, merchant approval, authorised stall links and audit history. Account deletion follows the team's agreed policy. **Reviewer: Wong Kang En.**
+4. **Leong Zhi Xin Isaac, Deal Submission and Merchant Dashboard.** Community form, cuisine/price/date inputs, photos, location selection and merchant promotion CRUD/end actions with ownership checks. **Reviewer: Damien Law Yong Chung.**
+5. **Allison Margaret Loo Li Houng, Browse and Map.** Map, markers/clustering, deal popup and location/category/cuisine/price/validity filters, consistent with the feed. **Reviewer: Ashley Tan Min Yee.**
+6. **Wong Kang En, Accounts, Saved Deals and Access Control.** Authentication, sessions, profiles, bookmarks, own submissions, merchant request/status flow and planned verification/reset emails. **Reviewer: Lwin Moe Htet (Noah).**
+
+### Role and ownership boundaries
+
+The proposal distinguishes regular users, merchants and platform admins. The current database retains the additional `MODERATOR` role alongside `USER`, `MERCHANT` and `ADMIN`.
+
+- Kang En owns user-facing authentication and merchant requests.
+- Noah owns approval, role changes, account-to-stall grants and platform administration.
+- Isaac owns the merchant promotion dashboard and enforces stall ownership in its endpoints.
+- A MERCHANT role alone does not grant stall access. An explicit active grant is required, and a merchant must not gain access to other stalls or platform-admin actions.
+
+See [platform-admin contracts and teammate handoffs](docs/platform-admin.md) and [database invariants](docs/database-schema.md).
+
+## Current implementation status
+
+### Implemented
+
+- Bun monorepo, Vue/Express setup, Better Auth email/password sessions, Prisma/MongoDB integration and automated quality checks.
+- **Ingestion administration at `/admin/ingestion`:** bounded manual MoneyDigest imports, conservative parsing, source attribution, deduplication, run/failure monitoring and version-safe draft review. Imports are **disabled by default** pending permitted reuse and source configuration.
+- **Platform administration at `/admin/accounts`:** account search/details, role changes, merchant-request approval/rejection, stall grants/revocation and atomic action history. Mutations use current server-side permissions, expected versions and transaction safeguards.
+- Server-side OneMap authentication/search adapter, UploadThing integration infrastructure and an opt-in Resend transport package.
+
+### Still to connect or complete
+
+- Public map/feed, shared cuisine/price discovery queries, community deal submission and merchant promotion management.
+- Voting/comments/reports, profiles, bookmarks, own-submission pages and user-facing merchant request/status screens.
+- Verification/password-reset email flows, live provider acceptance, scheduled ingestion and confirmed imported-deal outlet association.
+- Account deletion after the retention/anonymisation decision, connected end-to-end demo journeys and separately approved deployment.
+
+Schema models and shared packages do not make these remaining workflows complete. The home and getting-started routes are development pages, not a finished public discovery experience.
+
+### Data-source alignment
+
+The proposal still names Scoobify/WordPress.com and `@ThisCounted`, while its Week 8 plan calls for **one permitted public deal API**. The current importer uses **MoneyDigest's WordPress endpoint**, not a Telegram scraper or an active Scoobify feed. No periodic scheduler is configured. The team must reconcile the final source choice and reuse permission before activation; this README does not silently treat those proposal candidates as working integrations.
+
+OneMap currently supports server-side search; connecting Isaac's location picker and verifying live authenticated access remain separate tasks. UploadThing infrastructure does not yet constitute the deal-photo attachment flow, and the Resend package does not automatically send verification/reset emails. See [ingestion](docs/ingestion.md), [photo storage](docs/photo-storage.md) and [environment readiness](docs/environment-variables.md).
+
+## Technology and data
+
+- **Frontend:** Vue 3, TypeScript, Vue Router, Vite, Bootstrap 5 and BootstrapVueNext.
+- **Backend:** Express 5, TypeScript, tRPC and Zod; Better Auth sessions with Helmet, CORS and origin/CSRF checks.
+- **Database:** MongoDB/Atlas through Prisma 6.19. A replica set is required for transactions. MongoDB stores identities/sessions, roles, merchant/outlet records, access requests/grants, deal and community records, source/review metadata and audit history; not every model has a completed feature flow.
+- **Images:** UploadThing stores files; MongoDB has fields for file keys/URLs, type, size, uploader and optional deal association.
+- **Local database:** `mongodb-memory-server` supports a local replica-set helper and isolated test replicas. Development data persists under ignored `.local/mongodb/`; test databases are disposable.
+- **Runtime and collaboration:** Bun 1.4.2 workspaces, one lockfile, GitHub and GitHub Actions; Biome, Vitest and Playwright.
+- **Hosting target:** separate Vercel frontend/API projects. Git-connected setup is not deployment; automatic deployments remain disabled under the documented project configuration.
+
+### APIs and integration boundaries
+
+- **WordPress APIs:** proposal candidate [WordPress.com REST API](https://developer.wordpress.com/docs/api/); current MoneyDigest importer uses its WordPress posts endpoint. Activation requires confirmed reuse permission.
+- **[OneMap](https://www.onemap.gov.sg/apidocs/):** Singapore address search/geocoding, with credentials and token handling on the API side.
+- **[UploadThing](https://docs.uploadthing.com/backend-adapters/express):** authenticated photo-upload infrastructure; live account setup and feature attachment remain separate.
+- **[Resend](https://resend.com/docs/api-reference/emails/send-email):** selected transport for planned account-verification/reset emails.
+- **[OpenStreetMap tiles](https://operations.osmfoundation.org/policies/tiles/) with Leaflet:** planned map rendering, subject to attribution and tile-use requirements.
+- **[Browser Geolocation](https://www.w3.org/TR/geolocation/):** planned permission-based nearby discovery, with a manual-location fallback.
 
 ## First-time setup
 
-Install Bun 1.4.2 and Node 22.18+ (Node is also used by development/test tools). Then:
+Install Bun **1.4.2** and Node **22.18+**. From a local development checkout:
 
 ```sh
 git clone https://github.com/WAD-Stonks/broke-oclock.git
 cd broke-oclock
-bun install --frozen-lockfile
+bun install --frozen-lockfile --ignore-scripts
 bun run setup
 ```
 
-`setup` creates an ignored root `.env` with a random local auth secret, preserves an existing `.env`, and generates Prisma Client. It does not provision Atlas, send email, scrape channels or seed public deals.
+`setup` preserves an existing `.env`, otherwise creates an ignored local configuration with a random auth secret, and generates Prisma Client. It does not provision Atlas, promote an administrator, seed deals, activate imports or send email.
 
-### Start the database
-
-For a Docker-free local replica set, in terminal 1:
+Start the local database in terminal 1:
 
 ```sh
 bun run db:local
 ```
 
-This downloads a MongoDB binary on first use and starts a **local-only, unauthenticated** single-node replica set. Development data is kept in ignored `.local/mongodb/`; Ctrl+C stops the server without deleting it. Do not expose this helper on the internet. If port 27017 is in use, it stops rather than replacing another process.
+This may download MongoDB on first use. The helper is local-only and unauthenticated; never expose it to the internet. It refuses to replace an existing listener on port 27017.
 
-Alternatively use your own MongoDB replica set/Atlas development database and update root `DATABASE_URL`. Keep its credentials out of Git. A standalone MongoDB server is insufficient for Prisma transaction-dependent auth flows.
-
-### Apply schema and start apps
-
-In terminal 2, with the database ready:
+After confirming that `DATABASE_URL` targets your intended **local development replica set**, apply the schema and start the apps in terminal 2:
 
 ```sh
 bun run db:push
 bun run dev
 ```
 
-- Frontend: http://localhost:5173
-- API: http://localhost:3000
-- Better Auth base path: `/api/auth`
-- The Vite development proxy forwards `/api` to Express. No frontend secret is needed.
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:3000`
+- Better Auth: `/api/auth`
+- Ingestion dashboard: `/admin/ingestion`
+- Platform-admin dashboard: `/admin/accounts`
 
-`db:push` changes the database configured in `.env`: check the target first. Do not use it blindly against production. MongoDB uses schema push, not Prisma Migrate migration files. Regenerate Prisma Client after schema changes.
+Vite proxies `/api` to Express. Admin pages require a real authenticated ADMIN account; setup does not create or promote one. Provisioning or demo fixtures require an explicitly approved isolated setup. MongoDB uses schema push, not Prisma Migrate; never run `db:push` blindly against Atlas or production.
 
-## Environment variables
+## Configuration and deployment boundary
 
-See [the complete environment inventory](docs/environment-variables.md) and `.env.example`. They distinguish current API settings, planned Vercel deployment settings and reserved OneMap/ingestion/moderation settings. Production values belong in the repository’s GitHub `production` environment; UploadThing is selected for photos, with its server token still to configure; Resend is selected with fail-closed placeholders and no automatic auth email flows. Existing `.env` files are preserved by setup.
+Use [`.env.example`](.env.example) and the [environment inventory](docs/environment-variables.md). Server credentials must never appear in `VITE_*`, browser code or committed files.
 
-## Commands
+Production runtime values belong directly in the **Vercel API project's environment settings**, not in an assumed GitHub-to-Vercel sync. Existing GitHub `production` settings are retained but are not automatically copied to Vercel. The web app currently requires no frontend environment variables.
+
+Imports remain off until `INGESTION_ENABLED` and `MONEYDIGEST_REUSE_APPROVED` are intentionally enabled with a configured source. Provider credentials alone do not implement missing workflows or authorize deployment. See [Vercel setup and safety boundaries](docs/vercel-setup.md).
+
+## Commands and verification
 
 ```sh
-bun run dev:web          # frontend only
-bun run dev:api          # backend only
-bun run db:generate      # generate ignored Prisma Client
-bun run db:validate      # validate Prisma schema
-bun run format           # Biome format/import fixes
-bun run check            # lint + schema + types + unit tests + builds
-bun run test:packages    # email/WordPress transport tests
-bun run test:integration # isolated real MongoDB/auth/tRPC HTTP tests
+bun run dev:web          # Vue only
+bun run dev:api          # Express only
+bun run db:generate      # Generate Prisma Client
+bun run db:validate      # Validate Prisma schema
+bun run format          # Biome formatting/import fixes
+bun run lint            # Biome checks
+bun run typecheck       # Workspace and tool types
+bun run test:unit        # API, web and shared-package unit tests
+bun run test:packages    # Shared-package tests only
+bun run test:integration # Real HTTP/auth/Prisma with disposable MongoDB
 bunx playwright install chromium
-bun run test:e2e         # browser starter tests
-bun run check:all        # full local verification
+bun run test:e2e         # Chromium browser tests
+bun run build           # API and web builds
+bun run check:all       # Full local quality gate
+bun run audit           # Documented dependency-audit policy
 ```
 
-Use `bun run test`, not `bun test`, for this project's Vitest tests.
+Use `bun run test`, not Bun's native `bun test`, for this Vitest project. For an isolated worktree without `.env`, Prisma validation can use the non-connecting URI described in [testing](docs/testing.md); integration suites supply their own disposable databases.
 
-## Folder structure and coding standards
+Browser tests currently use explicitly synthetic API/provider responses for affected workflows. They exercise the SPA and client transport, while API integration tests separately exercise real HTTP, authentication and database behaviour. Neither layer is a claim that the proposal's complete connected demo already works. CI records verification for each PR commit; no test count is a permanent project guarantee.
 
-Start with [How to code here](docs/development-guide.md) for the router/procedures/index.ts convention, a registration walkthrough, frontend calls and the development checklist. Then consult:
+## Week 8 plan: 5 to 11 October 2026
 
-1. [Architecture and folder ownership](docs/architecture.md)
-2. [Coding standards](docs/coding-standards.md)
-3. [Six workstreams and acceptance journeys](docs/feature-plan.md)
-4. [Draft schema/API decisions — team approval needed](docs/contracts.md)
-5. [Testing instructions](docs/testing.md)
-6. [Integration caveats and official docs](docs/integrations.md)
-7. [Contribution and PR workflow](CONTRIBUTING.md)
-8. [AI-use disclosure and course boundaries](docs/ai-use.md)
+These are **internal proposal targets**, not submission deadlines or completion claims:
 
-Read [AGENTS.md](AGENTS.md) for agent workflow and [import conventions](docs/coding-standards.md#imports-and-aliases) for extensionless workspace aliases.
+- **5 October:** confirm shared deal fields/filter semantics, merchant-access and deletion rules, verification thresholds, provider access and common test records. Keep unknown prices distinct from zero-priced deals.
+- **7 October:** each owner demonstrates a first saved-data or authenticated API flow and requests review.
+- **9 October:** connect screens to shared APIs and complete assigned cross-reviews, including map/feed consistency and merchant approval/ownership.
+- **10 October:** run student and merchant journeys together; fix integration, permissions and responsive-layout failures.
+- **11 October:** rehearse the Week 9 pitch, prepare a backup demo and record each task as COMPLETE, INCOMPLETE or BLOCKED with reviewer and next action.
 
-`apps/web` owns Vue and `apps/api` owns HTTP/configuration/request identity. Shared packages own `auth` (Better Auth), `db` (Prisma), `storage` (UploadThing), `contracts` (Zod schemas/inferred DTOs), `integrations` (read-only WordPress transport), `email` (disabled-until-configured Resend) and `ui` (BootstrapVueNext/AppShell). `e2e` owns browser journeys. Feature-specific code goes in module folders, not a giant App.vue or server.ts. Do not import database/server code into the browser.
+Pitch split: Ashley covers problem/features; Noah covers stack/data/APIs; Kang En covers task/role boundaries; Allison, Isaac and Damien cover demo flows.
 
-## Verified starter checks
+### Connected-demo acceptance
 
-- `bun run check:all` covers unit tests, real-HTTP auth/database/upload/tRPC integration tests and Chromium checks, plus schema validation, typechecks and both builds. UploadThing provider responses in tests are explicitly synthetic; a live upload requires a configured account/token.
-- The compiled API was also started with Bun and exercised through real signup, session lookup and logout; disposable probe records were removed.
-- The actual Vue Better Auth client successfully reached `/api/auth/get-session` through the Vite proxy in a browser.
-- Fresh-clone and GitHub CI results are recorded by the CI run, not inferred from local tests. These are starter checks, not coverage of unimplemented product features.
+- **Student:** register/login, submit, discover in map and feed, filter by cuisine/price, save, vote and comment.
+- **Merchant:** request access, receive approval for one stall, publish/edit/end its promotion, and remain unable to manage another stall or call admin actions.
+- **Ingestion:** demonstrate a permitted live external API request and stored result, repeat it without duplicates, and inspect a failed-run record.
+- **Failures:** expired deals, unknown prices, denied geolocation, invalid inputs, duplicate votes, logged-out writes and unauthorised merchant/admin actions.
 
-## Planned product work
+Each owner supplies tests and a short run/demo note. The assigned reviewer checks the feature in Chrome and records the outcome. Venue-history analytics stay behind these core flows.
 
-1. Browse & Map — Leaflet/OSM, filters and DealCard.
-2. Add Deal — submission, OneMap location and approved image storage.
-3. Verify & Comments — scoped votes, freshness, comments and reports.
-4. Accounts & Saved — auth UI, profile and bookmarks.
-5. Channel Ingestion — WordPress/Telegram parsing, provenance and admin review.
-6. Venue Pages & Feed — history, search and list browsing.
+## Repository guide
 
-Ingestion parsing/review and platform administration are implemented in their documented modules. No public map, merchant deal CRUD, community votes, bookmarks, deal-photo submission flow or venue history is claimed complete. Generic [UploadThing infrastructure](docs/photo-storage.md) is available for the team to integrate. UploadThing is selected for photo storage and Vercel for deployment; integration work and domain-contract decisions remain pending. The team's source plan is reflected in `docs/feature-plan.md`; explicit stack decisions override its alternative auth suggestions.
+- `apps/web`: Vue pages, feature modules, routes and typed client calls.
+- `apps/api`: Express setup, request context, tRPC routers and app-owned services.
+- `packages`: shared auth, database, storage, contracts, integrations, email and UI.
+- `e2e`: Playwright journeys; `scripts`: local setup, builds and test tooling.
+- `docs`: architecture, contracts, setup, security and ownership guidance.
 
-## Security and assessment notes
+The API root registers named routers only: `infrastructure`, `ingestion` and `platformAdmin`. Use `api.infrastructure.health.query()` and `api.infrastructure.me.query()` through the browser's type-safe client. Feature procedures live under `routers/<domain>/procedures/` and are assembled in that domain's `index.ts`. Better Auth and UploadThing keep their native endpoints.
 
-One Prisma CLI-only dependency advisory remains with a narrow, documented audit exception; see [security notes](docs/security.md). Run `bun audit` for the unfiltered result or `bun run audit` for the CI policy. This is not a claim of a clean raw audit.
+Read [AGENTS.md](AGENTS.md), [development guide](docs/development-guide.md), [architecture](docs/architecture.md), [coding standards](docs/coding-standards.md), [platform-admin handoff](docs/platform-admin.md), [testing](docs/testing.md) and [contribution workflow](CONTRIBUTING.md). Earlier planning material in `docs/feature-plan.md` and `docs/contracts.md` must be reconciled with the current proposal and implemented contracts where it differs.
 
+## Security, disclosure and final submission
 
-This repo is public. Never commit `.env`, credentials, user data, session-state files or unlicensed channel fixtures. `private: true` in package manifests prevents accidental npm publication; it does not make the GitHub repository private.
+This repository is public. Never commit credentials, session-state files, personal records, generated clients or unlicensed publisher fixtures. The dependency audit retains one documented Prisma CLI exception; `bun run audit` passing does not mean an unfiltered audit is clean. See [security notes](docs/security.md).
 
-Auth boilerplate is not a production readiness guarantee: review email verification/reset delivery, moderator authorization, deployment cookies/HTTPS, abuse controls and provider policies before launch. No cloud deployment is created here.
+AI-assisted work includes scaffolding, framework/auth integration, ingestion and platform-admin feature implementations, tests, CI and documentation. The [AI-use disclosure](docs/ai-use.md) records this work and the course restrictions; instructor clearance remains separate from code verification. Do not present AI-assisted features as student-authored work.
 
-AI-assisted portions include initial scaffolding, framework/auth integration, ingestion and platform-admin feature implementations, tests, CI and documentation. These features are not claimed as student-authored; instructor clearance is needed under the recorded course restrictions. See [the full disclosure](docs/ai-use.md). The final course submission requires setup/run/test instructions and disclosure in `README.txt`; the included README.txt points to these maintained guides and is not a claim of final-submission readiness.
-
-## Typed Express API
-
-Express mounts tRPC at `/api/trpc`. Use `api.infrastructure.health.query()` and authenticated `api.infrastructure.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). The `ingestion` and `platformAdmin` namespaces contain the disclosed AI-assisted feature work; other domain workflows remain separate.
+Keep [README.txt](README.txt) aligned for final submission. Add verified deployment/presentation/video links, actual contributions, complete feature-test results and safe grading-access instructions when available. Do not publish account passwords or invent deployment/demo results.
