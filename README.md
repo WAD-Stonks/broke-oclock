@@ -2,7 +2,7 @@
 
 A WAD2 team project for discovering Singapore student deals, with maps, community evidence and attributed imports.
 
-**Status: project starter, not a finished deals application.** The repository provides development tooling, generic auth/database integration, a Vue starter and test infrastructure. The six product workstreams remain student-owned implementation work.
+**Status: partial implementation, not a finished deals application.** Alongside the auth/database and test foundation, the repository includes default-off ingestion and platform administration. See [ingestion](docs/ingestion.md) and [platform-admin scope and teammate handoffs](docs/platform-admin.md). Remaining product work is not implied by these implementations.
 
 ## Stack
 
@@ -107,7 +107,7 @@ Read [import conventions](docs/coding-standards.md#imports-and-aliases) for exte
 5. Channel Ingestion — WordPress/Telegram parsing, provenance and admin review.
 6. Venue Pages & Feed — history, search and list browsing.
 
-No map, live deal CRUD, parser, votes, bookmarks, deal-photo submission flow or venue history is claimed implemented by this starter. Generic [UploadThing infrastructure](docs/photo-storage.md) is available for the team to integrate. UploadThing is selected for photo storage and Vercel for deployment; integration work and domain-contract decisions remain pending. The team's source plan is reflected in `docs/feature-plan.md`; explicit stack decisions override its alternative auth suggestions.
+Ingestion parsing/review and platform administration are implemented in their documented modules. No public map, merchant deal CRUD, community votes, bookmarks, deal-photo submission flow or venue history is claimed complete. Generic [UploadThing infrastructure](docs/photo-storage.md) is available for the team to integrate. UploadThing is selected for photo storage and Vercel for deployment; integration work and domain-contract decisions remain pending. The team's source plan is reflected in `docs/feature-plan.md`; explicit stack decisions override its alternative auth suggestions.
 
 ## Security and assessment notes
 
@@ -122,4 +122,4 @@ The final course submission requires setup/run/test instructions in `README.txt`
 
 ## Typed Express API
 
-Express mounts tRPC at `/api/trpc`. Use `api.infrastructure.health.query()` and authenticated `api.infrastructure.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). Domain procedures remain separate work.
+Express mounts tRPC at `/api/trpc`. Use `api.infrastructure.health.query()` and authenticated `api.infrastructure.me.query()` from `@web/lib/api-client`; arguments/results are inferred from the API-owned router and Zod contracts. Existing REST probes, Better Auth and UploadThing keep their native endpoints. See [RPC ownership, security and usage](docs/trpc.md). The `ingestion` and `platformAdmin` namespaces contain ingestion and platform-administration workflows; other domain workflows remain separate.

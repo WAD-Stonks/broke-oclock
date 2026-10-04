@@ -3,6 +3,7 @@ import { BButton } from '@broke-oclock/ui'
 import { authClient } from '@web/lib/auth-client'
 import { ref } from 'vue'
 
+withDefaults(defineProps<{ title?: string }>(), { title: 'Sign in to review ingestion' })
 const emit = defineEmits<{ signedIn: [] }>()
 const email = ref('')
 const password = ref('')
@@ -27,7 +28,7 @@ const signIn = async () => {
 
 <template>
   <section aria-labelledby="sign-in-title" class="card p-4">
-    <h2 id="sign-in-title" class="h4">Sign in to review ingestion</h2>
+    <h2 id="sign-in-title" class="h4">{{ title }}</h2>
     <p class="text-secondary">An authorized staff account is required. Signing in does not grant a role.</p>
     <form @submit.prevent="signIn" :aria-busy="pending">
       <label for="admin-email" class="form-label">Email</label>

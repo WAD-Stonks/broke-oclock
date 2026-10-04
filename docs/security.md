@@ -2,7 +2,7 @@
 
 ## Threat boundaries
 
-Browser → API: input validation, exact CORS/trusted origins, real session verification, response field allowlists and security headers. Feature record ownership/moderation is not implemented yet and must be enforced server-side.
+Browser → API: input validation, exact CORS/trusted origins, real session verification, response field allowlists and security headers. Platform administration and ingestion enforce current ADMIN roles server-side. Merchant promotion and other feature ownership checks must still be integrated in their own endpoints; the platform-admin capability helper is not automatic protection.
 
 API → MongoDB: typed Prisma queries and server-only database configuration. Public source HTML/photos → application: imported text is untrusted and content-reuse permissions are separate from technical accessibility. No importer or uploader is enabled by the starter.
 
@@ -18,6 +18,12 @@ The unfiltered initial audit has ONE remaining high advisory:
 - Other initial findings were addressed with compatible Prisma6.19.3 and Vitest4.1.11 patch upgrades and re-verification.
 
 No broad audit disablement, forced major override or Prisma7 upgrade is used. Prisma7 lacks the selected MongoDB support. A passing exception-aware audit is not proof of production security.
+
+## Platform administration
+
+Role/request/grant mutations recheck the administrator inside a fenced transaction, compare expected versions and write audit events atomically. Self-role changes and duplicate grants are refused. Demotion revokes merchant grants and invalidates stale pending requests. The UI is not the authorization boundary.
+
+Audit history has no API update/delete operations, but is not tamper-proof against direct database access. The shared permission fence prioritizes correctness and may become a contention point under load; no throughput claim is made. No account deletion, initial admin provisioning or live schema application is included. See [platform-admin contracts and handoffs](platform-admin.md).
 
 ## Before production
 

@@ -23,7 +23,7 @@ export const createAuth = (config: AuthConfig) => {
     user: {
       additionalFields: {
         role: {
-          type: ['USER', 'MODERATOR', 'ADMIN'],
+          type: ['USER', 'MERCHANT', 'MODERATOR', 'ADMIN'],
           required: false,
           defaultValue: 'USER',
           input: false,
