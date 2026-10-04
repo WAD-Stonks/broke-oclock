@@ -16,7 +16,7 @@ export const accountsProcedure = adminProcedure
           id,
           name: z.string(),
           email: z.string(),
-          role: z.enum(['USER', 'MODERATOR', 'ADMIN']),
+          role: z.enum(['USER', 'MERCHANT', 'MODERATOR', 'ADMIN']),
           createdAt: z.string(),
         }),
       ),

@@ -11,7 +11,7 @@ Owner: Noah. API work belongs under `apps/api/src/modules/ingestion` and `apps/a
 - OneMap address lookup using backend-only authentication, token renewal and bounded query caching.
 - A Vue admin screen with real API wiring, loading, error, empty and forbidden states.
 
-No public browse/map, community voting, account deletion, role-management workflow, cross-publisher automatic merge or deployment schedule is supplied by this slice. Those belong to separately reviewed work. Address lookup results are candidates, not proof a particular merchant participates in a promotion.
+No public browse/map, community voting, account deletion, role-management workflow, cross-publisher automatic merge or deployment schedule is supplied by this slice. Role management and merchant access now live in the separate [platform-admin module](platform-admin.md). Other excluded features remain separate work. Address lookup results are candidates, not proof a particular merchant participates in a promotion.
 
 ## Source activation
 
@@ -82,7 +82,7 @@ The focused API suite exercises authentication, current-role enforcement, origin
 
 - Isaac can reuse the authenticated OneMap transport on the API side for the submission location picker. It must retain an explicit user-selected outlet and a separate fallback when lookup is unavailable.
 - Allison and Ashley should only show eligible published deals, with approved matching content/review versions, source attribution and the correct outlet/no-fixed-location representation.
-- Kang En retains the user-facing account lifecycle; this workstream only supplies the administrator's read-only account list.
+- Kang En retains the user-facing account lifecycle and merchant-request screens. The ingestion screen keeps its read-only list; Noah's separate [platform administration](platform-admin.md) supplies role changes, request review, stall access and audit history.
 - Scheduled import triggering, real publisher activation, production schema application and initial administrator provisioning require their own approval. A PR is not a production rollout.
 
 ## Reference material
