@@ -8,4 +8,4 @@ Server-only Resend transport and escaped verification/password-reset templates. 
 
 The GitHub production environment and `.env.example` contain RESEND_API_KEY/EMAIL_FROM placeholders. No real mail has been sent, no verified sending domain is claimed, and Better Auth email hooks/endpoints are not activated. Adding credentials alone does not enable auth flows. Provider responses are mocked in tests; those tests prove request/validation behaviour, not live email delivery.
 
-Run `bun run test:packages` or full `bun run check:all`. Internal imports use `@email/*`. [Resend API contract](https://resend.com/docs/api-reference/emails/send-email).
+Run `pnpm run test:packages` or full `pnpm run check:all`. Internal imports use `@email/*`. [Resend API contract](https://resend.com/docs/api-reference/emails/send-email).

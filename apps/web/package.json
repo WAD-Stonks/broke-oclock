@@ -9,17 +9,18 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "bootstrap": "5.3.8",
-    "vue": "3.5.38",
-    "vue-router": "5.1.0",
-    "@broke-oclock/storage": "workspace:*",
     "@broke-oclock/auth": "workspace:*",
+    "@broke-oclock/contracts": "workspace:*",
+    "@broke-oclock/storage": "workspace:*",
     "@broke-oclock/ui": "workspace:*",
-    "@trpc/server": "11.18.0",
     "@trpc/client": "11.18.0",
-    "@broke-oclock/contracts": "workspace:*"
+    "@trpc/server": "11.18.0",
+    "bootstrap": "5.3.8",
+    "vue": "3.5.42",
+    "vue-router": "5.1.0"
   },
   "devDependencies": {
+    "@broke-oclock/api": "workspace:*",
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/test-utils": "2.4.11",
     "@vue/tsconfig": "0.9.1",
@@ -27,7 +28,6 @@
     "typescript": ">=6.0.0 <7.0.0",
     "vite": "8.1.5",
     "vitest": "4.1.11",
-    "vue-tsc": "3.3.7",
-    "@broke-oclock/api": "workspace:*"
+    "vue-tsc": "3.3.7"
   }
 }
