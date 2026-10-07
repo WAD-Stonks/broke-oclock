@@ -14,10 +14,14 @@ The unfiltered initial audit has ONE remaining high advisory:
 
 - `GHSA-ggr8-5vv4-36mx`: deepmerge-ts7.1.5 stack exhaustion on recursive object graphs. Dependency path: development Prisma CLI6.19.3 → @prisma/config6.19.3 → deepmerge-ts7.1.5. Upstream pins it; the patched8.x is a major override, not applied silently.
 - Source inspection: `@prisma/config/dist/index.js`, `loadConfigTsOrJs`, imports deepmerge as the c12 local configuration merger. Remote/extended/package.json configuration loading is disabled there. This repo has no Prisma JS/TS config file and exposes no request-controlled objects to that merger. The application uses generated Prisma Client, not this CLI configuration path.
-- Disposition: narrowly ignored in `bun run audit`/CI, NOT described as patched or a clean raw audit. `bun audit` still reports it. Review when Prisma6 releases a compatible fix, before introducing executable Prisma config, and before deployment. Do not expand the exception to unrelated advisories.
-- Other initial findings were addressed with compatible Prisma6.19.3 and Vitest4.1.11 patch upgrades and re-verification.
+- Disposition: narrowly ignored by `auditConfig.ignoreGhsas` in `pnpm-workspace.yaml`, used by `pnpm run audit`/CI. This is NOT patched or a clean raw audit. Direct `pnpm audit` also reads that exception; to inspect an unfiltered audit, remove only that configuration in a disposable copy and run `pnpm audit --audit-level=high` there. Review when Prisma6 releases a compatible fix, before introducing executable Prisma config, and before deployment. Do not expand the exception to unrelated advisories.
+- Other initial findings were addressed with compatible Prisma6.19.3 and Vitest4.1.11 patch upgrades and re-verification. During pnpm migration, the audit exposed `GHSA-g2v6-rqmx-r4w6` in `@vue/server-renderer`; Vue and workspace peer minimums were patched to 3.5.42 rather than adding another suppression.
 
 No broad audit disablement, forced major override or Prisma7 upgrade is used. Prisma7 lacks the selected MongoDB support. A passing exception-aware audit is not proof of production security.
+
+## Install-time code execution
+
+`pnpm-workspace.yaml` sets `ignoreScripts: true` and `sideEffectsCache: false`. Root and dependency install hooks do not execute, and prebuilt side-effect caches are not reused. Generate Prisma explicitly with `pnpm run db:generate`; MongoDB test binaries are obtained by the explicit disposable-test runtime. No broad lifecycle allowlist or public hoisting is enabled. The Vercel API build separately obtains exactly `bun@1.4.2` using `pnpm --config.ignore-scripts=false --package=bun@1.4.2 dlx --allow-build=bun bun ...`; the command-local override lifts the inherited script prohibition only for that isolated bootstrap, and its allowlist permits only the Bun installer. Neither workspace install policy nor the preceding Prisma generation command is relaxed. See [package-manager policy](package-manager.md).
 
 ## Platform administration
 

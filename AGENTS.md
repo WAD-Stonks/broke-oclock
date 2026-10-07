@@ -79,11 +79,11 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 
 ## Tooling and verification
 
-- Use Bun, strict TypeScript and Biome. No npm/pnpm/yarn lockfiles, ESLint, Oxlint or Prettier.
-- Install with `bun install --frozen-lockfile --ignore-scripts`; run `bun run setup` for initial local setup and Prisma generation. Preserve existing `.env` values.
+- Use pnpm 10.34.6 for package management, strict TypeScript and Biome. Keep `pnpm-lock.yaml` as the sole lockfile. No npm/Bun/yarn lockfiles, ESLint, Oxlint or Prettier. Bun 1.4.2 remains the TypeScript runtime and bundler, not the package manager. See [package-manager guidance](docs/package-manager.md).
+- Install with `pnpm install --frozen-lockfile --ignore-scripts`; run `pnpm run setup` for initial local setup and Prisma generation. Preserve existing `.env` values. Keep isolated workspace linking and install hooks disabled.
 - Use Prisma's MongoDB provider and typed client. MongoDB needs a replica set; tests use disposable replicas. Never run tests or schema changes against production. Do not use raw-query shortcuts.
-- Run `bun run format`, `bun run check:all`, `bun run audit` and `git diff --check` before pushing. `check:all` includes lint, schema validation, all workspace/tool typechecks, unit/integration tests, builds and Playwright.
-- Use `bun run test`, not `bun test`; Vitest and Bun's native runner are different. `bun run test:packages` runs email/integration transport tests; RPC policy tests live in the API unit suite. Both are included in the unit-test gate. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
+- Run `pnpm run format`, `pnpm run check:all`, `pnpm run audit` and `git diff --check` before pushing. `check:all` includes lint, schema validation, all workspace/tool typechecks, unit/integration tests, builds and Playwright.
+- Use `pnpm run test`, not `bun test`; Vitest and Bun's native runner are different. `pnpm run test:packages` runs email/integration transport tests; RPC policy tests live in the API unit suite. Both are included in the unit-test gate. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
 - Keep provider mocks explicit. Synthetic UploadThing responses are not proof of a live hosted upload. The existing narrow Prisma CLI audit exception is documented; do not add suppressions casually.
 - Inspect the actual browser import graph after moving shared code. Keep server secrets and modules out of browser bundles.
 

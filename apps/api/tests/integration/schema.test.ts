@@ -40,7 +40,7 @@ beforeAll(async () => {
   })
   const databaseUrl = mongo.getUri(`schema_${randomUUID().replaceAll('-', '')}`)
   // Do not block the event loop: the in-memory Mongo process needs its output drained.
-  await promisify(execFile)('bun', ['run', '--cwd', 'packages/db', 'push'], {
+  await promisify(execFile)('pnpm', ['--dir', 'packages/db', 'run', 'push'], {
     cwd: root,
     env: { ...process.env, DATABASE_URL: databaseUrl },
     encoding: 'utf8',

@@ -14,7 +14,7 @@ The original schema change supplied persistence structure. Ingestion and platfor
 
 1. Add auth role mapping and its real HTTP regression tests. Prove signup and profile updates cannot escalate privileges; legitimate profile changes still work.
 2. Add the domain schema and regenerate the existing Prisma client. Exercise typed relations, defaults, uniqueness and transactions against a fresh disposable MongoDB replica set.
-3. Update schema/ownership/AI-disclosure documentation. Run `bun run format`, `bun run db:generate`, `bun run check:all`, `bun run audit` and `git diff --check`; inspect the full diff before publication.
+3. Update schema/ownership/AI-disclosure documentation. Run `pnpm run format`, `pnpm run db:generate`, `pnpm run check:all`, `pnpm run audit` and `git diff --check`; inspect the full diff before publication.
 
 The canonical schema stays at `packages/db/prisma/schema.prisma`. Auth mapping is in `packages/auth/src/server.ts`; browser inference is in `packages/auth/src/client.ts`. Tests live under `apps/api/tests/integration/` and are permanent regression coverage for this repository. Use named arrow functions, extensionless aliases and public workspace exports, as documented in AGENTS.md.
 

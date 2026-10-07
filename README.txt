@@ -56,20 +56,24 @@ separate work. The team must reconcile the final source plan before activation.
 
 STACK
 Vue 3/TypeScript/Vue Router/Vite/Bootstrap 5/BootstrapVueNext; Express 5/tRPC/Zod;
-Better Auth; Prisma 6.19/MongoDB replica set; Bun workspaces; UploadThing;
+Better Auth; Prisma 6.19/MongoDB replica set; pnpm workspaces; UploadThing;
 OneMap; Resend transport; planned Leaflet/OpenStreetMap/Browser Geolocation;
 Vercel hosting target; Biome/Vitest/Playwright/GitHub Actions.
 
 LOCAL SETUP
-Install Bun 1.4.2 and Node 22.18+. From repository root:
-  bun install --frozen-lockfile --ignore-scripts
-  bun run setup
+Install pnpm 10.34.6, Bun runtime 1.4.2 and Node 22.18+ (CI: 22.23.1).
+Only pnpm manages dependencies; pnpm-lock.yaml is the sole lockfile. Automatic
+install scripts are disabled; setup explicitly generates Prisma. Existing Bun
+users must remove only root/workspace node_modules before reinstalling, keeping
+.env and .local/mongodb. See docs/package-manager.md. From repository root:
+  pnpm install --frozen-lockfile --ignore-scripts
+  pnpm run setup
 Terminal 1:
-  bun run db:local
+  pnpm run db:local
 Confirm DATABASE_URL targets your intended LOCAL development replica set.
 Terminal 2:
-  bun run db:push
-  bun run dev
+  pnpm run db:push
+  pnpm run dev
 Frontend: http://localhost:5173
 API: http://localhost:3000
 Admin pages require a real authenticated ADMIN; setup does not promote users.
@@ -84,10 +88,10 @@ settings, not an assumed GitHub-to-Vercel sync. No secrets in VITE_* or Git.
 Automatic deployments remain disabled under docs/vercel-setup.md.
 
 TESTS
-  bunx playwright install chromium
-  bun run check:all
-  bun run audit
-Use bun run test, not bun test, for Vitest. The full gate checks lint, schema,
+  pnpm exec playwright install chromium
+  pnpm run check:all
+  pnpm run audit
+Use pnpm run test, not bun test, for Vitest. The full gate checks lint, schema,
 types, unit/integration/browser tests and builds. Browser API/provider fixtures
 are synthetic; real HTTP/auth/database behaviour is tested separately. A fully
 connected browser-to-database demo remains an acceptance task. One documented
@@ -118,7 +122,7 @@ docs/platform-admin.md; docs/database-schema.md; CONTRIBUTING.md.
 
 AI DISCLOSURE AND FINAL SUBMISSION
 Hermes Agent assisted scaffolding, framework/auth, ingestion/parsing/review,
-platform-admin feature implementations, tests, CI and documentation. These
+platform-admin feature implementations, pnpm migration, tests, CI and documentation. These
 features are not claimed as student-authored. Obtain instructor clearance under
 the recorded course restrictions before assessed use; see docs/ai-use.md.
 Before final submission add verified deployed/presentation/video links, actual

@@ -1,0 +1,19 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Keep undeclared dependencies hidden; do not mask them with hoisting.
+nodeLinker: isolated
+hoist: false
+packageManagerStrictVersion: true
+
+# No automatic project or dependency lifecycle scripts. Generate Prisma explicitly.
+ignoreScripts: true
+sideEffectsCache: false
+
+overrides:
+  effect: 3.21.0
+
+auditConfig:
+  ignoreGhsas:
+    - GHSA-ggr8-5vv4-36mx

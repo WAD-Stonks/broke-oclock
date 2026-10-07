@@ -1,6 +1,6 @@
 # Architecture and folder ownership
 
-This is a modular monorepo, not microservices. One Vue SPA, one Express API and one MongoDB database. Bun workspaces share a single lockfile. Package manifests are private to prevent accidental registry publication; GitHub visibility is public.
+This is a modular monorepo, not microservices. One Vue SPA, one Express API and one MongoDB database. pnpm workspaces share a single lockfile. Package manifests are private to prevent accidental registry publication; GitHub visibility is public.
 
 ```text
 broke-oclock/
@@ -32,7 +32,8 @@ broke-oclock/
 ├── .github/                  CI and pull-request template
 ├── .env.example              Safe local configuration template
 ├── biome.json                The sole JS/TS/Vue lint/format configuration
-└── bun.lock                  The sole dependency lockfile
+├── pnpm-workspace.yaml       Workspace, resolution and lifecycle policy
+└── pnpm-lock.yaml            The sole dependency lockfile
 ```
 
 ## Agent entry point and imports

@@ -52,10 +52,10 @@ Future merchant mutations should use `accessTransaction` so known concurrency co
 Run from the repository root after dependency installation and Prisma generation:
 
 ```sh
-bun run db:generate
-bun run format
-bun run check:all
-bun run audit
+pnpm run db:generate
+pnpm run format
+pnpm run check:all
+pnpm run audit
 git diff --check
 ```
 

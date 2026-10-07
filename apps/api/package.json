@@ -12,23 +12,24 @@
     "start": "bun dist/server.js"
   },
   "dependencies": {
+    "@broke-oclock/auth": "workspace:*",
+    "@broke-oclock/contracts": "workspace:*",
     "@broke-oclock/db": "workspace:*",
     "@broke-oclock/integrations": "workspace:*",
+    "@broke-oclock/storage": "workspace:*",
+    "@trpc/server": "11.18.0",
     "cors": "2.8.5",
     "express": "5.2.1",
     "helmet": "^8.1.0",
-    "@broke-oclock/storage": "workspace:*",
-    "@broke-oclock/auth": "workspace:*",
-    "@broke-oclock/contracts": "workspace:*",
-    "@trpc/server": "11.18.0",
     "zod": "4.6.5"
   },
   "devDependencies": {
-    "@types/express": "^5.0.3",
+    "@trpc/client": "11.18.0",
     "@types/cors": "^2.8.19",
-    "vitest": "4.1.11",
+    "@types/express": "^5.0.3",
+    "mongodb-memory-server": "11.2.0",
     "typescript": "~6.0.0",
-    "@trpc/client": "11.18.0"
+    "vitest": "4.1.11"
   },
   "exports": {
     "./types": {

@@ -69,10 +69,10 @@ Use a disposable MongoDB replica set, never the configured Atlas database. Exter
 From the repository root:
 
 ```sh
-bun run db:generate
-bun run format
-bun run check:all
-bun run audit
+pnpm run db:generate
+pnpm run format
+pnpm run check:all
+pnpm run audit
 git diff --check
 ```
 

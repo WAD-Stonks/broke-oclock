@@ -81,7 +81,7 @@ beforeAll(async () => {
   const databaseUrl = mongo.getUri(`ingestion_${randomUUID().replaceAll('-', '')}`)
   vi.stubEnv('DATABASE_URL', databaseUrl)
   vi.stubEnv('NODE_ENV', 'test')
-  await promisify(execFile)('bun', ['run', '--cwd', 'packages/db', 'push'], {
+  await promisify(execFile)('pnpm', ['--dir', 'packages/db', 'run', 'push'], {
     cwd: root,
     env: { ...process.env, DATABASE_URL: databaseUrl },
     encoding: 'utf8',

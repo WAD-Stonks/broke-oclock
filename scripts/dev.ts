@@ -3,7 +3,7 @@ import { loadEnvironment } from '@scripts/environment'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const children = ['apps/api', 'apps/web'].map((directory) =>
-  Bun.spawn(['bun', 'run', 'dev'], {
+  Bun.spawn(['pnpm', 'run', 'dev'], {
     cwd: `${root}${directory}`,
     env: loadEnvironment(),
     stdout: 'inherit',
