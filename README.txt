@@ -61,10 +61,9 @@ OneMap; Resend transport; planned Leaflet/OpenStreetMap/Browser Geolocation;
 Vercel hosting target; Biome/Vitest/Playwright/GitHub Actions.
 
 LOCAL SETUP
-Install pnpm 10.34.6, Bun runtime 1.4.2 and Node 22.18+ (CI: 22.23.1).
+Install pnpm 10.34.6 and Node 22.18+ (CI: 22.23.1).
 Only pnpm manages dependencies; pnpm-lock.yaml is the sole lockfile. Automatic
-install scripts are disabled; setup explicitly generates Prisma. Existing Bun
-users must remove only root/workspace node_modules before reinstalling, keeping
+install scripts are disabled; setup explicitly generates Prisma. Users migrating an existing checkout must remove only root/workspace node_modules before reinstalling, keeping
 .env and .local/mongodb. See docs/package-manager.md. From repository root:
   pnpm install --frozen-lockfile --ignore-scripts
   pnpm run setup
@@ -91,7 +90,7 @@ TESTS
   pnpm exec playwright install chromium
   pnpm run check:all
   pnpm run audit
-Use pnpm run test, not bun test, for Vitest. The full gate checks lint, schema,
+Use pnpm run test for Vitest. The full gate checks lint, schema,
 types, unit/integration/browser tests and builds. Browser API/provider fixtures
 are synthetic; real HTTP/auth/database behaviour is tested separately. A fully
 connected browser-to-database demo remains an acceptance task. One documented

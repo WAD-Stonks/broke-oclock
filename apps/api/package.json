@@ -4,12 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --watch src/server.ts",
+    "dev": "tsx watch --clear-screen=false src/server.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:unit": "vitest run --config vitest.config.ts tests/unit",
     "test:integration": "vitest run --config vitest.config.ts --no-file-parallelism tests/integration",
-    "build": "bun build src/server.ts --target=bun --packages=external --outdir dist",
-    "start": "bun dist/server.js"
+    "build": "node --import tsx ../../scripts/build-api.ts",
+    "start": "node dist/server.js"
   },
   "dependencies": {
     "@broke-oclock/auth": "workspace:*",
@@ -29,7 +29,8 @@
     "@types/express": "^5.0.3",
     "mongodb-memory-server": "11.2.0",
     "typescript": "~6.0.0",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "tsx": "4.23.15"
   },
   "exports": {
     "./types": {

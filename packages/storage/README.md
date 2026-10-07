@@ -12,4 +12,4 @@ The package owns the SDK dependency and upload policy. Neither app imports the o
 
 The existing endpoint, JSON response, file limits and environment names are unchanged. Integration tests stay in the API because they verify the full auth/HTTP/database boundary; the browser test exercises the package via the web re-export. Root `pnpm run check:all` includes this package's typecheck.
 
-Like the DB package, this private workspace exports TypeScript source. Bun consumes it directly; the future Vercel build must bundle/include workspace source. See [setup and security boundaries](../../docs/photo-storage.md) before enabling real uploads. This is not the assessed deal submission/ownership implementation.
+Like the DB package, this private workspace exports TypeScript source. Node development consumes it through pinned tsx; local production and Vercel builds bundle its public exports using esbuild. See [setup and security boundaries](../../docs/photo-storage.md) before enabling real uploads. This is not the assessed deal submission/ownership implementation.
