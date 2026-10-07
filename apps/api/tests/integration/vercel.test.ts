@@ -18,12 +18,12 @@ beforeAll(async () => {
     replSet: { count: 1, storageEngine: 'wiredTiger', ip: '127.0.0.1' },
   })
   databaseUrl = mongo.getUri(`vercel_${randomUUID().replaceAll('-', '')}`)
-  await promisify(execFile)('bun', ['run', '--cwd', 'packages/db', 'push'], {
+  await promisify(execFile)('pnpm', ['--dir', 'packages/db', 'run', 'push'], {
     cwd: root,
     env: { ...process.env, DATABASE_URL: databaseUrl },
     timeout: 60_000,
   })
-  await promisify(execFile)('bun', ['run', 'scripts/build-vercel-api.ts'], {
+  await promisify(execFile)('pnpm', ['run', 'build:vercel:api'], {
     cwd: root,
     timeout: 60_000,
   })

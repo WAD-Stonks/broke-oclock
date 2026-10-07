@@ -29,8 +29,8 @@ Both `INGESTION_ENABLED=true` and `MONEYDIGEST_REUSE_APPROVED=true` are required
 From `apps/api`:
 
 ```sh
-bun x vitest run --config vitest.config.ts tests/unit/ingestion-parser.test.ts tests/unit/ingestion-config.test.ts tests/unit/ingestion-runtime.test.ts tests/unit/ingestion-review-policy.test.ts
-bun x vitest run --config vitest.config.ts --no-file-parallelism tests/integration/ingestion.test.ts
+pnpm exec vitest run --config vitest.config.ts tests/unit/ingestion-parser.test.ts tests/unit/ingestion-config.test.ts tests/unit/ingestion-runtime.test.ts tests/unit/ingestion-review-policy.test.ts
+pnpm exec vitest run --config vitest.config.ts --no-file-parallelism tests/integration/ingestion.test.ts
 ```
 
 Unit fixtures are synthetic. The integration suite uses real HTTP, Better Auth cookies and Prisma against a disposable MongoDB replica set; only external providers and the clock are injected with `createApp(config, { ingestion: runtime })`. Runtime production-composition coverage also exercises the real MoneyDigest transport with mocked fetch. No production DB, publisher fetch, real OneMap credential or deployment is needed.
