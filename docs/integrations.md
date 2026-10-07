@@ -36,5 +36,5 @@ Deployment should preferably serve the SPA and `/api` under one site, with HTTPS
 - [Better Auth installation](https://better-auth.com/docs/installation) · [Express](https://better-auth.com/docs/integrations/express) · [Prisma adapter](https://better-auth.com/docs/adapters/prisma) · [Vue client](https://better-auth.com/docs/concepts/client) · [email/password](https://better-auth.com/docs/authentication/email-password) · [security](https://better-auth.com/docs/reference/security)
 - [Playwright](https://playwright.dev/docs/intro) · [test practices](https://playwright.dev/docs/best-practices) · [auth testing](https://playwright.dev/docs/auth)
 - [Vitest](https://vitest.dev/guide/) · [Vue Test Utils](https://test-utils.vuejs.org/guide/)
-- [pnpm package manager](https://pnpm.io/10.x/settings) · [Bun runtime/bundler](https://bun.sh/docs) · [Biome](https://biomejs.dev/guides/getting-started/)
+- [pnpm package manager](https://pnpm.io/10.x/settings) · [Node runtime](https://nodejs.org/docs/latest-v22.x/api/) · [tsx source runtime](https://github.com/privatenumber/tsx/tree/master/docs) · [esbuild](https://esbuild.github.io/api/) · [Biome](https://biomejs.dev/guides/getting-started/)
 - [Local MongoDB test helper](https://typegoose.github.io/mongodb-memory-server/docs/guides/quick-start-guide/)

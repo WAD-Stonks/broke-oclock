@@ -2,7 +2,7 @@
 
 ## Tooling
 
-- Use pnpm 10.34.6 for installs, dependency changes, workspace commands and audits. Commit only `pnpm-lock.yaml`; use `pnpm install --frozen-lockfile --ignore-scripts` in CI. No Bun/npm/Yarn locks or hoisting workarounds. Bun 1.4.2 is retained only as an explicitly pinned runtime/bundler. See [package-manager policy](package-manager.md).
+- Use pnpm 10.34.6 for installs, dependency changes, workspace commands and audits. Commit only `pnpm-lock.yaml`; use `pnpm install --frozen-lockfile --ignore-scripts` in CI. No alternate package-manager locks or hoisting workarounds. Node 22.18+ is the sole runtime; pinned tsx supports source execution and esbuild bundles Node ESM artifacts. See [package-manager policy](package-manager.md).
 - Biome alone for JS/TS/Vue linting and formatting. Two-space indentation, single quotes, semicolons only where needed. Use `pnpm run format`; don't introduce ESLint, Oxlint or Prettier.
 - Prisma's own formatter handles `.prisma`. Markdown and YAML are reviewed manually; do not claim Biome validates every language.
 - Strict TypeScript. Avoid `any`, unchecked casts, non-null assertions and `@ts-ignore`. A narrow suppression needs an explanation and a test. External JSON and request inputs need runtime validation; TypeScript types do not validate data.
@@ -48,9 +48,9 @@ import { uploadPhoto } from '@broke-oclock/storage/client'
 export type { PhotoFileRouter, PhotoStorageOptions } from '@storage/server'
 ```
 
-Root `tsconfig.json` is the single alias map; workspace and tooling TS configs inherit it. Bun resolves these paths directly. Vite and both Vitest configs enable `resolve.tsconfigPaths`; no duplicate Vite alias table or extra plugin is needed. Distinct prefixes avoid one package's `@/` resolving into another app's source. VS Code prefers non-relative, minimal imports.
+Root `tsconfig.json` is the single alias map; workspace and tooling TS configs inherit it. tsx resolves these paths for Node source execution; esbuild resolves them when bundling local/Vercel API artifacts. Vite and both Vitest configs enable `resolve.tsconfigPaths`; no duplicate Vite alias table or extra plugin is needed. Distinct prefixes avoid one package's `@/` resolving into another app's source. VS Code prefers non-relative, minimal imports.
 
-Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on these source aliases. Keep `.vue`, `.css` and other genuine asset extensions. Third-party package specifiers and `node:` built-ins keep their actual names. This rule is not a ban on relative filesystem URLs, package export targets, browser-served URLs in E2E tests, generated Prisma internals or emitted JavaScript. Do not hand-edit generated files. Native Node does not understand TypeScript path aliases by itself: use the supported Bun/Vite runners, and resolve/bundle aliases when adding deployment tooling.
+Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on these source aliases. Keep `.vue`, `.css` and other genuine asset extensions. Third-party package specifiers and `node:` built-ins keep their actual names. This rule is not a ban on relative filesystem URLs, package export targets, browser-served URLs in E2E tests, generated Prisma internals or emitted JavaScript. Do not hand-edit generated files. Native Node does not understand TypeScript path aliases by itself: use the supported tsx/Vite runners for source execution and esbuild for Node production artifacts.
 
 ## API and data safety
 
@@ -71,7 +71,7 @@ Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on the
 
 ## Tests and review
 
-- Vitest for unit/integration tests; `pnpm run test` invokes Vitest. `bun test` is a different runner and is not this project's test command.
+- Vitest for unit/integration tests; `pnpm run test` invokes Vitest. The separate Node tooling regression suite is included in the unit gate.
 - Playwright for E2E. Prefer role/label selectors, deterministic fixtures, real integration on main journeys and controlled mocks only at external boundaries.
 - Tests for success, invalid input, forbidden ownership and important boundary conditions belong with every feature. Coverage reports inform review; they are not proof of correctness.
 - Small conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Branch from current main using `feature/...` or `fix/...`; no `codex/` school branches. Open a PR with test evidence; no force-pushing main or auto-merging.

@@ -21,7 +21,7 @@ No broad audit disablement, forced major override or Prisma7 upgrade is used. Pr
 
 ## Install-time code execution
 
-`pnpm-workspace.yaml` sets `ignoreScripts: true` and `sideEffectsCache: false`. Root and dependency install hooks do not execute, and prebuilt side-effect caches are not reused. Generate Prisma explicitly with `pnpm run db:generate`; MongoDB test binaries are obtained by the explicit disposable-test runtime. No broad lifecycle allowlist or public hoisting is enabled. The Vercel API build separately obtains exactly `bun@1.4.2` using `pnpm --config.ignore-scripts=false --package=bun@1.4.2 dlx --allow-build=bun bun ...`; the command-local override lifts the inherited script prohibition only for that isolated bootstrap, and its allowlist permits only the Bun installer. Neither workspace install policy nor the preceding Prisma generation command is relaxed. See [package-manager policy](package-manager.md).
+`pnpm-workspace.yaml` sets `ignoreScripts: true` and `sideEffectsCache: false`. Root and dependency install hooks do not execute, and prebuilt side-effect caches are not reused. Generate Prisma explicitly with `pnpm run db:generate`; MongoDB test binaries are obtained by the explicit disposable-test runtime. No broad lifecycle allowlist or public hoisting is enabled. Pinned esbuild uses its installed platform-specific optional binary with hooks disabled; clean-store tests exercise the real API. No bootstrap lifecycle exception or implicit global binary is required. Keep optional dependencies enabled and do not override ESBUILD_BINARY_PATH with an unverified executable. See [package-manager policy](package-manager.md).
 
 ## Platform administration
 

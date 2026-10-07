@@ -1,4 +1,4 @@
-# Vercel setup — not deployed
+# Vercel setup - not deployed
 
 ## Projects and safety boundary
 
@@ -9,14 +9,14 @@ Both projects exist in `noahmhs-projects` (`team_FRUcWuiMYuhmD9AYY8BStn20`) and 
 - Assigned domains: `broke-oclock-web.vercel.app` and `broke-oclock-api.vercel.app`. They are reserved project domains, not live application verification.
 - Checked-in install command for both projects: `cd ../.. && pnpm install --frozen-lockfile --ignore-scripts`. Root `packageManager` pins pnpm 10.34.6. Node remains `22.x`; source outside each project root must be included.
 - Checked-in web build: `pnpm run build`.
-- Checked-in API build: `cd ../.. && pnpm run build:vercel:api`. This generates Prisma with pnpm and bootstraps exactly Bun 1.4.2 through `pnpm --config.ignore-scripts=false --package=bun@1.4.2 dlx --allow-build=bun` for the existing bundler. The command-local override is required even with the Bun allowlist because `pnpm run` inherits the workspace's disabled lifecycle policy. Only that isolated runtime installer is permitted to run a lifecycle script; workspace installs still disable all scripts. No globally installed or implicitly selected Bun is assumed.
+- Checked-in API build: `cd ../.. && pnpm run build:vercel:api`. This explicitly generates Prisma and runs pinned esbuild through Node/tsx. All install hooks remain disabled; no runtime bootstrap, global executable or lifecycle exception is needed.
 - These are repository settings, not a claim that live project overrides were changed. The earlier live install/build settings used Bun; compare and approve any necessary live-settings changes separately before an authorized build/deployment. This migration does not access Vercel settings, secrets or production environments.
 
 ## Why a custom API build
 
 The native Express build succeeded but its generated Node handler still imported `@api/auth`; loading that artifact failed with ERR_MODULE_NOT_FOUND. It also selected the app factory rather than a ready default-exported HTTP app. A successful build alone was not a usable function.
 
-`apps/api/src/vercel.ts` default-exports the existing Express factory result, without a listener or shutdown handlers. Local `src/server.ts` remains unchanged. The build script bundles TypeScript aliases and workspace dependencies into one ESM Node function. ESM is necessary because UploadThing contains `import.meta` and cannot safely be emitted as CommonJS by this Bun version.
+`apps/api/src/vercel.ts` default-exports the existing Express factory result, without a listener or shutdown handlers. Local `src/server.ts` remains unchanged. The build script bundles TypeScript aliases and workspace dependencies into one ESM Node function. ESM preserves UploadThing's `import.meta`; a Node `createRequire`/filename/directory bridge supports bundled CommonJS dependencies and Prisma native loading. Local production uses the same bundling/engine-copy path.
 
 The output is `apps/api/.vercel/output`, with an `api.func` handler and catch-all routing that retains the original request path for the Express `/api/*` routes. Vercel CLI collects this into its selected output directory. This is packaging, not new product endpoints.
 
@@ -42,7 +42,7 @@ Vercel's default SSO protection is preserved (`all_except_custom_domains`). That
 
 ## Build-only verification
 
-Run each project block from the root of a separate clean checkout/build workspace. Do not share the same `.vercel` environment cache between API and web: this CLI preserves keys absent from the next project, which could carry API secrets into a web build. Pull changes `.vercel/project.json` and its cached environment. Keep `.vercel/` and `.env.local` ignored. `vercel link` may create `.env.local` containing a private OIDC token—never commit or print it.
+Run each project block from the root of a separate clean checkout/build workspace. Do not share the same `.vercel` environment cache between API and web: this CLI preserves keys absent from the next project, which could carry API secrets into a web build. Pull changes `.vercel/project.json` and its cached environment. Keep `.vercel/` and `.env.local` ignored. `vercel link` may create `.env.local` containing a private OIDC token-never commit or print it.
 
 ```sh
 # Web: settings and environment cache only, then local production-format build.
