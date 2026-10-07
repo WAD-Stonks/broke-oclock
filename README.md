@@ -73,7 +73,7 @@ OneMap currently supports server-side search; connecting Isaac's location picker
 - **Database:** MongoDB/Atlas through Prisma 6.19. A replica set is required for transactions. MongoDB stores identities/sessions, roles, merchant/outlet records, access requests/grants, deal and community records, source/review metadata and audit history; not every model has a completed feature flow.
 - **Images:** UploadThing stores files; MongoDB has fields for file keys/URLs, type, size, uploader and optional deal association.
 - **Local database:** `mongodb-memory-server` supports a local replica-set helper and isolated test replicas. Development data persists under ignored `.local/mongodb/`; test databases are disposable.
-- **Package manager and runtime:** pnpm 10.34.6 workspaces and the sole `pnpm-lock.yaml`; Bun 1.4.2 remains the local TypeScript runtime/API bundler, not the package manager. Node 22 runs pnpm, Vitest, Prisma, Vite and the Vercel function. GitHub Actions, Biome and Playwright provide the quality gates.
+- **Package manager and runtime:** pnpm 10.34.6 workspaces and the sole `pnpm-lock.yaml`; Node 22 runs the API, pnpm, Vitest, Prisma, Vite and tooling. Pinned tsx 4.23.15 resolves TypeScript/aliases during development; esbuild 0.28.2 produces standalone Node ESM API artifacts. GitHub Actions, Biome and Playwright provide the quality gates.
 - **Hosting target:** separate Vercel frontend/API projects. Git-connected setup is not deployment; automatic deployments remain disabled under the documented project configuration.
 
 ### APIs and integration boundaries
@@ -87,7 +87,7 @@ OneMap currently supports server-side search; connecting Isaac's location picker
 
 ## First-time setup
 
-Install pnpm **10.34.6**, Bun **1.4.2** and Node **22.18+** (CI uses **22.23.1**). With Node 22 Corepack, `corepack enable pnpm` enables the shim; invoking `pnpm --version` inside this checkout selects the exact `packageManager` pin. From a local development checkout:
+Install pnpm **10.34.6** and Node **22.18+** (CI uses **22.23.1**). With Node 22 Corepack, `corepack enable pnpm` enables the shim; invoking `pnpm --version` inside this checkout selects the exact `packageManager` pin. From a local development checkout:
 
 ```sh
 git clone https://github.com/WAD-Stonks/broke-oclock.git
@@ -96,7 +96,7 @@ pnpm install --frozen-lockfile --ignore-scripts
 pnpm run setup
 ```
 
-pnpm is the only package manager. `pnpm-workspace.yaml` disables automatic install scripts and hoisting; Prisma generation is an explicit setup step. Existing Bun users must remove only the root/workspace `node_modules` directories, then reinstall from the frozen pnpm lockfile. Preserve `.env` and `.local/mongodb`. See [package-manager policy](docs/package-manager.md), including intentional Bun runtime use.
+pnpm is the only package manager. `pnpm-workspace.yaml` disables automatic install scripts and hoisting; Prisma generation is an explicit setup step. Users migrating an existing checkout must remove only the root/workspace `node_modules` directories, then reinstall from the frozen pnpm lockfile. Preserve `.env` and `.local/mongodb`. See [package-manager policy](docs/package-manager.md) and the Node runtime/build guidance.
 
 `setup` preserves an existing `.env`, otherwise creates an ignored local configuration with a random auth secret, and generates Prisma Client. It does not provision Atlas, promote an administrator, seed deals, activate imports or send email.
 
@@ -151,7 +151,7 @@ pnpm run check:all       # Full local quality gate
 pnpm run audit           # Documented dependency-audit policy
 ```
 
-Use `pnpm run test`, not Bun's native `bun test`, for this Vitest project. For an isolated worktree without `.env`, Prisma validation can use the non-connecting URI described in [testing](docs/testing.md); integration suites supply their own disposable databases.
+Use `pnpm run test` for this Vitest project. For an isolated worktree without `.env`, Prisma validation can use the non-connecting URI described in [testing](docs/testing.md); integration suites supply their own disposable databases.
 
 Browser tests currently use explicitly synthetic API/provider responses for affected workflows. They exercise the SPA and client transport, while API integration tests separately exercise real HTTP, authentication and database behaviour. Neither layer is a claim that the proposal's complete connected demo already works. CI records verification for each PR commit; no test count is a permanent project guarantee.
 
