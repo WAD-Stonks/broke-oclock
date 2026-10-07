@@ -32,7 +32,7 @@
     "audit": "pnpm audit --audit-level=high",
     "test:packages": "vitest run --config vitest.packages.config.ts",
     "test:tooling": "node --test scripts/tests/*.test.mjs",
-    "build:vercel:api": "pnpm --filter @broke-oclock/db run generate && pnpm --package=bun@1.4.2 dlx --allow-build=bun bun scripts/build-vercel-api.ts"
+    "build:vercel:api": "pnpm --filter @broke-oclock/db run generate && pnpm --config.ignore-scripts=false --package=bun@1.4.2 dlx --allow-build=bun bun scripts/build-vercel-api.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",

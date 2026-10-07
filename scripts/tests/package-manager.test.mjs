@@ -41,6 +41,52 @@ test('pnpm resolves exactly the documented audit exception', () => {
   assert.deepEqual(JSON.parse(result.stdout), { ignoreGhsas: ['GHSA-ggr8-5vv4-36mx'] })
 })
 
+test('pinned Bun bootstrap works with a cold store/cache and inherited pnpm run policy', () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'pnpm-bun-bootstrap-'))
+  try {
+    const store = join(fixture, 'store')
+    const cache = join(fixture, 'cache')
+    const probe = join(fixture, 'runtime.json')
+    assert.equal(existsSync(store), false)
+    assert.equal(existsSync(cache), false)
+    const bootstrap = manifest.scripts['build:vercel:api'].split(' && ')[1]
+    assert.ok(bootstrap.endsWith(' bun scripts/build-vercel-api.ts'))
+    writeFileSync(join(fixture, 'pnpm-workspace.yaml'), read('pnpm-workspace.yaml'))
+    writeFileSync(
+      join(fixture, 'inherited-policy.cjs'),
+      `require('node:assert/strict').equal(process.env.npm_config_ignore_scripts, 'true')`,
+    )
+    writeFileSync(
+      join(fixture, 'probe.ts'),
+      `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(probe)}, JSON.stringify({ version: Bun.version, executable: process.execPath }))`,
+    )
+    writeFileSync(
+      join(fixture, 'package.json'),
+      JSON.stringify({
+        name: 'cold-bun-bootstrap-fixture',
+        private: true,
+        packageManager: manifest.packageManager,
+        scripts: {
+          bootstrap: `node inherited-policy.cjs && ${bootstrap.replace('scripts/build-vercel-api.ts', 'probe.ts')} && node inherited-policy.cjs`,
+        },
+      }),
+    )
+    // Use a real pnpm run, not a direct dlx call: run exports ignoreScripts to children.
+    const result = spawnSync(
+      'pnpm',
+      [`--config.store-dir=${store}`, `--config.cache-dir=${cache}`, 'run', 'bootstrap'],
+      { cwd: fixture, env: process.env, encoding: 'utf8', timeout: 120_000 },
+    )
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
+    const runtime = JSON.parse(readFileSync(probe, 'utf8'))
+    assert.equal(runtime.version, manifest.engines.bun)
+    assert.ok(runtime.executable.startsWith(`${cache}/`), runtime.executable)
+    assert.ok(existsSync(store), 'The bootstrap must use the isolated cold store')
+  } finally {
+    rmSync(fixture, { recursive: true, force: true })
+  }
+})
+
 test('plain pnpm install cannot run project or dependency lifecycle hooks', () => {
   const fixture = mkdtempSync(join(tmpdir(), 'pnpm-lifecycle-'))
   try {
@@ -77,6 +123,10 @@ test('plain pnpm install cannot run project or dependency lifecycle hooks', () =
       rmSync(join(fixture, 'node_modules'), { recursive: true, force: true })
       const result = spawnSync('pnpm', ['install', '--offline', ...options], {
         cwd: fixture,
+        // Prove the workspace policy itself, not ignoreScripts inherited from test:tooling.
+        env: Object.fromEntries(
+          Object.entries(process.env).filter(([key]) => !/^npm_config_ignore_?scripts$/i.test(key)),
+        ),
         encoding: 'utf8',
         timeout: 30_000,
       })
