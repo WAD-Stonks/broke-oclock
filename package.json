@@ -3,37 +3,36 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "packageManager": "bun@1.4.2",
+  "packageManager": "pnpm@10.34.6",
   "engines": {
-    "bun": ">=1.4.2",
-    "node": ">=22.18.0"
+    "bun": "1.4.2",
+    "node": ">=22.18.0",
+    "pnpm": "10.34.6"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
   "scripts": {
-    "setup": "bun run scripts/setup.ts && bun run db:generate",
-    "dev": "bun run scripts/dev.ts",
-    "dev:web": "bun run scripts/workspace.ts apps/web dev",
-    "dev:api": "bun run scripts/workspace.ts apps/api dev",
-    "db:generate": "bun run scripts/workspace.ts packages/db generate",
-    "db:validate": "bun run scripts/workspace.ts packages/db validate",
-    "db:push": "bun run scripts/workspace.ts packages/db push",
-    "typecheck": "bun run scripts/workspace.ts packages/db typecheck && bun run scripts/workspace.ts packages/auth typecheck && bun run scripts/workspace.ts packages/storage typecheck && bun run scripts/workspace.ts packages/contracts typecheck && bun run scripts/workspace.ts packages/integrations typecheck && bun run scripts/workspace.ts packages/email typecheck && bun run scripts/workspace.ts packages/ui typecheck && bun run scripts/workspace.ts apps/api typecheck && bun run scripts/workspace.ts apps/web typecheck && bun run typecheck:tools",
+    "setup": "bun scripts/setup.ts && pnpm run db:generate",
+    "dev": "bun scripts/dev.ts",
+    "dev:web": "bun scripts/workspace.ts apps/web dev",
+    "dev:api": "bun scripts/workspace.ts apps/api dev",
+    "db:generate": "bun scripts/workspace.ts packages/db generate",
+    "db:validate": "bun scripts/workspace.ts packages/db validate",
+    "db:push": "bun scripts/workspace.ts packages/db push",
+    "typecheck": "bun scripts/workspace.ts packages/db typecheck && bun scripts/workspace.ts packages/auth typecheck && bun scripts/workspace.ts packages/storage typecheck && bun scripts/workspace.ts packages/contracts typecheck && bun scripts/workspace.ts packages/integrations typecheck && bun scripts/workspace.ts packages/email typecheck && bun scripts/workspace.ts packages/ui typecheck && bun scripts/workspace.ts apps/api typecheck && bun scripts/workspace.ts apps/web typecheck && pnpm run typecheck:tools",
     "lint": "biome check . --error-on-warnings",
     "format": "biome check --write .",
-    "test:unit": "bun run scripts/workspace.ts apps/api test:unit && bun run scripts/workspace.ts apps/web test:unit && bun run test:packages",
-    "test:integration": "bun run scripts/workspace.ts apps/api test:integration",
+    "test:unit": "pnpm run test:tooling && bun scripts/workspace.ts apps/api test:unit && bun scripts/workspace.ts apps/web test:unit && pnpm run test:packages",
+    "test:integration": "bun scripts/workspace.ts apps/api test:integration",
     "test:e2e": "playwright test",
-    "test": "bun run test:unit",
-    "build": "bun run scripts/workspace.ts apps/api build && bun run scripts/workspace.ts apps/web build",
-    "check": "bun run lint && bun run db:validate && bun run typecheck && bun run test:unit && bun run build",
-    "check:all": "bun run check && bun run test:integration && bun run test:e2e",
-    "db:local": "bun run scripts/mongo.ts",
+    "test": "pnpm run test:unit",
+    "build": "bun scripts/workspace.ts apps/api build && bun scripts/workspace.ts apps/web build",
+    "check": "pnpm run lint && pnpm run db:validate && pnpm run typecheck && pnpm run test:unit && pnpm run build",
+    "check:all": "pnpm run check && pnpm run test:integration && pnpm run test:e2e",
+    "db:local": "bun scripts/mongo.ts",
     "typecheck:tools": "tsc --project tsconfig.tools.json --noEmit",
-    "audit": "bun audit --audit-level=high --ignore GHSA-ggr8-5vv4-36mx",
-    "test:packages": "vitest run --config vitest.packages.config.ts"
+    "audit": "pnpm audit --audit-level=high",
+    "test:packages": "vitest run --config vitest.packages.config.ts",
+    "test:tooling": "node --test scripts/tests/*.test.mjs",
+    "build:vercel:api": "pnpm --filter @broke-oclock/db run generate && pnpm --package=bun@1.4.2 dlx --allow-build=bun bun scripts/build-vercel-api.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.12",
@@ -43,9 +42,5 @@
     "typescript": "~6.0.0",
     "mongodb-memory-server": "11.2.0",
     "vitest": "4.1.11"
-  },
-  "overrides": {
-    "effect": "3.21.0"
-  },
-  "trustedDependencies": []
+  }
 }

@@ -164,10 +164,10 @@ Use BootstrapVueNext through the UI package, semantic labelled controls and acce
 6. Review the whole diff, update relevant docs/AI disclosure, and update the topic PR. Do not push directly to main, force-push, merge or enable auto-merge without authorization.
 
 ```sh
-bun run format
-bun run check:all
-bun run audit
+pnpm run format
+pnpm run check:all
+pnpm run audit
 git diff --check
 ```
 
-For a faster development loop, `bun run test:unit`, `bun run test:integration` and `bun run test:e2e` are available separately. The full gate still runs before publication. See [testing details](testing.md) and the [contribution workflow](../CONTRIBUTING.md).
+For a faster development loop, `pnpm run test:unit`, `pnpm run test:integration` and `pnpm run test:e2e` are available separately. The full gate still runs before publication. See [testing details](testing.md) and the [contribution workflow](../CONTRIBUTING.md).

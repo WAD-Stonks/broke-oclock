@@ -46,7 +46,7 @@ See [platform-admin contracts and teammate handoffs](docs/platform-admin.md) and
 
 ### Implemented
 
-- Bun monorepo, Vue/Express setup, Better Auth email/password sessions, Prisma/MongoDB integration and automated quality checks.
+- pnpm monorepo, Vue/Express setup, Better Auth email/password sessions, Prisma/MongoDB integration and automated quality checks.
 - **Ingestion administration at `/admin/ingestion`:** bounded manual MoneyDigest imports, conservative parsing, source attribution, deduplication, run/failure monitoring and version-safe draft review. Imports are **disabled by default** pending permitted reuse and source configuration.
 - **Platform administration at `/admin/accounts`:** account search/details, role changes, merchant-request approval/rejection, stall grants/revocation and atomic action history. Mutations use current server-side permissions, expected versions and transaction safeguards.
 - Server-side OneMap authentication/search adapter, UploadThing integration infrastructure and an opt-in Resend transport package.
@@ -73,7 +73,7 @@ OneMap currently supports server-side search; connecting Isaac's location picker
 - **Database:** MongoDB/Atlas through Prisma 6.19. A replica set is required for transactions. MongoDB stores identities/sessions, roles, merchant/outlet records, access requests/grants, deal and community records, source/review metadata and audit history; not every model has a completed feature flow.
 - **Images:** UploadThing stores files; MongoDB has fields for file keys/URLs, type, size, uploader and optional deal association.
 - **Local database:** `mongodb-memory-server` supports a local replica-set helper and isolated test replicas. Development data persists under ignored `.local/mongodb/`; test databases are disposable.
-- **Runtime and collaboration:** Bun 1.4.2 workspaces, one lockfile, GitHub and GitHub Actions; Biome, Vitest and Playwright.
+- **Package manager and runtime:** pnpm 10.34.6 workspaces and the sole `pnpm-lock.yaml`; Bun 1.4.2 remains the local TypeScript runtime/API bundler, not the package manager. Node 22 runs pnpm, Vitest, Prisma, Vite and the Vercel function. GitHub Actions, Biome and Playwright provide the quality gates.
 - **Hosting target:** separate Vercel frontend/API projects. Git-connected setup is not deployment; automatic deployments remain disabled under the documented project configuration.
 
 ### APIs and integration boundaries
@@ -87,21 +87,23 @@ OneMap currently supports server-side search; connecting Isaac's location picker
 
 ## First-time setup
 
-Install Bun **1.4.2** and Node **22.18+**. From a local development checkout:
+Install pnpm **10.34.6**, Bun **1.4.2** and Node **22.18+** (CI uses **22.23.1**). With Node 22 Corepack, `corepack enable pnpm` enables the shim; invoking `pnpm --version` inside this checkout selects the exact `packageManager` pin. From a local development checkout:
 
 ```sh
 git clone https://github.com/WAD-Stonks/broke-oclock.git
 cd broke-oclock
-bun install --frozen-lockfile --ignore-scripts
-bun run setup
+pnpm install --frozen-lockfile --ignore-scripts
+pnpm run setup
 ```
+
+pnpm is the only package manager. `pnpm-workspace.yaml` disables automatic install scripts and hoisting; Prisma generation is an explicit setup step. Existing Bun users must remove only the root/workspace `node_modules` directories, then reinstall from the frozen pnpm lockfile. Preserve `.env` and `.local/mongodb`. See [package-manager policy](docs/package-manager.md), including intentional Bun runtime use.
 
 `setup` preserves an existing `.env`, otherwise creates an ignored local configuration with a random auth secret, and generates Prisma Client. It does not provision Atlas, promote an administrator, seed deals, activate imports or send email.
 
 Start the local database in terminal 1:
 
 ```sh
-bun run db:local
+pnpm run db:local
 ```
 
 This may download MongoDB on first use. The helper is local-only and unauthenticated; never expose it to the internet. It refuses to replace an existing listener on port 27017.
@@ -109,8 +111,8 @@ This may download MongoDB on first use. The helper is local-only and unauthentic
 After confirming that `DATABASE_URL` targets your intended **local development replica set**, apply the schema and start the apps in terminal 2:
 
 ```sh
-bun run db:push
-bun run dev
+pnpm run db:push
+pnpm run dev
 ```
 
 - Frontend: `http://localhost:5173`
@@ -132,24 +134,24 @@ Imports remain off until `INGESTION_ENABLED` and `MONEYDIGEST_REUSE_APPROVED` ar
 ## Commands and verification
 
 ```sh
-bun run dev:web          # Vue only
-bun run dev:api          # Express only
-bun run db:generate      # Generate Prisma Client
-bun run db:validate      # Validate Prisma schema
-bun run format          # Biome formatting/import fixes
-bun run lint            # Biome checks
-bun run typecheck       # Workspace and tool types
-bun run test:unit        # API, web and shared-package unit tests
-bun run test:packages    # Shared-package tests only
-bun run test:integration # Real HTTP/auth/Prisma with disposable MongoDB
-bunx playwright install chromium
-bun run test:e2e         # Chromium browser tests
-bun run build           # API and web builds
-bun run check:all       # Full local quality gate
-bun run audit           # Documented dependency-audit policy
+pnpm run dev:web          # Vue only
+pnpm run dev:api          # Express only
+pnpm run db:generate      # Generate Prisma Client
+pnpm run db:validate      # Validate Prisma schema
+pnpm run format          # Biome formatting/import fixes
+pnpm run lint            # Biome checks
+pnpm run typecheck       # Workspace and tool types
+pnpm run test:unit        # API, web and shared-package unit tests
+pnpm run test:packages    # Shared-package tests only
+pnpm run test:integration # Real HTTP/auth/Prisma with disposable MongoDB
+pnpm exec playwright install chromium
+pnpm run test:e2e         # Chromium browser tests
+pnpm run build           # API and web builds
+pnpm run check:all       # Full local quality gate
+pnpm run audit           # Documented dependency-audit policy
 ```
 
-Use `bun run test`, not Bun's native `bun test`, for this Vitest project. For an isolated worktree without `.env`, Prisma validation can use the non-connecting URI described in [testing](docs/testing.md); integration suites supply their own disposable databases.
+Use `pnpm run test`, not Bun's native `bun test`, for this Vitest project. For an isolated worktree without `.env`, Prisma validation can use the non-connecting URI described in [testing](docs/testing.md); integration suites supply their own disposable databases.
 
 Browser tests currently use explicitly synthetic API/provider responses for affected workflows. They exercise the SPA and client transport, while API integration tests separately exercise real HTTP, authentication and database behaviour. Neither layer is a claim that the proposal's complete connected demo already works. CI records verification for each PR commit; no test count is a permanent project guarantee.
 
@@ -188,7 +190,7 @@ Read [AGENTS.md](AGENTS.md), [development guide](docs/development-guide.md), [ar
 
 ## Security, disclosure and final submission
 
-This repository is public. Never commit credentials, session-state files, personal records, generated clients or unlicensed publisher fixtures. The dependency audit retains one documented Prisma CLI exception; `bun run audit` passing does not mean an unfiltered audit is clean. See [security notes](docs/security.md).
+This repository is public. Never commit credentials, session-state files, personal records, generated clients or unlicensed publisher fixtures. The dependency audit retains one documented Prisma CLI exception; `pnpm run audit` passing does not mean an unfiltered audit is clean. See [security notes](docs/security.md).
 
 AI-assisted work includes scaffolding, framework/auth integration, ingestion and platform-admin feature implementations, tests, CI and documentation. The [AI-use disclosure](docs/ai-use.md) records this work and the course restrictions; instructor clearance remains separate from code verification. Do not present AI-assisted features as student-authored work.
 

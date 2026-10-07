@@ -4,7 +4,7 @@ Audited against the [team's six-workstream plan](https://docs.google.com/documen
 
 ## Where values belong
 
-- Local: ignored root `.env`, using `.env.example` as the template. `bun run setup` creates a new file but deliberately does not overwrite an existing `.env`.
+- Local: ignored root `.env`, using `.env.example` as the template. `pnpm run setup` creates a new file but deliberately does not overwrite an existing `.env`.
 - Production runtime: **Vercel → broke-oclock-api → Settings → Environment Variables → Production**. Enter credentials directly there; keep them server-only. The web currently needs no environment variables.
 - `.env.example` is public documentation, not a place to paste credentials. Its localhost/development values intentionally differ from production values.
 - Existing GitHub `production` secrets/variables are retained, including previously entered DATABASE_URL, BETTER_AUTH_SECRET and VERCEL_TOKEN. They are not automatically copied to Vercel, and GitHub-to-Vercel secret synchronization is not planned.

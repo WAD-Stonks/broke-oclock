@@ -2,8 +2,8 @@
 
 ## Tooling
 
-- Bun for installs and scripts. Commit `bun.lock`; use `bun install --frozen-lockfile` in CI. Do not add npm/pnpm/yarn locks.
-- Biome alone for JS/TS/Vue linting and formatting. Two-space indentation, single quotes, semicolons only where needed. Use `bun run format`; don't introduce ESLint, Oxlint or Prettier.
+- Use pnpm 10.34.6 for installs, dependency changes, workspace commands and audits. Commit only `pnpm-lock.yaml`; use `pnpm install --frozen-lockfile --ignore-scripts` in CI. No Bun/npm/Yarn locks or hoisting workarounds. Bun 1.4.2 is retained only as an explicitly pinned runtime/bundler. See [package-manager policy](package-manager.md).
+- Biome alone for JS/TS/Vue linting and formatting. Two-space indentation, single quotes, semicolons only where needed. Use `pnpm run format`; don't introduce ESLint, Oxlint or Prettier.
 - Prisma's own formatter handles `.prisma`. Markdown and YAML are reviewed manually; do not claim Biome validates every language.
 - Strict TypeScript. Avoid `any`, unchecked casts, non-null assertions and `@ts-ignore`. A narrow suppression needs an explanation and a test. External JSON and request inputs need runtime validation; TypeScript types do not validate data.
 
@@ -71,10 +71,10 @@ Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on the
 
 ## Tests and review
 
-- Vitest for unit/integration tests; `bun run test` invokes Vitest. `bun test` is a different runner and is not this project's test command.
+- Vitest for unit/integration tests; `pnpm run test` invokes Vitest. `bun test` is a different runner and is not this project's test command.
 - Playwright for E2E. Prefer role/label selectors, deterministic fixtures, real integration on main journeys and controlled mocks only at external boundaries.
 - Tests for success, invalid input, forbidden ownership and important boundary conditions belong with every feature. Coverage reports inform review; they are not proof of correctness.
 - Small conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Branch from current main using `feature/...` or `fix/...`; no `codex/` school branches. Open a PR with test evidence; no force-pushing main or auto-merging.
-- Before PR: format, `bun run check:all`, review the whole diff and check for secrets/generated output. Every teammate codes and tests their slice.
+- Before PR: format, `pnpm run check:all`, review the whole diff and check for secrets/generated output. Every teammate codes and tests their slice.
 
 See [AI use](ai-use.md) before asking an assistant to implement assessed project features.

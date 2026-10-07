@@ -8,4 +8,4 @@ The client accepts explicit options and does not read environment variables. The
 
 No posts are parsed into deals, deduplicated, saved, moderated, rendered or scheduled. No Telegram or geocoder client was added. Those separate workstreams remain student-owned. Use API domain services for business rules rather than expanding this transport package into an importer.
 
-Run `bun run test:packages` or full `bun run check:all`. Internal imports use `@integrations/*`.
+Run `pnpm run test:packages` or full `pnpm run check:all`. Internal imports use `@integrations/*`.

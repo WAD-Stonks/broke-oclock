@@ -49,6 +49,6 @@ Health and current-user queries are namespaced as `/api/trpc/infrastructure.heal
 
 ## Verification
 
-API policy tests and real HTTP/Better Auth/disposable-Mongo tests retain their coverage, including logout and concurrent identities. Web tests verify inferred output types and browser same-origin transport (the browser fixture is explicitly synthetic). Verify actual built client input graphs exclude API/auth/database server modules and runtime imports of the type-only API export fail. Root `bun run check:all` remains the main gate.
+API policy tests and real HTTP/Better Auth/disposable-Mongo tests retain their coverage, including logout and concurrent identities. Web tests verify inferred output types and browser same-origin transport (the browser fixture is explicitly synthetic). Verify actual built client input graphs exclude API/auth/database server modules and runtime imports of the type-only API export fail. Root `pnpm run check:all` remains the main gate.
 
 Source inspected: [create-t3-app Better Auth/database template](https://github.com/t3-oss/create-t3-app/blob/4709861f7e67a15564c0460c13e7b4b6cfcae40d/cli/template/extras/src/server/api/trpc-app/with-better-auth-db.ts), [root router](https://github.com/t3-oss/create-t3-app/blob/4709861f7e67a15564c0460c13e7b4b6cfcae40d/cli/template/extras/src/server/api/root.ts), [typed client](https://github.com/t3-oss/create-t3-app/blob/4709861f7e67a15564c0460c13e7b4b6cfcae40d/cli/template/extras/src/trpc/react.tsx).

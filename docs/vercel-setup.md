@@ -7,9 +7,10 @@ Both projects exist in `noahmhs-projects` (`team_FRUcWuiMYuhmD9AYY8BStn20`) and 
 - Web: [broke-oclock-web](https://vercel.com/noahmhs-projects/broke-oclock-web), ID `prj_6U8UcFhnd4LDw97qaROzzuMRhkWq`, root `apps/web`, framework Vite, output `dist`.
 - API: [broke-oclock-api](https://vercel.com/noahmhs-projects/broke-oclock-api), ID `prj_lPCumjeKv8KG8TOS1ATPyA9vDbyk`, root `apps/api`, custom Build Output API (framework setting Other).
 - Assigned domains: `broke-oclock-web.vercel.app` and `broke-oclock-api.vercel.app`. They are reserved project domains, not live application verification.
-- Both projects: Node `22.x`, include source files outside the root directory, install command `cd ../.. && bun install --frozen-lockfile --ignore-scripts`. The root packageManager pins Bun.
-- Web build: `bun run build`.
-- API build: `cd ../.. && bun run db:generate && bun run scripts/build-vercel-api.ts`.
+- Checked-in install command for both projects: `cd ../.. && pnpm install --frozen-lockfile --ignore-scripts`. Root `packageManager` pins pnpm 10.34.6. Node remains `22.x`; source outside each project root must be included.
+- Checked-in web build: `pnpm run build`.
+- Checked-in API build: `cd ../.. && pnpm run build:vercel:api`. This generates Prisma with pnpm and bootstraps exactly Bun 1.4.2 through `pnpm --package=bun@1.4.2 dlx --allow-build=bun` for the existing bundler. Only that isolated runtime installer is permitted to run a lifecycle script; workspace installs still disable all scripts. No globally installed or implicitly selected Bun is assumed.
+- These are repository settings, not a claim that live project overrides were changed. The earlier live install/build settings used Bun; compare and approve any necessary live-settings changes separately before an authorized build/deployment. This migration does not access Vercel settings, secrets or production environments.
 
 ## Why a custom API build
 
@@ -55,4 +56,4 @@ VERCEL_PROJECT_ID=prj_lPCumjeKv8KG8TOS1ATPyA9vDbyk VERCEL_ORG_ID=team_FRUcWuiMYu
 
 For setup validation, supply a disposable/non-connecting DATABASE_URL to generation rather than borrowing production credentials. The API integration suite builds the function, copies it outside the repository with no node_modules, and executes it under Node against a fresh MongoDB replica. It verifies health, DB readiness, real signup/session default role, hostile-origin rejection and disabled uploads. This runs the local native engine, not the Linux binary; cloud launcher/network/proxy/UploadThing validation still requires an explicitly approved deployment.
 
-Run `bun run check:all`, `bun run audit`, and inspect both local Vercel outputs. Read back both projects' deployment lists to confirm setup did not deploy. The project IDs above are public configuration identifiers, not credentials.
+Run `pnpm run check:all`, `pnpm run audit`, and inspect both local Vercel outputs. Read back both projects' deployment lists to confirm setup did not deploy. The project IDs above are public configuration identifiers, not credentials.
