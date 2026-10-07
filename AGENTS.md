@@ -87,9 +87,18 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 - Keep provider mocks explicit. Synthetic UploadThing responses are not proof of a live hosted upload. The existing narrow Prisma CLI audit exception is documented; do not add suppressions casually.
 - Inspect the actual browser import graph after moving shared code. Keep server secrets and modules out of browser bundles.
 
+## Branching and worktrees
+
+- No direct pushes to `main`. Keep each branch and PR focused on one task. Use a descriptive name, for example `feat/<short-description>`, `fix/<short-description>`, `docs/<short-description>`, `chore/<short-description>`, `refactor/<short-description>` or `test/<short-description>`.
+- Before starting, inspect `git status --short` and `git worktree list`, then run `git fetch origin`. Start new independent work from freshly fetched `origin/main`, not a stale local `main` or an old feature branch. Use another base only when that dependency is explicitly agreed.
+- For follow-up fixes to an open PR, reuse its branch and owning worktree. After a PR is merged, fetch again and create a new branch from `origin/main` for the next independent task.
+- If the checkout contains unrelated changes, or a branch is already checked out elsewhere, preserve that checkout and create a separate worktree at a new path. Do not switch, reset, stash or remove another person's work to make room.
+- A clean checkout can start a new branch with `git switch -c feat/short-description origin/main`. Alternatively, create a separate checkout with `git worktree add -b feat/short-description /path/to/new-worktree origin/main`. Replace the example name and path; choose one approach, not both for the same branch.
+- Review against the live PR's exact base and head commits, corroborated by fetched remote refs. An unrelated local `main` may be stale; do not use it to widen the review diff or reset it without checking its owner and changes.
+- If the PR base advances, integrate those changes into the owned branch and rerun checks before merging. Do not rewrite shared branch history or force-push without explicit approval. Remove a branch/worktree only after confirming its PR is merged and it contains no uncommitted work or unmerged commits.
+
 ## Workflow, security and coursework
 
-- No direct pushes to `main`. Use a descriptive school branch without `codex/`; reuse the current PR branch/worktree for follow-ups.
 - Review the full diff and commit only authorized changes. Never reset, force-push or discard unrelated work.
 - Open/update a PR with scope and actual test results. Wait for the latest commit's `quality` check. Never merge or enable auto-merge without Noah's explicit authorization for that PR; review bypass and green CI are not merge permission.
 - Never commit `.env`, credentials, generated clients, build output, test reports or dependency directories. No secrets in `VITE_*`, logs or chat.

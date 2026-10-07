@@ -74,7 +74,7 @@ Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on the
 - Vitest for unit/integration tests; `pnpm run test` invokes Vitest. The separate Node tooling regression suite is included in the unit gate.
 - Playwright for E2E. Prefer role/label selectors, deterministic fixtures, real integration on main journeys and controlled mocks only at external boundaries.
 - Tests for success, invalid input, forbidden ownership and important boundary conditions belong with every feature. Coverage reports inform review; they are not proof of correctness.
-- Small conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Branch from current main using `feature/...` or `fix/...`; no `codex/` school branches. Open a PR with test evidence; no force-pushing main or auto-merging.
+- Small conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Follow [branching and worktree guidance](../AGENTS.md#branching-and-worktrees): start independent work from freshly fetched `origin/main`, use descriptive task branches and reuse the existing PR branch for follow-ups. Open a PR with test evidence; no direct pushes to main, unapproved force-pushes or auto-merging.
 - Before PR: format, `pnpm run check:all`, review the whole diff and check for secrets/generated output. Every teammate codes and tests their slice.
 
 See [AI use](ai-use.md) before asking an assistant to implement assessed project features.
