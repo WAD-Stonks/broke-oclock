@@ -26,7 +26,7 @@ apps/web/                  Vue SPA + BootstrapVueNext/Bootstrap, browser code on
   tests/                   Frontend Vitest tests
 apps/api/                  Express HTTP boundary + Better Auth
   src/app.ts               Testable Express app composition
-  src/server.ts            Local Bun server lifecycle
+  src/server.ts            Local Node.js server lifecycle
   src/config.ts            Server environment parsing
   src/auth.ts              Maps validated env config into the shared auth factory
   src/trpc/                API-owned context, procedure helpers, root and feature routers
@@ -51,7 +51,7 @@ packages/contracts/        Zod schemas/inferred JSON types for current infrastru
 packages/integrations/     Read-only external-provider transports; no ingestion logic
 packages/email/            Opt-in Resend transport/templates; no active auth email hooks
 packages/ui/               BootstrapVueNext provider/components and shared AppShell
-scripts/                   Bun setup/dev/env/database orchestration
+scripts/                   Node.js setup/dev/env/database orchestration
 e2e/                      Playwright browser journeys
 docs/                     Decisions, scope, setup and team conventions
 .github/                   PR template and PR-only quality CI
@@ -74,16 +74,16 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 - Across workspaces, use public `@broke-oclock/db`, `@broke-oclock/auth/{client,server,node,types}` or `@broke-oclock/storage/{client,server,types}` exports. Other public entry points are `@broke-oclock/contracts/api`, `@broke-oclock/integrations/server`, `@broke-oclock/email/server` and `@broke-oclock/ui`, `@broke-oclock/ui/styles.css`, `@broke-oclock/contracts/rpc`, and the type-only `@broke-oclock/api/types` export. Never reach into another workspace with its private source alias. The sole app-to-app exception is the web devDependency on the API for `import type { AppRouter }` from `@broke-oclock/api/types`; it has no runtime target. All other app-to-app implementation imports are forbidden, and packages must not import apps.
 - Browser code uses auth/storage `/client` and its own tRPC client, type-only router definitions and browser-safe contract schemas, never `/server`, the database, auth-server code, email/integration server modules or secrets. Do not make a mixed client/server barrel.
 - The API owns env loading, HTTP mounting and feature authorization; auth owns reusable session/auth machinery, and storage receives already-verified request-scoped identity. Neither package imports an app.
-- TypeScript, Bun, Vite and Vitest must all resolve aliases. Run real tests/builds after changing resolution; a typecheck alone is insufficient. Native Node needs bundling/resolution support.
+- TypeScript, tsx, esbuild, Vite and Vitest must all resolve aliases. Run real tests/builds after changing resolution; a typecheck alone is insufficient. Plain Node production artifacts must bundle workspace code and aliases without requiring tsx at runtime.
 - Relative filesystem URLs, package export paths and generated code are not authored module-import style. Do not rename build output or edit generated Prisma files to satisfy this convention.
 
 ## Tooling and verification
 
-- Use pnpm 10.34.6 for package management, strict TypeScript and Biome. Keep `pnpm-lock.yaml` as the sole lockfile. No npm/Bun/yarn lockfiles, ESLint, Oxlint or Prettier. Bun 1.4.2 remains the TypeScript runtime and bundler, not the package manager. See [package-manager guidance](docs/package-manager.md).
+- Use pnpm 10.34.6 for package management, Node.js 22.18 or newer for runtime, strict TypeScript and Biome. Keep `pnpm-lock.yaml` as the sole lockfile. No npm/Bun/yarn lockfiles, ESLint, Oxlint or Prettier. Use pinned tsx for TypeScript development/tooling and esbuild for standalone Node.js API artifacts. Do not use Bun as a runtime, bundler or package manager. See [package-manager guidance](docs/package-manager.md).
 - Install with `pnpm install --frozen-lockfile --ignore-scripts`; run `pnpm run setup` for initial local setup and Prisma generation. Preserve existing `.env` values. Keep isolated workspace linking and install hooks disabled.
 - Use Prisma's MongoDB provider and typed client. MongoDB needs a replica set; tests use disposable replicas. Never run tests or schema changes against production. Do not use raw-query shortcuts.
 - Run `pnpm run format`, `pnpm run check:all`, `pnpm run audit` and `git diff --check` before pushing. `check:all` includes lint, schema validation, all workspace/tool typechecks, unit/integration tests, builds and Playwright.
-- Use `pnpm run test`, not `bun test`; Vitest and Bun's native runner are different. `pnpm run test:packages` runs email/integration transport tests; RPC policy tests live in the API unit suite. Both are included in the unit-test gate. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
+- Use `pnpm run test` for Vitest suites; `pnpm run test:tooling` runs Node.js tooling regressions. `pnpm run test:packages` runs email/integration transport tests; RPC policy tests live in the API unit suite. Both are included in the unit-test gate. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
 - Keep provider mocks explicit. Synthetic UploadThing responses are not proof of a live hosted upload. The existing narrow Prisma CLI audit exception is documented; do not add suppressions casually.
 - Inspect the actual browser import graph after moving shared code. Keep server secrets and modules out of browser bundles.
 

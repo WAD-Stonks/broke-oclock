@@ -8,6 +8,6 @@ The original starter did not implement product workflows. Subsequent user-reques
 
 The user-requested package-manager migration was also AI-assisted tooling work: pnpm workspace/lockfile configuration, runtime separation, lifecycle and audit policy, direct dependency declarations, CI/hosting commands, regression tests and documentation. It does not add assessed product logic.
 
-Vercel assistance additionally supplies project settings, same-origin/SPA routing, an Express export and a self-contained Bun-to-Node build with Prisma engine packaging and isolated runtime tests. No deployment or assessed feature workflow is supplied by that configuration.
+Vercel assistance additionally supplies project settings, same-origin/SPA routing, an Express export and a self-contained Node ESM build with Prisma engine packaging and isolated runtime tests. The separately approved Node runtime migration replaces legacy execution/build tooling with pinned tsx/esbuild and Node child-process orchestration, removes the runtime bootstrap/lifecycle exception and adds clean-store, signal and standalone production-artifact regressions. No deployment or assessed feature workflow is supplied by that configuration.
 
 Do not remove this disclosure when adding student code. Record what AI supplied and what students authored/reviewed, and include the required disclosure in the final README.txt. Ask the instructor where a borderline use is unclear.

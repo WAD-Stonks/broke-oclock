@@ -1,14 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  realpathSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -20,7 +12,9 @@ const manifest = JSON.parse(read('package.json'))
 
 test('pnpm owns dependency management with one isolated workspace lockfile', () => {
   assert.equal(manifest.packageManager, 'pnpm@10.34.6')
-  assert.equal(manifest.engines.bun, '1.4.2')
+  assert.equal(manifest.engines.bun, undefined)
+  assert.equal(manifest.devDependencies.tsx, '4.23.15')
+  assert.equal(manifest.devDependencies.esbuild, '0.28.2')
   assert.ok(existsSync(new URL('pnpm-lock.yaml', root)))
   for (const name of ['bun.lock', 'bun.lockb', 'package-lock.json', 'yarn.lock']) {
     assert.equal(existsSync(new URL(name, root)), false, `Unexpected lockfile: ${name}`)
@@ -49,51 +43,85 @@ test('pnpm resolves exactly the documented audit exception', () => {
   assert.deepEqual(JSON.parse(result.stdout), { ignoreGhsas: ['GHSA-ggr8-5vv4-36mx'] })
 })
 
-test('pinned Bun bootstrap works with a cold store/cache and inherited pnpm run policy', () => {
-  const fixture = mkdtempSync(join(tmpdir(), 'pnpm-bun-bootstrap-'))
+test('cold frozen Node tooling works with all install hooks disabled', () => {
+  const fixture = mkdtempSync(join(tmpdir(), 'pnpm-node-cold-'))
   try {
     const store = join(fixture, 'store')
     const cache = join(fixture, 'cache')
-    const probe = join(fixture, 'runtime.json')
-    assert.equal(existsSync(store), false)
-    assert.equal(existsSync(cache), false)
-    const bootstrap = manifest.scripts['build:vercel:api'].split(' && ')[1]
-    assert.ok(bootstrap.endsWith(' bun scripts/build-vercel-api.ts'))
+    const marker = join(fixture, 'legacy-used')
+    writeFileSync(
+      join(fixture, 'bun'),
+      `#!/usr/bin/env node\nrequire('node:fs').writeFileSync(${JSON.stringify(marker)}, 'unexpected'); process.exit(97)\n`,
+      { mode: 0o700 },
+    )
     writeFileSync(join(fixture, 'pnpm-workspace.yaml'), read('pnpm-workspace.yaml'))
-    writeFileSync(
-      join(fixture, 'inherited-policy.cjs'),
-      `require('node:assert/strict').equal(process.env.npm_config_ignore_scripts, 'true')`,
-    )
-    writeFileSync(
-      join(fixture, 'probe.ts'),
-      `import { writeFileSync } from 'node:fs'; writeFileSync(${JSON.stringify(probe)}, JSON.stringify({ version: Bun.version, executable: process.execPath }))`,
-    )
     writeFileSync(
       join(fixture, 'package.json'),
       JSON.stringify({
-        name: 'cold-bun-bootstrap-fixture',
+        name: 'cold-node-tooling-fixture',
         private: true,
+        type: 'module',
         packageManager: manifest.packageManager,
-        scripts: {
-          bootstrap: `node inherited-policy.cjs && ${bootstrap.replace('scripts/build-vercel-api.ts', 'probe.ts')} && node inherited-policy.cjs`,
+        devDependencies: {
+          tsx: manifest.devDependencies.tsx,
+          esbuild: manifest.devDependencies.esbuild,
         },
+        scripts: { probe: 'node --import tsx probe.ts' },
       }),
     )
-    // Use a real pnpm run, not a direct dlx call: run exports ignoreScripts to children.
-    const result = spawnSync(
+    writeFileSync(
+      join(fixture, 'tsconfig.json'),
+      JSON.stringify({ compilerOptions: { paths: { '@fixture/*': ['./src/*'] } } }),
+    )
+    mkdirSync(join(fixture, 'src'))
+    writeFileSync(join(fixture, 'src/value.ts'), 'export const value: number = 42')
+    writeFileSync(
+      join(fixture, 'probe.ts'),
+      `
+      import assert from 'node:assert/strict';
+      import {build, version} from 'esbuild';
+      import {value} from '@fixture/value';
+      assert.equal(value, 42);
+      assert.equal(version, ${JSON.stringify(manifest.devDependencies.esbuild)});
+      assert.equal(process.env.npm_config_ignore_scripts, 'true');
+      await build({entryPoints: ['src/value.ts'], bundle: true, platform: 'node', format: 'esm', outfile: 'value.mjs'});
+      assert.equal((await import('./value.mjs')).value, 42);
+      console.log('cold-node-tooling-ok');
+    `,
+    )
+    const options = {
+      cwd: fixture,
+      env: {
+        ...process.env,
+        PATH: `${fixture}:${process.env.PATH}`,
+        ESBUILD_BINARY_PATH: '',
+        TSX_DISABLE_CACHE: '1',
+      },
+      encoding: 'utf8',
+      timeout: 120_000,
+    }
+    const args = [`--config.store-dir=${store}`, `--config.cache-dir=${cache}`]
+    const lock = spawnSync(
       'pnpm',
-      [`--config.store-dir=${store}`, `--config.cache-dir=${cache}`, 'run', 'bootstrap'],
-      { cwd: fixture, env: process.env, encoding: 'utf8', timeout: 120_000 },
+      [...args, 'install', '--lockfile-only', '--ignore-scripts'],
+      options,
     )
+    assert.equal(lock.status, 0, `${lock.stdout}\n${lock.stderr}`)
+    rmSync(store, { recursive: true, force: true })
+    rmSync(cache, { recursive: true, force: true })
+    assert.equal(existsSync(store), false)
+    assert.equal(existsSync(cache), false)
+    const installed = spawnSync(
+      'pnpm',
+      [...args, 'install', '--frozen-lockfile', '--ignore-scripts'],
+      options,
+    )
+    assert.equal(installed.status, 0, `${installed.stdout}\n${installed.stderr}`)
+    const result = spawnSync('pnpm', [...args, 'run', 'probe'], options)
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`)
-    const runtime = JSON.parse(readFileSync(probe, 'utf8'))
-    assert.equal(runtime.version, manifest.engines.bun)
-    // macOS can report /private/var for a cache created through the /var symlink.
-    assert.ok(
-      realpathSync(runtime.executable).startsWith(`${realpathSync(cache)}/`),
-      runtime.executable,
-    )
-    assert.ok(existsSync(store), 'The bootstrap must use the isolated cold store')
+    assert.match(result.stdout, /cold-node-tooling-ok/)
+    assert.equal(existsSync(marker), false)
+    assert.ok(existsSync(store), 'The install must populate its isolated cold store')
   } finally {
     rmSync(fixture, { recursive: true, force: true })
   }
@@ -164,8 +192,8 @@ test('workspace runner uses pnpm and preserves arguments, cwd, environment and e
       { mode: 0o700 },
     )
     const result = spawnSync(
-      'bun',
-      ['scripts/workspace.ts', 'packages/db', 'fixture-script', '--flag'],
+      process.execPath,
+      ['--import', 'tsx', 'scripts/workspace.ts', 'packages/db', 'fixture-script', '--flag'],
       {
         cwd: fileURLToPath(root),
         env: {
@@ -199,15 +227,14 @@ test('workspaces declare the libraries their own tests import', () => {
   }
 })
 
-test('root, CI and checked-in hosting commands use pnpm, keeping Bun only as runtime', () => {
+test('root, CI and hosting commands need only Node and pnpm', () => {
   for (const script of Object.values(manifest.scripts)) {
-    assert.doesNotMatch(script, /\bbun (?:run|install|add|remove|update|audit|x)\b/)
+    assert.doesNotMatch(script, /\bbun\b|ignore-scripts=false|\bdlx\b/)
   }
   const ci = read('.github/workflows/ci.yml')
   assert.match(ci, /pnpm\/action-setup@/)
-  assert.match(ci, /bun-version: '1\.4\.2'/)
   assert.match(ci, /pnpm install --frozen-lockfile --ignore-scripts/)
-  assert.doesNotMatch(ci, /\bbun(?:x| (?:run|install|audit))\b/)
+  assert.doesNotMatch(ci, /setup-bun|\bbun\b/)
   for (const app of ['api', 'web']) {
     const config = JSON.parse(read(`apps/${app}/vercel.json`))
     assert.equal(config.git.deploymentEnabled, false)
