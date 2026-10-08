@@ -27,7 +27,7 @@ Deployment should preferably serve the SPA and `/api` under one site, with HTTPS
 ## Stack references
 
 - [Vue quick start](https://vuejs.org/guide/quick-start.html) · [Vue + TypeScript](https://vuejs.org/guide/typescript/composition-api.html) · [Vue Router](https://router.vuejs.org/guide/)
-- [tRPC Express adapter](https://trpc.io/docs/server/adapters/express) · [framework-independent typed client](https://trpc.io/docs/client/vanilla/setup) · [Zod](https://zod.dev/)
+- [Axios](https://axios-http.com/docs/intro) · [Zod](https://zod.dev/)
 - [BootstrapVueNext setup](https://bootstrap-vue-next.github.io/bootstrap-vue-next/docs) · [Resend send API](https://resend.com/docs/api-reference/emails/send-email)
 - [TypeScript handbook](https://www.typescriptlang.org/docs/handbook/intro.html)
 - [Vite](https://vite.dev/guide/) · [Vite environment variables](https://vite.dev/guide/env-and-mode) · [Bootstrap + Vite](https://getbootstrap.com/docs/5.3/getting-started/vite/)

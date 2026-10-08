@@ -68,8 +68,8 @@ OneMap currently supports server-side search; connecting Isaac's location picker
 
 ## Technology and data
 
-- **Frontend:** Vue 3, TypeScript, Vue Router, Vite, Bootstrap 5 and BootstrapVueNext.
-- **Backend:** Express 5, TypeScript, tRPC and Zod; Better Auth sessions with Helmet, CORS and origin/CSRF checks.
+- **Frontend:** Vue 3, TypeScript, Vue Router, Vite, Bootstrap 5, BootstrapVueNext and a typed Axios REST client.
+- **Backend:** Express 5, TypeScript and Zod JSON REST resources; Better Auth sessions with Helmet, CORS and origin/CSRF checks.
 - **Database:** MongoDB/Atlas through Prisma 6.19. A replica set is required for transactions. MongoDB stores identities/sessions, roles, merchant/outlet records, access requests/grants, deal and community records, source/review metadata and audit history; not every model has a completed feature flow.
 - **Images:** UploadThing stores files; MongoDB has fields for file keys/URLs, type, size, uploader and optional deal association.
 - **Local database:** `mongodb-memory-server` supports a local replica-set helper and isolated test replicas. Development data persists under ignored `.local/mongodb/`; test databases are disposable.
@@ -179,12 +179,12 @@ Each owner supplies tests and a short run/demo note. The assigned reviewer check
 ## Repository guide
 
 - `apps/web`: Vue pages, feature modules, routes and typed client calls.
-- `apps/api`: Express setup, request context, tRPC routers and app-owned services.
+- `apps/api`: Express setup, named REST handlers, request-scoped identity and app-owned services.
 - `packages`: shared auth, database, storage, contracts, integrations, email and UI.
 - `e2e`: Playwright journeys; `scripts`: local setup, builds and test tooling.
 - `docs`: architecture, contracts, setup, security and ownership guidance.
 
-The API root registers named routers only: `infrastructure`, `ingestion` and `platformAdmin`. Use `api.infrastructure.health.query()` and `api.infrastructure.me.query()` through the browser's type-safe client. Feature procedures live under `routers/<domain>/procedures/` and are assembled in that domain's `index.ts`. Better Auth and UploadThing keep their native endpoints.
+The API serves the health, readiness and current-user probes at `GET /api/health`, `GET /api/ready` and `GET /api/me`. Domain route assemblies expose conventional HTTP resources; the browser uses explicit Axios functions grouped by domain and contracts from `packages/contracts`. The retired `/api/trpc` endpoint returns 404. Better Auth and UploadThing keep their native endpoints.
 
 Read [AGENTS.md](AGENTS.md), [development guide](docs/development-guide.md), [architecture](docs/architecture.md), [coding standards](docs/coding-standards.md), [platform-admin handoff](docs/platform-admin.md), [testing](docs/testing.md) and [contribution workflow](CONTRIBUTING.md). Earlier planning material in `docs/feature-plan.md` and `docs/contracts.md` must be reconciled with the current proposal and implemented contracts where it differs.
 

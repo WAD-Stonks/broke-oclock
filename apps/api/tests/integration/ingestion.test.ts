@@ -6,8 +6,16 @@ import { promisify } from 'node:util'
 import { parseConfig } from '@api/config'
 import type { IngestionRuntime } from '@api/modules/ingestion/runtime'
 import { MONEYDIGEST_SOURCE, sourceWhere } from '@api/modules/ingestion/source'
-import type { AppRouter } from '@api/trpc/root'
-import { createTRPCClient, httpBatchLink } from '@trpc/client'
+import type {
+  IngestionAccountsResponse,
+  IngestionDashboardResponse,
+  IngestionDraftsResponse,
+  IngestionLocationsResponse,
+  IngestionReviewResponse,
+  IngestionRunResponse,
+  IngestionRunsResponse,
+} from '@broke-oclock/contracts/ingestion'
+import axios from 'axios'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -17,6 +25,7 @@ let mongo: MongoMemoryReplSet | undefined
 let server: Server | undefined
 let db: typeof import('@broke-oclock/db').db
 let baseURL = ''
+let fixtureDatabaseUrl = ''
 let clock = new Date('2026-10-03T00:00:00.000Z')
 const syntheticPost = (
   id = 101,
@@ -40,20 +49,39 @@ const runtime: IngestionRuntime = {
 let admin: { id: string; cookie: string }
 let member: { id: string; cookie: string }
 let moderator: { id: string; cookie: string }
-const clientFor = (cookie = '', requestOrigin = origin) =>
-  createTRPCClient<AppRouter>({
-    links: [
-      httpBatchLink({
-        url: `${baseURL}/api/trpc`,
-        fetch: (input, init) => {
-          const headers = new Headers(init?.headers)
-          headers.set('Origin', requestOrigin)
-          if (cookie) headers.set('Cookie', cookie)
-          return fetch(input, { ...init, headers })
-        },
-      }),
-    ],
+const clientFor = (cookie = '', requestOrigin = origin) => {
+  const client = axios.create({
+    baseURL,
+    timeout: 5_000,
+    headers: { Origin: requestOrigin, ...(cookie ? { Cookie: cookie } : {}) },
   })
+  const data = async <T>(request: Promise<{ data: T }>) => (await request).data
+  return {
+    ingestion: {
+      getDashboard: () => data<IngestionDashboardResponse>(client.get('/api/ingestion/dashboard')),
+      runNow: () => data<IngestionRunResponse>(client.post('/api/ingestion/runs')),
+      getRuns: (params?: { limit?: number }) =>
+        data<IngestionRunsResponse>(client.get('/api/ingestion/runs', { params })),
+      getDrafts: (params?: { limit?: number; status?: string; cursor?: string }) =>
+        data<IngestionDraftsResponse>(client.get('/api/ingestion/drafts', { params })),
+      reviewDraft: (input: {
+        dealId: string
+        expectedContentVersion: number
+        decision: 'APPROVE' | 'REJECT'
+        note: string
+      }) => {
+        const { dealId, ...body } = input
+        return data<IngestionReviewResponse>(
+          client.post(`/api/ingestion/drafts/${dealId}/review`, body),
+        )
+      },
+      getAccounts: (params?: { limit?: number; cursor?: string }) =>
+        data<IngestionAccountsResponse>(client.get('/api/ingestion/accounts', { params })),
+      searchLocations: (params: { query: string }) =>
+        data<IngestionLocationsResponse>(client.get('/api/ingestion/locations', { params })),
+    },
+  }
+}
 const signUp = async (name: string) => {
   const response = await fetch(`${baseURL}/api/auth/sign-up/email`, {
     method: 'POST',
@@ -79,6 +107,7 @@ beforeAll(async () => {
     replSet: { count: 1, storageEngine: 'wiredTiger', ip: '127.0.0.1' },
   })
   const databaseUrl = mongo.getUri(`ingestion_${randomUUID().replaceAll('-', '')}`)
+  fixtureDatabaseUrl = databaseUrl
   vi.stubEnv('DATABASE_URL', databaseUrl)
   vi.stubEnv('NODE_ENV', 'test')
   await promisify(execFile)('pnpm', ['--dir', 'packages/db', 'run', 'push'], {
@@ -120,15 +149,203 @@ afterAll(async () => {
   vi.unstubAllEnvs()
 })
 describe('ingestion admin real HTTP/session/disposable Mongo', () => {
+  it('serves the dashboard through the REST route with a structured anonymous error', async () => {
+    await expect(
+      axios.get(`${baseURL}/api/ingestion/dashboard`, { headers: { Origin: origin } }),
+    ).rejects.toMatchObject({
+      response: {
+        status: 401,
+        data: { error: { code: 'UNAUTHORIZED', message: 'UNAUTHORIZED' } },
+      },
+    })
+  })
+  it('lists bounded ingestion runs through the explicit REST resource route', async () => {
+    const response = await axios.get(`${baseURL}/api/ingestion/runs?limit=1`, {
+      headers: { Origin: origin, Cookie: admin.cookie },
+    })
+    expect(response.data).toMatchObject({ items: [] })
+    expect(response.data.items).toHaveLength(0)
+  })
+  it('lists drafts through the bounded REST query contract', async () => {
+    const response = await axios.get(`${baseURL}/api/ingestion/drafts?limit=1&status=PENDING`, {
+      headers: { Origin: origin, Cookie: admin.cookie },
+    })
+    expect(response.data).toEqual({ items: [], nextCursor: null })
+  })
+  it('lists only the explicit bounded account DTO through the REST route', async () => {
+    const response = await axios.get(`${baseURL}/api/ingestion/accounts?limit=1`, {
+      headers: { Origin: origin, Cookie: admin.cookie },
+    })
+    expect(response.data.items).toHaveLength(1)
+    expect(Object.keys(response.data.items[0]).sort()).toEqual([
+      'createdAt',
+      'email',
+      'id',
+      'name',
+      'role',
+    ])
+  })
+  it('searches locations through its bounded REST query and trims provider input', async () => {
+    const original = runtime.searchLocations
+    const search = vi.fn().mockResolvedValue([
+      {
+        searchValue: 'Synthetic place',
+        address: 'Synthetic address',
+        postalCode: '123456',
+        latitude: 1.3,
+        longitude: 103.8,
+      },
+    ])
+    runtime.searchLocations = search
+    const response = await axios.get(
+      `${baseURL}/api/ingestion/locations?query=%20Synthetic%20place%20`,
+      {
+        headers: { Origin: origin, Cookie: admin.cookie },
+      },
+    )
+    expect(response.data.items).toHaveLength(1)
+    expect(search).toHaveBeenCalledWith('Synthetic place')
+    runtime.searchLocations = original
+  })
+  it('blocks a REST ingestion run while the feature gate is disabled', async () => {
+    await expect(
+      axios.post(`${baseURL}/api/ingestion/runs`, undefined, {
+        headers: { Origin: origin, Cookie: admin.cookie },
+      }),
+    ).rejects.toMatchObject({
+      response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
+    })
+  })
+  it('rejects an unexpected JSON body for the no-input manual run operation', async () => {
+    await expect(
+      axios.post(
+        `${baseURL}/api/ingestion/runs`,
+        { unexpected: true },
+        { headers: { Origin: origin, Cookie: admin.cookie } },
+      ),
+    ).rejects.toMatchObject({
+      response: { status: 400, data: { error: { code: 'BAD_REQUEST' } } },
+    })
+  })
+  it('preserves the missing-draft default over real authenticated HTTP', async () => {
+    await expect(
+      clientFor(admin.cookie).ingestion.reviewDraft({
+        dealId: '000000000000000000000001',
+        expectedContentVersion: 1,
+        decision: 'REJECT',
+        note: 'Synthetic missing record',
+      }),
+    ).rejects.toMatchObject({
+      response: { status: 404, data: { error: { code: 'NOT_FOUND', message: 'NOT_FOUND' } } },
+    })
+  })
+
+  it('preserves the transaction-time ADMIN denial after a committed demotion between admission and its real role read', async () => {
+    const { PrismaClient } = await import('@broke-oclock/db')
+    if (!fixtureDatabaseUrl.startsWith('mongodb://127.0.0.1:'))
+      throw new Error('Disposable replica fixture required')
+    const concurrentDb = new PrismaClient({ datasourceUrl: fixtureDatabaseUrl })
+    const original = await db.user.findUniqueOrThrow({ where: { id: member.id } })
+    await db.user.update({ where: { id: member.id }, data: { role: 'ADMIN' } })
+    const counts = async () =>
+      Promise.all([
+        db.deal.count(),
+        db.importedPost.count(),
+        db.ingestionRun.count(),
+        db.platformAudit.count(),
+      ])
+    const before = await counts()
+    let signal = () => {}
+    let release = () => {}
+    const admitted = new Promise<void>((resolve) => {
+      signal = resolve
+    })
+    const resume = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const transact = db.$transaction.bind(db)
+    const transactionSpy = vi.spyOn(db, '$transaction').mockImplementation((operation, options) =>
+      transact(async (tx) => {
+        const instrumented = new Proxy(tx, {
+          get(target, property, receiver) {
+            if (property !== 'user') return Reflect.get(target, property, receiver)
+            return new Proxy(target.user, {
+              get(delegate, method, delegateReceiver) {
+                if (method !== 'findUnique') return Reflect.get(delegate, method, delegateReceiver)
+                return async (...args: Parameters<typeof delegate.findUnique>) => {
+                  if (args[0]?.where.id === member.id && args[0]?.select?.role === true) {
+                    signal()
+                    await resume
+                  }
+                  return delegate.findUnique(...args)
+                }
+              },
+            })
+          },
+        })
+        return operation(instrumented)
+      }, options),
+    )
+    const review = clientFor(member.cookie)
+      .ingestion.reviewDraft({
+        dealId: '000000000000000000000001',
+        expectedContentVersion: 1,
+        decision: 'REJECT',
+        note: 'Synthetic authorization barrier',
+      })
+      .then(
+        (value) => ({ status: 'fulfilled' as const, value }),
+        (reason: unknown) => ({ status: 'rejected' as const, reason }),
+      )
+    try {
+      await Promise.race([
+        admitted,
+        review.then(() => {
+          throw new Error('Review completed before transaction role-read barrier')
+        }),
+      ])
+      await concurrentDb.user.update({ where: { id: member.id }, data: { role: 'USER' } })
+      expect((await concurrentDb.user.findUniqueOrThrow({ where: { id: member.id } })).role).toBe(
+        'USER',
+      )
+      release()
+      const result = await review
+      expect(result).toMatchObject({
+        status: 'rejected',
+        reason: {
+          response: { status: 403, data: { error: { code: 'FORBIDDEN', message: 'FORBIDDEN' } } },
+        },
+      })
+      expect(await counts()).toEqual(before)
+    } finally {
+      release()
+      transactionSpy.mockRestore()
+      await review
+      await concurrentDb.user.update({ where: { id: member.id }, data: { role: original.role } })
+      await concurrentDb.$disconnect()
+    }
+  })
+
+  it('rejects malformed review bodies as a consistent REST 400', async () => {
+    await expect(
+      axios.post(
+        `${baseURL}/api/ingestion/drafts/0123456789abcdef01234567/review`,
+        { decision: 'APPROVE', unexpected: true },
+        { headers: { Origin: origin, Cookie: admin.cookie } },
+      ),
+    ).rejects.toMatchObject({
+      response: { status: 400, data: { error: { code: 'BAD_REQUEST' } } },
+    })
+  })
   it('rejects anonymous, USER and MODERATOR and rechecks demoted admins using the same cookie', async () => {
-    await expect(clientFor().ingestion.dashboard.query()).rejects.toMatchObject({
-      data: { code: 'UNAUTHORIZED' },
+    await expect(clientFor().ingestion.getDashboard()).rejects.toMatchObject({
+      response: { status: 401, data: { error: { code: 'UNAUTHORIZED' } } },
     })
     for (const account of [member, moderator])
-      await expect(clientFor(account.cookie).ingestion.dashboard.query()).rejects.toMatchObject({
-        data: { code: 'FORBIDDEN' },
+      await expect(clientFor(account.cookie).ingestion.getDashboard()).rejects.toMatchObject({
+        response: { status: 403, data: { error: { code: 'FORBIDDEN' } } },
       })
-    await expect(clientFor(admin.cookie).ingestion.dashboard.query()).resolves.toMatchObject({
+    await expect(clientFor(admin.cookie).ingestion.getDashboard()).resolves.toMatchObject({
       source: {
         name: 'MoneyDigest',
         enabled: false,
@@ -138,23 +355,23 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       counts: { pending: 0, approved: 0, rejected: 0, failed: 0 },
     })
     await db.user.update({ where: { id: admin.id }, data: { role: 'USER' } })
-    await expect(clientFor(admin.cookie).ingestion.dashboard.query()).rejects.toMatchObject({
-      data: { code: 'FORBIDDEN' },
+    await expect(clientFor(admin.cookie).ingestion.getDashboard()).rejects.toMatchObject({
+      response: { status: 403, data: { error: { code: 'FORBIDDEN' } } },
     })
     await db.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } })
   })
   it('fails closed at each gate without provider calls and bootstraps a disabled fixed source', async () => {
     const client = clientFor(admin.cookie)
-    await expect(client.ingestion.run.mutate()).rejects.toMatchObject({
-      data: { code: 'PRECONDITION_FAILED' },
+    await expect(client.ingestion.runNow()).rejects.toMatchObject({
+      response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
     })
     runtime.enabled = true
-    await expect(client.ingestion.run.mutate()).rejects.toMatchObject({
-      data: { code: 'PRECONDITION_FAILED' },
+    await expect(client.ingestion.runNow()).rejects.toMatchObject({
+      response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
     })
     runtime.reuseApproved = true
-    await expect(client.ingestion.run.mutate()).rejects.toMatchObject({
-      data: { code: 'PRECONDITION_FAILED' },
+    await expect(client.ingestion.runNow()).rejects.toMatchObject({
+      response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
     })
     const source = await db.importSource.findUniqueOrThrow({
       where: { provider_externalId: { provider: 'WORDPRESS', externalId: 'moneydigest.sg' } },
@@ -165,7 +382,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
   })
   it('imports one bounded page atomically and is idempotent after a durable cooldown', async () => {
     const client = clientFor(admin.cookie)
-    const run = await client.ingestion.run.mutate()
+    const run = await client.ingestion.runNow()
     expect(run).toMatchObject({
       status: 'SUCCEEDED',
       fetchedCount: 1,
@@ -197,17 +414,17 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     ).toBe(imported.contentHash)
     const source = await db.importSource.findUniqueOrThrow({ where: { id: imported.sourceId } })
     expect(source.leaseToken).toBeNull()
-    await expect(client.ingestion.run.mutate()).rejects.toMatchObject({
-      data: { code: 'TOO_MANY_REQUESTS' },
+    await expect(client.ingestion.runNow()).rejects.toMatchObject({
+      response: { status: 429, data: { error: { code: 'TOO_MANY_REQUESTS' } } },
     })
     clock = new Date(clock.getTime() + 30_000)
-    expect(await client.ingestion.run.mutate()).toMatchObject({ createdCount: 0, updatedCount: 0 })
+    expect(await client.ingestion.runNow()).toMatchObject({ createdCount: 0, updatedCount: 0 })
     expect(await db.deal.count()).toBe(1)
     expect(await db.ingestionRun.count()).toBe(2)
   })
   it('lists bounded explicit queue/run/account DTOs and approves exactly the reviewed version', async () => {
     const client = clientFor(admin.cookie)
-    const queue = await client.ingestion.queue.query({ limit: 1, status: 'PENDING' })
+    const queue = await client.ingestion.getDrafts({ limit: 1, status: 'PENDING' })
     expect(queue.items).toHaveLength(1)
     const deal = queue.items[0]
     if (!deal) throw new Error('Missing imported draft')
@@ -220,23 +437,23 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     })
     expect(deal).not.toHaveProperty('rawContent')
     await expect(
-      clientFor(admin.cookie, 'https://hostile.test').ingestion.review.mutate({
+      clientFor(admin.cookie, 'https://hostile.test').ingestion.reviewDraft({
         dealId: deal.id,
         expectedContentVersion: 1,
         decision: 'APPROVE',
         note: 'Synthetic evidence checked',
       }),
-    ).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } })
+    ).rejects.toMatchObject({ response: { status: 403, data: { error: { code: 'FORBIDDEN' } } } })
     await expect(
-      client.ingestion.review.mutate({
+      client.ingestion.reviewDraft({
         dealId: deal.id,
         expectedContentVersion: 2,
         decision: 'APPROVE',
         note: 'Synthetic evidence checked',
       }),
-    ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
+    ).rejects.toMatchObject({ response: { status: 409, data: { error: { code: 'CONFLICT' } } } })
     expect(
-      await client.ingestion.review.mutate({
+      await client.ingestion.reviewDraft({
         dealId: deal.id,
         expectedContentVersion: 1,
         decision: 'APPROVE',
@@ -251,14 +468,14 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       publishedAt: expect.any(Date),
     })
     await expect(
-      client.ingestion.review.mutate({
+      client.ingestion.reviewDraft({
         dealId: deal.id,
         expectedContentVersion: 1,
         decision: 'REJECT',
         note: 'Duplicate review',
       }),
-    ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
-    const runs = await client.ingestion.runs.query({ limit: 1 })
+    ).rejects.toMatchObject({ response: { status: 409, data: { error: { code: 'CONFLICT' } } } })
+    const runs = await client.ingestion.getRuns({ limit: 1 })
     expect(runs.items).toHaveLength(1)
     expect(runs.items[0]).toMatchObject({
       sourceName: 'MoneyDigest',
@@ -266,7 +483,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       startedAt: expect.any(String),
       finishedAt: expect.any(String),
     })
-    const accounts = await client.ingestion.accounts.query({ limit: 2 })
+    const accounts = await client.ingestion.getAccounts({ limit: 2 })
     expect(accounts.items).toHaveLength(2)
     expect(accounts.nextCursor).toBe(accounts.items[1]?.id)
     expect(Object.keys(accounts.items[0] ?? {}).sort()).toEqual([
@@ -278,22 +495,24 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     ])
     expect(
       (
-        await client.ingestion.accounts.query({
+        await client.ingestion.getAccounts({
           limit: 2,
           cursor: accounts.nextCursor ?? undefined,
         })
       ).items,
     ).toHaveLength(1)
     for (const limit of [0, 51])
-      await expect(client.ingestion.accounts.query({ limit })).rejects.toMatchObject({
-        data: { code: 'BAD_REQUEST' },
+      await expect(client.ingestion.getAccounts({ limit })).rejects.toMatchObject({
+        response: { status: 400, data: { error: { code: 'BAD_REQUEST' } } },
       })
-    await expect(clientFor(moderator.cookie).ingestion.accounts.query()).rejects.toMatchObject({
-      data: { code: 'FORBIDDEN' },
+    await expect(clientFor(moderator.cookie).ingestion.getAccounts()).rejects.toMatchObject({
+      response: { status: 403, data: { error: { code: 'FORBIDDEN' } } },
     })
     await expect(
-      client.ingestion.searchLocations.query({ query: 'Synthetic place' }),
-    ).rejects.toMatchObject({ data: { code: 'PRECONDITION_FAILED' } })
+      client.ingestion.searchLocations({ query: 'Synthetic place' }),
+    ).rejects.toMatchObject({
+      response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
+    })
     const search = vi.fn().mockResolvedValue([
       {
         searchValue: 'Synthetic place',
@@ -305,10 +524,10 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     ])
     runtime.searchLocations = search
     expect(
-      (await client.ingestion.searchLocations.query({ query: ' Synthetic place ' })).items,
+      (await client.ingestion.searchLocations({ query: ' Synthetic place ' })).items,
     ).toHaveLength(1)
     expect(search).toHaveBeenCalledWith('Synthetic place')
-    expect((await client.ingestion.dashboard.query()).counts).toMatchObject({
+    expect((await client.ingestion.getDashboard()).counts).toMatchObject({
       pending: 0,
       approved: 1,
     })
@@ -327,7 +546,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       syntheticPost(103, 'Singapore coffee 1-for-1. Valid until 31 December.'),
       syntheticPost(104),
     ])
-    expect(await client.ingestion.run.mutate()).toMatchObject({
+    expect(await client.ingestion.runNow()).toMatchObject({
       status: 'PARTIAL',
       fetchedCount: 4,
       createdCount: 2,
@@ -346,28 +565,30 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       errorCode: 'MALFORMED_POST',
       rawContent: '',
     })
-    const unknown = (await client.ingestion.queue.query()).items.find((item) =>
+    const unknown = (await client.ingestion.getDrafts()).items.find((item) =>
       item.sourceUrl.endsWith('/synthetic-103/'),
     )
     if (!unknown) throw new Error('Missing unknown-validity draft')
     expect(unknown).toMatchObject({ validUntil: null, reviewReady: false })
     await expect(
-      client.ingestion.review.mutate({
+      client.ingestion.reviewDraft({
         dealId: unknown.id,
         expectedContentVersion: unknown.contentVersion,
         decision: 'APPROVE',
         note: 'Unclear expiry',
       }),
-    ).rejects.toMatchObject({ data: { code: 'PRECONDITION_FAILED' } })
+    ).rejects.toMatchObject({
+      response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
+    })
     expect(
-      await client.ingestion.review.mutate({
+      await client.ingestion.reviewDraft({
         dealId: unknown.id,
         expectedContentVersion: unknown.contentVersion,
         decision: 'REJECT',
         note: 'Unclear expiry',
       }),
     ).toEqual({ id: unknown.id, reviewStatus: 'REJECTED' })
-    expect((await client.ingestion.dashboard.query()).counts).toMatchObject({
+    expect((await client.ingestion.getDashboard()).counts).toMatchObject({
       pending: 1,
       approved: 1,
       rejected: 1,
@@ -379,11 +600,11 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     listPosts.mockRejectedValueOnce(
       Object.assign(new Error('private body credential-secret'), { code: 'TIMEOUT' }),
     )
-    const result = await clientFor(admin.cookie).ingestion.run.mutate()
+    const result = await clientFor(admin.cookie).ingestion.runNow()
     expect(result).toMatchObject({ status: 'FAILED', fetchedCount: 0, failedCount: 0 })
     const run = await db.ingestionRun.findUniqueOrThrow({ where: { id: result.runId } })
     expect(run.errorCode).toBe('TIMEOUT')
-    expect(JSON.stringify(await clientFor(admin.cookie).ingestion.runs.query())).not.toContain(
+    expect(JSON.stringify(await clientFor(admin.cookie).ingestion.getRuns())).not.toContain(
       'credential-secret',
     )
     expect(
@@ -431,7 +652,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         'Singapore pizza 1-for-1. Valid from 1 October 2026 until 30 December 2026.',
       ),
     ])
-    expect(await clientFor(admin.cookie).ingestion.run.mutate()).toMatchObject({
+    expect(await clientFor(admin.cookie).ingestion.runNow()).toMatchObject({
       createdCount: 0,
       updatedCount: 1,
     })
@@ -447,24 +668,24 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       publishedAt: null,
     })
     expect(superseded.sources).toEqual(old.sources)
-    const replacement = (await clientFor(admin.cookie).ingestion.queue.query()).items[0]
+    const replacement = (await clientFor(admin.cookie).ingestion.getDrafts()).items[0]
     expect(replacement).toMatchObject({ contentVersion: old.contentVersion + 1, reviewReady: true })
     expect(replacement?.id).not.toBe(old.id)
     await expect(
-      clientFor(admin.cookie).ingestion.review.mutate({
+      clientFor(admin.cookie).ingestion.reviewDraft({
         dealId: old.id,
         expectedContentVersion: old.contentVersion,
         decision: 'APPROVE',
         note: 'Stale content',
       }),
-    ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
+    ).rejects.toMatchObject({ response: { status: 409, data: { error: { code: 'CONFLICT' } } } })
   })
   it('allows only one concurrent review decision for the same content version', async () => {
-    const draft = (await clientFor(admin.cookie).ingestion.queue.query()).items[0]
+    const draft = (await clientFor(admin.cookie).ingestion.getDrafts()).items[0]
     if (!draft) throw new Error('Missing pending revision')
     const results = await Promise.allSettled(
       ['APPROVE', 'REJECT'].map((decision) =>
-        clientFor(admin.cookie).ingestion.review.mutate({
+        clientFor(admin.cookie).ingestion.reviewDraft({
           dealId: draft.id,
           expectedContentVersion: draft.contentVersion,
           decision: decision as 'APPROVE' | 'REJECT',
@@ -474,7 +695,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     )
     expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1)
     expect(results.filter((r) => r.status === 'rejected')[0]).toMatchObject({
-      reason: { data: { code: 'CONFLICT' } },
+      reason: { response: { status: 409, data: { error: { code: 'CONFLICT' } } } },
     })
   })
   it('permits only one concurrent HTTP source request and fences stale post writes after expiry', async () => {
@@ -494,14 +715,14 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         settle = resolve
       })
     })
-    const first = clientFor(admin.cookie).ingestion.run.mutate()
+    const first = clientFor(admin.cookie).ingestion.runNow()
     await started
-    await expect(clientFor(admin.cookie).ingestion.run.mutate()).rejects.toMatchObject({
-      data: { code: 'CONFLICT' },
+    await expect(clientFor(admin.cookie).ingestion.runNow()).rejects.toMatchObject({
+      response: { status: 409, data: { error: { code: 'CONFLICT' } } },
     })
     clock = new Date(clock.getTime() + 120_000)
     listPosts.mockResolvedValueOnce([syntheticPost(105)])
-    expect(await clientFor(admin.cookie).ingestion.run.mutate()).toMatchObject({
+    expect(await clientFor(admin.cookie).ingestion.runNow()).toMatchObject({
       status: 'SUCCEEDED',
       createdCount: 1,
     })
@@ -516,7 +737,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       syntheticPost(101, 'Singapore pizza 50% off. Valid until 31 December 2026.'),
       syntheticPost(102),
     ])
-    expect(await clientFor(admin.cookie).ingestion.run.mutate()).toMatchObject({
+    expect(await clientFor(admin.cookie).ingestion.runNow()).toMatchObject({
       status: 'SUCCEEDED',
       createdCount: 1,
     })
@@ -529,45 +750,47 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       errorCode: null,
       processedContentHash: expect.any(String),
     })
-    const queue = await clientFor(admin.cookie).ingestion.queue.query({ limit: 1 })
+    const queue = await clientFor(admin.cookie).ingestion.getDrafts({ limit: 1 })
     expect(queue.items).toHaveLength(1)
     expect(queue.nextCursor).toBe(queue.items[0]?.id)
     expect(
       (
-        await clientFor(admin.cookie).ingestion.queue.query({
+        await clientFor(admin.cookie).ingestion.getDrafts({
           cursor: queue.nextCursor ?? undefined,
         })
       ).items,
     ).toHaveLength(1)
     expect(
-      (await clientFor(admin.cookie).ingestion.queue.query({ status: 'APPROVED' })).items.find(
+      (await clientFor(admin.cookie).ingestion.getDrafts({ status: 'APPROVED' })).items.find(
         (row) => row.sourceUrl.endsWith('/synthetic-101/'),
       )?.reviewReady,
     ).toBe(false)
     for (const account of [member, moderator]) {
-      await expect(clientFor(account.cookie).ingestion.run.mutate()).rejects.toMatchObject({
-        data: { code: 'FORBIDDEN' },
+      await expect(clientFor(account.cookie).ingestion.runNow()).rejects.toMatchObject({
+        response: { status: 403, data: { error: { code: 'FORBIDDEN' } } },
       })
-      await expect(clientFor(account.cookie).ingestion.queue.query()).rejects.toMatchObject({
-        data: { code: 'FORBIDDEN' },
+      await expect(clientFor(account.cookie).ingestion.getDrafts()).rejects.toMatchObject({
+        response: { status: 403, data: { error: { code: 'FORBIDDEN' } } },
       })
       await expect(
-        clientFor(account.cookie).ingestion.searchLocations.query({ query: 'Synthetic place' }),
-      ).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } })
+        clientFor(account.cookie).ingestion.searchLocations({ query: 'Synthetic place' }),
+      ).rejects.toMatchObject({ response: { status: 403, data: { error: { code: 'FORBIDDEN' } } } })
     }
+    await expect(clientFor(admin.cookie).ingestion.getDrafts({ limit: 51 })).rejects.toMatchObject({
+      response: { status: 400, data: { error: { code: 'BAD_REQUEST' } } },
+    })
     await expect(
-      clientFor(admin.cookie).ingestion.queue.query({ limit: 51 }),
-    ).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } })
-    await expect(
-      clientFor(admin.cookie).ingestion.queue.query({ cursor: 'not-an-object-id' }),
-    ).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } })
+      clientFor(admin.cookie).ingestion.getDrafts({ cursor: 'not-an-object-id' }),
+    ).rejects.toMatchObject({ response: { status: 400, data: { error: { code: 'BAD_REQUEST' } } } })
     const lookup = vi.fn().mockRejectedValue(new Error('provider password=synthetic-secret'))
     runtime.searchLocations = lookup
     await expect(
-      clientFor(admin.cookie).ingestion.searchLocations.query({ query: 'Synthetic place' }),
+      clientFor(admin.cookie).ingestion.searchLocations({ query: 'Synthetic place' }),
     ).rejects.toMatchObject({
-      message: 'Location provider unavailable',
-      data: { code: 'BAD_GATEWAY' },
+      response: {
+        status: 502,
+        data: { error: { code: 'BAD_GATEWAY', message: 'Location provider unavailable' } },
+      },
     })
     expect(await db.venue.count()).toBe(0)
   })
@@ -588,7 +811,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       const client = clientFor(admin.cookie)
       clock = new Date(clock.getTime() + 30_000)
       listPosts.mockResolvedValueOnce([syntheticPost(id), syntheticPost(id + 10)])
-      expect(await client.ingestion.run.mutate()).toMatchObject({ createdCount: 2 })
+      expect(await client.ingestion.runNow()).toMatchObject({ createdCount: 2 })
       const pending = await db.deal.findFirstOrThrow({
         where: { sources: { some: { importedPost: { externalId: String(id) } } } },
         include: { sources: true },
@@ -596,7 +819,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       const protectedDeal = await db.deal.findFirstOrThrow({
         where: { sources: { some: { importedPost: { externalId: String(id + 10) } } } },
       })
-      await client.ingestion.review.mutate({
+      await client.ingestion.reviewDraft({
         dealId: protectedDeal.id,
         expectedContentVersion: protectedDeal.contentVersion,
         decision: 'APPROVE',
@@ -618,7 +841,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       const transact = db.$transaction.bind(db)
       let paused = false
       // Only insert a barrier after the real Prisma evidence read. All queries,
-      // writes, sessions and HTTP/tRPC calls still execute against the replica.
+      // writes, sessions and HTTP calls still execute against the replica.
       const transactionSpy = vi.spyOn(db, '$transaction').mockImplementation((operation, options) =>
         transact(async (tx) => {
           const instrumented = new Proxy(tx, {
@@ -643,8 +866,8 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
           return operation(instrumented)
         }, options),
       )
-      const approval = client.ingestion.review
-        .mutate({
+      const approval = client.ingestion
+        .reviewDraft({
           dealId: pending.id,
           expectedContentVersion: pending.contentVersion,
           decision: 'APPROVE',
@@ -670,7 +893,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
               : 'x'.repeat(100_001),
           )
         listPosts.mockResolvedValueOnce([changedPost(id), changedPost(id + 10)])
-        expect(await client.ingestion.run.mutate()).toMatchObject({
+        expect(await client.ingestion.runNow()).toMatchObject({
           status: change === 'withdrawal' ? 'SUCCEEDED' : 'FAILED',
           createdCount: 0,
           updatedCount: 0,
@@ -692,7 +915,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         resumeReview()
         expect(await approval).toMatchObject({
           status: 'rejected',
-          reason: { data: { code: 'CONFLICT' } },
+          reason: { response: { status: 409, data: { error: { code: 'CONFLICT' } } } },
         })
         expect(
           await db.deal.findUniqueOrThrow({
@@ -706,16 +929,18 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
             include: { sources: true },
           }),
         ).toEqual(approved)
-        const queue = await client.ingestion.queue.query({ limit: 50 })
+        const queue = await client.ingestion.getDrafts({ limit: 50 })
         expect(queue.items.find((item) => item.id === pending.id)?.reviewReady).toBe(false)
         await expect(
-          client.ingestion.review.mutate({
+          client.ingestion.reviewDraft({
             dealId: pending.id,
             expectedContentVersion: pending.contentVersion,
             decision: 'APPROVE',
             note: 'Retry after evidence change',
           }),
-        ).rejects.toMatchObject({ data: { code: 'PRECONDITION_FAILED' } })
+        ).rejects.toMatchObject({
+          response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
+        })
       } finally {
         resumeReview()
         await approval
@@ -743,7 +968,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         syntheticPost(id, `${offer}. Valid from 1 October 2026 until 31 December 2026.`),
       ])
       const client = clientFor(admin.cookie)
-      expect(await client.ingestion.run.mutate()).toMatchObject({
+      expect(await client.ingestion.runNow()).toMatchObject({
         status: 'SUCCEEDED',
         fetchedCount: 1,
         failedCount: 0,
@@ -752,19 +977,21 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         where: { externalId: String(id) },
         include: { deals: { include: { deal: { include: { sources: true } } } } },
       })
-      const queue = await client.ingestion.queue.query({ limit: 50 })
+      const queue = await client.ingestion.getDrafts({ limit: 50 })
       const draft = imported.deals[0]?.deal
       if (draft) {
-        // On RED these concrete offers reach APPROVED through the real procedure.
-        // On GREEN only the supported conflicting prices retain an unready draft.
+        // The real REST handler must reject these concrete offers for approval.
+        // Only supported offers become ready for review.
         await expect(
-          client.ingestion.review.mutate({
+          client.ingestion.reviewDraft({
             dealId: draft.id,
             expectedContentVersion: draft.contentVersion,
             decision: 'APPROVE',
             note: 'Synthetic parser bypass must not publish',
           }),
-        ).rejects.toMatchObject({ data: { code: 'PRECONDITION_FAILED' } })
+        ).rejects.toMatchObject({
+          response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
+        })
         expect(queue.items.find((item) => item.id === draft.id)).toMatchObject({
           reviewReady: false,
         })
@@ -814,7 +1041,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         syntheticPost(id, `${offer}. Valid from 1 October 2026 until 31 December 2026.`),
       ])
       const client = clientFor(admin.cookie)
-      expect(await client.ingestion.run.mutate()).toMatchObject({
+      expect(await client.ingestion.runNow()).toMatchObject({
         status: 'SUCCEEDED',
         createdCount: 1,
         failedCount: 0,
@@ -830,10 +1057,10 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         priceMinor,
         discountPercent,
       })
-      const queue = await client.ingestion.queue.query({ limit: 50 })
+      const queue = await client.ingestion.getDrafts({ limit: 50 })
       expect(queue.items.find((item) => item.id === draft.id)?.reviewReady).toBe(true)
       expect(
-        await client.ingestion.review.mutate({
+        await client.ingestion.reviewDraft({
           dealId: draft.id,
           expectedContentVersion: draft.contentVersion,
           decision: 'APPROVE',
@@ -875,7 +1102,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       const content = `${offer}. Valid from 1 October 2026 until 31 December 2026.${id === 404 ? ' Second item at half price.' : ''}`
       listPosts.mockResolvedValueOnce([syntheticPost(id, content)])
       const client = clientFor(admin.cookie)
-      expect(await client.ingestion.run.mutate()).toMatchObject({
+      expect(await client.ingestion.runNow()).toMatchObject({
         status: 'SUCCEEDED',
         fetchedCount: 1,
         failedCount: 0,
@@ -884,12 +1111,12 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         where: { externalId: String(id) },
         include: { deals: { include: { deal: true } } },
       })
-      const queue = await client.ingestion.queue.query({ limit: 50 })
+      const queue = await client.ingestion.getDrafts({ limit: 50 })
       // Invoke the real review even on RED so the reproduction proves publication,
       // rather than merely assuming reviewReady necessarily means APPROVED.
       for (const { deal } of imported.deals) {
-        const outcome = await client.ingestion.review
-          .mutate({
+        const outcome = await client.ingestion
+          .reviewDraft({
             dealId: deal.id,
             expectedContentVersion: deal.contentVersion,
             decision: 'APPROVE',
@@ -899,7 +1126,9 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
             (value) => ({ value }),
             (error) => ({ error }),
           )
-        expect(outcome).toMatchObject({ error: { data: { code: 'PRECONDITION_FAILED' } } })
+        expect(outcome).toMatchObject({
+          error: { response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } } },
+        })
         expect(queue.items.find((item) => item.id === deal.id)?.reviewReady).toBe(false)
       }
       expect(imported).toMatchObject({ status: 'IGNORED', rawContent: content, deals: [] })
@@ -941,7 +1170,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       if (position === 'title' || position === 'excerpt') post[position].rendered = qualification
       listPosts.mockResolvedValueOnce([post])
       const client = clientFor(admin.cookie)
-      expect(await client.ingestion.run.mutate()).toMatchObject({
+      expect(await client.ingestion.runNow()).toMatchObject({
         status: 'SUCCEEDED',
         createdCount: 0,
         failedCount: 0,
@@ -958,7 +1187,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         deals: [],
       })
       expect(
-        (await client.ingestion.queue.query({ limit: 50 })).items.some((item) =>
+        (await client.ingestion.getDrafts({ limit: 50 })).items.some((item) =>
           item.sourceUrl.endsWith(`/synthetic-${id}/`),
         ),
       ).toBe(false)
@@ -982,7 +1211,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       'Singapore chicken buy one, get one. Valid from 1 October 2026 until 31 December 2026. Members only.'
     listPosts.mockResolvedValueOnce([syntheticPost(425, content)])
     const client = clientFor(admin.cookie)
-    expect(await client.ingestion.run.mutate()).toMatchObject({ createdCount: 1, failedCount: 0 })
+    expect(await client.ingestion.runNow()).toMatchObject({ createdCount: 1, failedCount: 0 })
     const draft = await db.deal.findFirstOrThrow({
       where: { sources: { some: { importedPost: { externalId: '425' } } } },
       include: { sources: true },
@@ -997,18 +1226,18 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       rawValidityText: 'Valid from 1 October 2026 until 31 December 2026',
     })
     expect(
-      (await client.ingestion.queue.query({ limit: 50 })).items.find(
-        (item) => item.id === draft.id,
-      ),
+      (await client.ingestion.getDrafts({ limit: 50 })).items.find((item) => item.id === draft.id),
     ).toMatchObject({ reviewReady: false })
     await expect(
-      client.ingestion.review.mutate({
+      client.ingestion.reviewDraft({
         dealId: draft.id,
         expectedContentVersion: draft.contentVersion,
         decision: 'APPROVE',
         note: 'Synthetic unknown continuation must remain unready',
       }),
-    ).rejects.toMatchObject({ data: { code: 'PRECONDITION_FAILED' } })
+    ).rejects.toMatchObject({
+      response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } },
+    })
     expect(
       await db.deal.findUniqueOrThrow({ where: { id: draft.id }, include: { sources: true } }),
     ).toEqual(draft)
@@ -1075,7 +1304,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       if (id >= 900) input.content.rendered += ' Singapore pizza 50% off.'
       listPosts.mockResolvedValueOnce([input])
       const client = clientFor(admin.cookie)
-      expect(await client.ingestion.run.mutate()).toMatchObject({
+      expect(await client.ingestion.runNow()).toMatchObject({
         status: 'SUCCEEDED',
         fetchedCount: 1,
         failedCount: 0,
@@ -1084,11 +1313,11 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         where: { externalId: String(id) },
         include: { deals: { include: { deal: { include: { sources: true } } } } },
       })
-      const queue = await client.ingestion.queue.query({ limit: 50 })
+      const queue = await client.ingestion.getDrafts({ limit: 50 })
       const outcomes = []
       for (const { deal } of imported.deals) {
-        const outcome = await client.ingestion.review
-          .mutate({
+        const outcome = await client.ingestion
+          .reviewDraft({
             dealId: deal.id,
             expectedContentVersion: deal.contentVersion,
             decision: 'APPROVE',
@@ -1115,7 +1344,9 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
         }),
       ).toBe(0)
       for (const outcome of outcomes)
-        expect(outcome).toMatchObject({ error: { data: { code: 'PRECONDITION_FAILED' } } })
+        expect(outcome).toMatchObject({
+          error: { response: { status: 412, data: { error: { code: 'PRECONDITION_FAILED' } } } },
+        })
       expect(imported).toMatchObject({
         status: 'IGNORED',
         rawContent: input.content.rendered,
@@ -1130,7 +1361,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     let reads = 0
     runtime.now = () => new Date(clock.getTime() + (reads++ ? 120_000 : 0))
     const callsBefore = listPosts.mock.calls.length
-    const result = await clientFor(admin.cookie).ingestion.run.mutate()
+    const result = await clientFor(admin.cookie).ingestion.runNow()
     expect(result).toMatchObject({ status: 'FAILED', fetchedCount: 0, failedCount: 0 })
     expect(listPosts.mock.calls.length).toBe(callsBefore)
     runtime.now = () => clock

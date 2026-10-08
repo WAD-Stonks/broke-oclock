@@ -1,8 +1,16 @@
+import type {
+  MerchantRequest,
+  MerchantRequestsQuery,
+  PlatformAccountResponse,
+  PlatformAccountSummary,
+  PlatformAccountsQuery,
+  PlatformAuditEntry,
+  PlatformRole,
+  PlatformVenue,
+} from '@broke-oclock/contracts/platform-admin'
 import { expect, type Page, test } from '@playwright/test'
-import type { RouterInputs, RouterOutputs } from '@web/lib/api-client'
 
-type Output = RouterOutputs['platformAdmin']
-type Input = RouterInputs['platformAdmin']
+type RestPage<T> = { items: T[]; nextCursor: string | null }
 const date = '2026-01-01T00:00:00Z'
 const userA = '777777777777777777777777'
 const userB = '888888888888888888888888'
@@ -14,7 +22,7 @@ const grantA = '555555555555555555555555'
 const grantB = '666666666666666666666666'
 
 // Explicitly synthetic API boundaries. These verify the real Vue SPA and same-origin
-// tRPC transport, NOT live authentication, database authorization or backend acceptance.
+// Axios REST transport, NOT live authentication, database authorization or backend acceptance.
 async function syntheticBoundary(page: Page) {
   const state = {
     access: '',
@@ -46,7 +54,7 @@ async function syntheticBoundary(page: Page) {
         createdAt: date,
         grants: [],
       },
-    ] as Output['account'][],
+    ] as PlatformAccountResponse[],
     requests: [
       {
         id: requestA,
@@ -76,7 +84,7 @@ async function syntheticBoundary(page: Page) {
         reviewNote: null,
         createdAt: date,
       },
-    ] as Output['requests']['items'],
+    ] as MerchantRequest[],
     venues: [
       {
         id: stallA,
@@ -90,25 +98,25 @@ async function syntheticBoundary(page: Page) {
         merchantName: 'Fixture merchant',
         address: 'Two fixture road',
       },
-    ] satisfies Output['venues']['items'],
-    audit: [] as Output['audit']['items'],
+    ] satisfies PlatformVenue[],
+    audit: [] as PlatformAuditEntry[],
     calls: [] as { path: string; input: unknown; method: string }[],
     failures: new Map<string, string>(),
     gates: new Map<string, Promise<void>>(),
-    requestPages: new Map<string, Output['requests']>(),
+    requestPages: new Map<string, RestPage<MerchantRequest>>(),
     nextRequestCursor: null as string | null,
-    accountPages: new Map<string, Output['accounts']>(),
+    accountPages: new Map<string, RestPage<PlatformAccountSummary>>(),
     nextAccountCursor: null as string | null,
   }
-  // Widen fixture literals to the router's actual output unions, not hand-maintained DTOs.
-  const accounts: Output['account'][] = state.accounts
+  // Widen fixture literals to browser-safe contract types, not transport-client internals.
+  const accounts: PlatformAccountResponse[] = state.accounts
   const audit = (
     action: string,
     targetUserId: string,
     note: string,
     venueId: string | null = null,
-    roleBefore: Output['account']['role'] | null = null,
-    roleAfter: Output['account']['role'] | null = null,
+    roleBefore: PlatformRole | null = null,
+    roleAfter: PlatformRole | null = null,
   ) => {
     state.audit.unshift({
       id: (state.audit.length + 1).toString(16).padStart(24, '0'),
@@ -123,154 +131,177 @@ async function syntheticBoundary(page: Page) {
       createdAt: date,
     })
   }
-  await page.route('**/api/trpc/**', async (route) => {
+  await page.route('**/api/admin/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
-    const paths = decodeURIComponent(url.pathname.replace('/api/trpc/', '')).split(',')
-    const inputs: unknown =
-      request.method() === 'POST'
-        ? request.postDataJSON()
-        : JSON.parse(url.searchParams.get('input') ?? '{}')
-    const results = []
-    for (const [index, path] of paths.entries()) {
-      const input: unknown =
-        typeof inputs === 'object' && inputs !== null
-          ? Reflect.get(inputs, String(index))
-          : undefined
-      state.calls.push({ path, input, method: request.method() })
-      const fail = state.failures.get(path) || state.access
-      state.failures.delete(path)
-      const gate = state.gates.get(path)
-      state.gates.delete(path)
-      if (gate) await gate
-      if (fail) {
-        results.push({
-          error: {
-            message: 'Synthetic boundary error',
-            code: -32603,
-            data: {
-              code: fail,
-              httpStatus: fail === 'UNAUTHORIZED' ? 401 : fail === 'FORBIDDEN' ? 403 : 409,
-              path,
-            },
-          },
-        })
-        continue
-      }
-      let data: unknown
-      switch (path) {
-        case 'platformAdmin.accounts': {
-          const value = input as Exclude<Input['accounts'], void>
-          data = (value.cursor ? state.accountPages.get(value.cursor) : undefined) ?? {
-            items: accounts
-              .filter(
-                (item) =>
-                  (!value.role || item.role === value.role) &&
-                  (!value.search ||
-                    `${item.name} ${item.email}`
-                      .toLowerCase()
-                      .includes(value.search.toLowerCase())),
-              )
-              .map(({ grants: _grants, ...item }) => item),
-            nextCursor: state.nextAccountCursor,
-          }
-          break
-        }
-        case 'platformAdmin.account': {
-          const value = input as Input['account']
-          data = accounts.find((item) => item.id === value.userId)
-          if (!data) throw new Error(`Unknown synthetic account ${value.userId}`)
-          break
-        }
-        case 'platformAdmin.requests': {
-          const value = input as Exclude<Input['requests'], void>
-          data = (value.cursor ? state.requestPages.get(value.cursor) : undefined) ?? {
-            items: state.requests.filter((item) => !value.status || item.status === value.status),
-            nextCursor: state.nextRequestCursor,
-          }
-          break
-        }
-        case 'platformAdmin.venues':
-          data = { items: state.venues, nextCursor: null } satisfies Output['venues']
-          break
-        case 'platformAdmin.audit': {
-          const value = input as Exclude<Input['audit'], void>
-          data = {
-            items: state.audit.filter(
-              (item) => !value.userId || item.targetUserId === value.userId,
-            ),
-            nextCursor: null,
-          }
-          break
-        }
-        case 'platformAdmin.changeRole': {
-          expect(request.method()).toBe('POST')
-          const value = input as Input['changeRole']
-          const account = accounts.find((item) => item.id === value.userId)
-          if (!account) throw new Error('Unknown synthetic role target')
-          audit('ROLE_CHANGED', account.id, value.note, null, account.role, value.role)
-          account.role = value.role
-          account.version += 1
-          if (value.role !== 'MERCHANT') account.grants = []
-          data = { id: account.id, version: account.version }
-          break
-        }
-        case 'platformAdmin.grantStall': {
-          expect(request.method()).toBe('POST')
-          const value = input as Input['grantStall']
-          const account = accounts.find((item) => item.id === value.userId)
-          const venue = state.venues.find((item) => item.id === value.venueId)
-          if (!account || !venue) throw new Error('Unknown synthetic grant target')
-          account.grants.push({
-            id: grantB,
-            venueId: venue.id,
-            venueName: venue.name,
-            merchantName: venue.merchantName,
-            version: 1,
-            createdAt: date,
-          })
-          account.version += 1
-          audit('STALL_GRANTED', account.id, value.note, venue.id)
-          data = { id: grantB, version: 1 }
-          break
-        }
-        case 'platformAdmin.revokeStall': {
-          expect(request.method()).toBe('POST')
-          const value = input as Input['revokeStall']
-          const account = accounts.find((item) =>
-            item.grants.some((grant) => grant.id === value.grantId),
-          )
-          const grant = account?.grants.find((item) => item.id === value.grantId)
-          if (!account || !grant) throw new Error('Unknown synthetic revoke target')
-          account.grants = account.grants.filter((item) => item.id !== value.grantId)
-          account.version += 1
-          audit('STALL_REVOKED', account.id, value.note, grant.venueId)
-          data = { id: grant.id, version: grant.version + 1 }
-          break
-        }
-        case 'platformAdmin.reviewRequest': {
-          expect(request.method()).toBe('POST')
-          const value = input as Input['reviewRequest']
-          const item = state.requests.find((request) => request.id === value.requestId)
-          if (!item) throw new Error('Unknown synthetic request target')
-          item.status = value.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED'
-          item.reviewNote = value.note
-          item.version += 1
-          audit(
-            value.decision === 'APPROVE' ? 'REQUEST_APPROVED' : 'REQUEST_REJECTED',
-            item.userId,
-            value.note,
-            item.venueId,
-          )
-          data = { id: item.id, version: item.version }
-          break
-        }
-        default:
-          throw new Error(`Unexpected synthetic boundary ${path}`)
-      }
-      results.push({ result: { data } })
+    const pathname = url.pathname
+    const method = request.method()
+    const query: Record<string, unknown> = Object.fromEntries(url.searchParams.entries())
+    if (query.limit) query.limit = Number(query.limit)
+    const body: Record<string, unknown> = request.postDataJSON?.() ?? {}
+    let path: string
+    let input: Record<string, unknown>
+    if (pathname === '/api/admin/accounts' && method === 'GET') {
+      path = 'platformAdmin.accounts'
+      input = query
+    } else if (pathname.startsWith('/api/admin/accounts/') && pathname.endsWith('/role')) {
+      const userId = pathname.split('/')[4]
+      path = 'platformAdmin.changeRole'
+      input = { userId, ...body }
+    } else if (pathname.startsWith('/api/admin/accounts/') && method === 'GET') {
+      path = 'platformAdmin.account'
+      input = { userId: pathname.split('/').at(-1) }
+    } else if (pathname === '/api/admin/merchant-requests' && method === 'GET') {
+      path = 'platformAdmin.requests'
+      input = query
+    } else if (
+      pathname.startsWith('/api/admin/merchant-requests/') &&
+      pathname.endsWith('/review')
+    ) {
+      const requestId = pathname.split('/')[4]
+      path = 'platformAdmin.reviewRequest'
+      input = { requestId, ...body }
+    } else if (pathname === '/api/admin/venues' && method === 'GET') {
+      path = 'platformAdmin.venues'
+      input = query
+    } else if (pathname === '/api/admin/audit' && method === 'GET') {
+      path = 'platformAdmin.audit'
+      input = query
+    } else if (pathname === '/api/admin/stall-grants' && method === 'POST') {
+      path = 'platformAdmin.grantStall'
+      input = body
+    } else if (pathname.startsWith('/api/admin/stall-grants/') && method === 'DELETE') {
+      const grantId = pathname.split('/').at(-1)
+      path = 'platformAdmin.revokeStall'
+      input = { grantId, ...body }
+    } else {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'NOT_FOUND', message: 'Not found' } }),
+      })
+      return
     }
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(results) })
+    state.calls.push({ path, input, method })
+    const fail = state.failures.get(path) || state.access
+    state.failures.delete(path)
+    const gate = state.gates.get(path)
+    state.gates.delete(path)
+    if (gate) await gate
+    if (fail) {
+      const status =
+        fail === 'UNAUTHORIZED' ? 401 : fail === 'FORBIDDEN' ? 403 : fail === 'CONFLICT' ? 409 : 500
+      await route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: fail, message: 'Synthetic boundary error' } }),
+      })
+      return
+    }
+    let data: unknown
+    switch (path) {
+      case 'platformAdmin.accounts': {
+        const value = input as PlatformAccountsQuery
+        data = (value.cursor ? state.accountPages.get(value.cursor) : undefined) ?? {
+          items: accounts
+            .filter(
+              (item) =>
+                (!value.role || item.role === value.role) &&
+                (!value.search ||
+                  `${item.name} ${item.email}`.toLowerCase().includes(value.search.toLowerCase())),
+            )
+            .map(({ grants: _grants, ...item }) => item),
+          nextCursor: state.nextAccountCursor,
+        }
+        break
+      }
+      case 'platformAdmin.account': {
+        data = accounts.find((item) => item.id === input.userId)
+        if (!data) throw new Error(`Unknown synthetic account ${input.userId}`)
+        break
+      }
+      case 'platformAdmin.requests': {
+        const value = input as MerchantRequestsQuery
+        data = (value.cursor ? state.requestPages.get(value.cursor) : undefined) ?? {
+          items: state.requests.filter((item) => !value.status || item.status === value.status),
+          nextCursor: state.nextRequestCursor,
+        }
+        break
+      }
+      case 'platformAdmin.venues':
+        data = { items: state.venues, nextCursor: null } satisfies RestPage<PlatformVenue>
+        break
+      case 'platformAdmin.audit': {
+        data = {
+          items: state.audit.filter((item) => !input.userId || item.targetUserId === input.userId),
+          nextCursor: null,
+        }
+        break
+      }
+      case 'platformAdmin.changeRole': {
+        const value = input as { userId: string; role: PlatformRole; note: string }
+        const account = accounts.find((item) => item.id === value.userId)
+        if (!account) throw new Error('Unknown synthetic role target')
+        audit('ROLE_CHANGED', account.id, value.note, null, account.role, value.role)
+        account.role = value.role
+        account.version += 1
+        if (value.role !== 'MERCHANT') account.grants = []
+        data = { id: account.id, version: account.version }
+        break
+      }
+      case 'platformAdmin.grantStall': {
+        const value = input as { userId: string; venueId: string; note: string }
+        const account = accounts.find((item) => item.id === value.userId)
+        const venue = state.venues.find((item) => item.id === value.venueId)
+        if (!account || !venue) throw new Error('Unknown synthetic grant target')
+        account.grants.push({
+          id: grantB,
+          venueId: venue.id,
+          venueName: venue.name,
+          merchantName: venue.merchantName,
+          version: 1,
+          createdAt: date,
+        })
+        account.version += 1
+        audit('STALL_GRANTED', account.id, value.note, venue.id)
+        data = { id: grantB, version: 1 }
+        break
+      }
+      case 'platformAdmin.revokeStall': {
+        const value = input as { grantId: string; note: string }
+        const account = accounts.find((item) =>
+          item.grants.some((grant) => grant.id === value.grantId),
+        )
+        const grant = account?.grants.find((item) => item.id === value.grantId)
+        if (!account || !grant) throw new Error('Unknown synthetic revoke target')
+        account.grants = account.grants.filter((item) => item.id !== value.grantId)
+        account.version += 1
+        audit('STALL_REVOKED', account.id, value.note, grant.venueId)
+        data = { id: grant.id, version: grant.version + 1 }
+        break
+      }
+      case 'platformAdmin.reviewRequest': {
+        const value = input as { requestId: string; decision: 'APPROVE' | 'REJECT'; note: string }
+        const item = state.requests.find((request) => request.id === value.requestId)
+        if (!item) throw new Error('Unknown synthetic request target')
+        item.status = value.decision === 'APPROVE' ? 'APPROVED' : 'REJECTED'
+        item.reviewNote = value.note
+        item.version += 1
+        audit(
+          value.decision === 'APPROVE' ? 'REQUEST_APPROVED' : 'REQUEST_REJECTED',
+          item.userId,
+          value.note,
+          item.venueId,
+        )
+        data = { id: item.id, version: item.version }
+        break
+      }
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(data),
+    })
   })
   return state
 }
@@ -339,7 +370,7 @@ for (const width of [320, 390, 1280]) {
     expect(calls(state, 'revokeStall')).toEqual([
       {
         path: 'platformAdmin.revokeStall',
-        method: 'POST',
+        method: 'DELETE',
         input: { grantId: grantB, expectedVersion: 1, note: 'Remove second outlet access' },
       },
     ])
@@ -357,7 +388,7 @@ for (const width of [320, 390, 1280]) {
     expect(calls(state, 'changeRole')).toEqual([
       {
         path: 'platformAdmin.changeRole',
-        method: 'POST',
+        method: 'PATCH',
         input: {
           userId: userA,
           expectedVersion: 9,
@@ -592,11 +623,10 @@ test('synthetic-boundary stale denial cannot overwrite newer search and current 
   await page.getByLabel('Search accounts', { exact: true }).fill('Bob')
   await page.getByRole('button', { name: 'Search accounts', exact: true }).click()
   await expect(page.getByTestId(`account-${userB}`)).toBeVisible()
-  const lateResponse = page.waitForResponse(
-    (response) =>
-      response.url().includes('platformAdmin.accounts') &&
-      decodeURIComponent(response.url()).includes('Alice'),
-  )
+  const lateResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url())
+    return url.pathname === '/api/admin/accounts' && url.searchParams.get('search') === 'Alice'
+  })
   release()
   await lateResponse
   await expect(page.getByTestId(`account-${userB}`)).toBeVisible()

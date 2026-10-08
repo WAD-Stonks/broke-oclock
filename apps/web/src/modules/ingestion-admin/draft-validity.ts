@@ -1,6 +1,6 @@
-import type { RouterOutputs } from '@web/lib/api-client'
+import type { IngestionDraft } from '@broke-oclock/contracts/ingestion'
 
-type Draft = RouterOutputs['ingestion']['queue']['items'][number]
+type Draft = IngestionDraft
 
 export const approvalBlockReason = (draft: Draft | undefined, now = Date.now()): string => {
   if (!draft?.validFrom || !draft.validUntil)

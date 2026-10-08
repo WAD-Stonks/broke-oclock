@@ -1,14 +1,15 @@
 <script setup lang="ts">
+import type { IngestionDraft, IngestionDraftsQuery, IngestionReviewRequest } from '@broke-oclock/contracts/ingestion'
 import { BButton } from '@broke-oclock/ui'
-import { api, type RouterInputs, type RouterOutputs } from '@web/lib/api-client'
+import { api } from '@web/lib/api-client'
 import { approvalBlockReason } from '@web/modules/ingestion-admin/draft-validity'
 import { errorCode } from '@web/modules/ingestion-admin/errors'
 import { computed, ref, watch } from 'vue'
 
-type Draft = RouterOutputs['ingestion']['queue']['items'][number]
+type Draft = IngestionDraft
 const props = defineProps<{ revision: number }>()
 const emit = defineEmits<{ changed: []; denied: [code: string] }>()
-const status = ref<Exclude<RouterInputs['ingestion']['queue'], void>['status']>('PENDING')
+const status = ref<IngestionDraftsQuery['status']>('PENDING')
 const items = ref<Draft[] | null>(null)
 const selectedId = ref<string | null>(null)
 const selected = computed(() => items.value?.find(item => item.id === selectedId.value))
@@ -39,7 +40,7 @@ const load = async (cursor?: string) => {
   pending.value = true
   error.value = ''
   try {
-    const result = await api.ingestion.queue.query({ limit: 20, status: status.value, ...(cursor ? { cursor } : {}) })
+    const result = await api.ingestion.drafts({ limit: 20, status: status.value, ...(cursor ? { cursor } : {}) })
     if (current === request) {
       const combined = cursor ? [...(items.value ?? []), ...result.items] : result.items
       const previousDraft = selected.value
@@ -76,7 +77,7 @@ const select = (draft: Draft) => {
   reviewError.value = conflict.value ? conflictMessage : ''
   success.value = ''
 }
-const review = async (decision: RouterInputs['ingestion']['review']['decision']) => {
+const review = async (decision: IngestionReviewRequest['decision']) => {
   if (!canReview.value || !selected.value) return
   if (decision === 'APPROVE') {
     const reason = approvalBlockReason(selected.value)
@@ -86,7 +87,7 @@ const review = async (decision: RouterInputs['ingestion']['review']['decision'])
   reviewError.value = ''
   success.value = ''
   try {
-    await api.ingestion.review.mutate({ dealId: selected.value.id, expectedContentVersion: selected.value.contentVersion, decision, note: note.value.trim() })
+    await api.ingestion.reviewDraft(selected.value.id, { expectedContentVersion: selected.value.contentVersion, decision, note: note.value.trim() })
     success.value = decision === 'APPROVE' ? 'Draft approved.' : 'Draft rejected.'
     selectedId.value = null
     note.value = ''

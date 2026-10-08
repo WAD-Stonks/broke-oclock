@@ -1,3 +1,4 @@
+import { DomainError } from '@api/modules/domain-error'
 import { invalidatePendingRequests } from '@api/modules/platform-admin/invalidation'
 import {
   type AccessTransaction,
@@ -9,7 +10,6 @@ import {
   requireCurrentAdmin,
 } from '@api/modules/platform-admin/transaction'
 import { activeVenue } from '@api/modules/platform-admin/venues'
-import { TRPCError } from '@trpc/server'
 
 export const activateGrant = async (tx: AccessTransaction, userId: string, venueId: string) => {
   const existing = await tx.stallGrant.findUnique({
@@ -31,7 +31,7 @@ export const revokeStall = (
   accessTransaction(db, async (tx) => {
     const actor = await requireCurrentAdmin(tx, actorId)
     const grant = await tx.stallGrant.findUnique({ where: { id: input.grantId } })
-    if (!grant) throw new TRPCError({ code: 'NOT_FOUND' })
+    if (!grant) throw new DomainError('NOT_FOUND')
     checkVersion(grant.version, input.expectedVersion)
     if (grant.revokedAt) throw conflict()
     const target = await currentUser(tx, grant.userId)
@@ -72,15 +72,11 @@ export const grantStall = (
 ) =>
   accessTransaction(db, async (tx) => {
     const actor = await requireCurrentAdmin(tx, actorId)
-    if (actorId === input.userId)
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot grant yourself access' })
+    if (actorId === input.userId) throw new DomainError('FORBIDDEN', 'Cannot grant yourself access')
     const target = await currentUser(tx, input.userId)
     checkVersion(target.platformVersion, input.expectedUserVersion)
     if (target.role !== 'MERCHANT')
-      throw new TRPCError({
-        code: 'PRECONDITION_FAILED',
-        message: 'A merchant account is required',
-      })
+      throw new DomainError('PRECONDITION_FAILED', 'A merchant account is required')
     await activeVenue(tx, input.venueId)
     const grant = await activateGrant(tx, target.id, input.venueId)
     await tx.user.update({

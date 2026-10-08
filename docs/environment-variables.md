@@ -89,7 +89,7 @@ The API config loader consumes these settings. A missing/placeholder token disab
 
 The inventory in `.env.example` includes current runtime, planned deployment and reserved feature keys. GitHub production contains those names except local-only PORT. Empty/UNSET secret examples and UNCONFIGURED decision markers are intentionally invalid, not working defaults. Do not enable planned features until their consumers validate real configuration.
 
-The frontend currently requires **no VITE_* variable** and uses same-origin `/api/auth`, `/api/uploadthing` and `/api/trpc` clients. Vercel's ordinary Git integration cannot read GitHub Actions secrets automatically. Enter current server credentials directly in the Vercel API project's Production environment; do not copy deployment credentials into either application. GitHub-to-Vercel synchronization is not a remaining setup step.
+The frontend currently requires **no VITE_* variable** and uses same-origin `/api/auth`, `/api/uploadthing` and JSON REST clients under `/api`. Vercel's ordinary Git integration cannot read GitHub Actions secrets automatically. Enter current server credentials directly in the Vercel API project's Production environment; do not copy deployment credentials into either application. GitHub-to-Vercel synchronization is not a remaining setup step.
 
 ## Resend email package
 

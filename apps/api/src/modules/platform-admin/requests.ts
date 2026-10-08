@@ -1,3 +1,4 @@
+import { DomainError } from '@api/modules/domain-error'
 import { activateGrant } from '@api/modules/platform-admin/grants'
 import { requestSubmission } from '@api/modules/platform-admin/schemas'
 import {
@@ -9,10 +10,9 @@ import {
   requireCurrentAdmin,
 } from '@api/modules/platform-admin/transaction'
 import { activeVenue } from '@api/modules/platform-admin/venues'
-import { TRPCError } from '@trpc/server'
 import type { z } from 'zod'
 
-// Kang En's future protected, trusted-origin procedure supplies the session user ID,
+// Kang En's future protected, trusted-origin route supplies the session user ID,
 // NEVER a body userId. This internal service accepts no role/status/actor overrides.
 export const submitMerchantAccessRequest = async (
   db: Database,
@@ -20,16 +20,12 @@ export const submitMerchantAccessRequest = async (
   rawInput: z.input<typeof requestSubmission>,
 ) => {
   const parsed = requestSubmission.safeParse(rawInput)
-  if (!parsed.success)
-    throw new TRPCError({ code: 'BAD_REQUEST', message: 'Invalid merchant request' })
+  if (!parsed.success) throw new DomainError('BAD_REQUEST', 'Invalid merchant request')
   const input = parsed.data
   return accessTransaction(db, async (tx) => {
     const user = await currentUser(tx, authenticatedUserId)
     if (user.role !== 'USER' && user.role !== 'MERCHANT')
-      throw new TRPCError({
-        code: 'PRECONDITION_FAILED',
-        message: 'Staff accounts cannot request merchant access',
-      })
+      throw new DomainError('PRECONDITION_FAILED', 'Staff accounts cannot request merchant access')
     const { venue, merchant } = await activeVenue(tx, input.venueId)
     const existing = await tx.merchantAccessRequest.findFirst({
       where: { userId: user.id, venueId: venue.id, status: 'PENDING' },
@@ -83,18 +79,18 @@ export const reviewRequest = (
   accessTransaction(db, async (tx) => {
     const actor = await requireCurrentAdmin(tx, actorId)
     const request = await tx.merchantAccessRequest.findUnique({ where: { id: input.requestId } })
-    if (!request) throw new TRPCError({ code: 'NOT_FOUND' })
+    if (!request) throw new DomainError('NOT_FOUND')
     checkVersion(request.version, input.expectedVersion)
     if (request.status !== 'PENDING') throw conflict()
     const target = await currentUser(tx, request.userId)
     if (input.decision === 'APPROVE') {
       if (target.id === actorId)
-        throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot approve your own access' })
+        throw new DomainError('FORBIDDEN', 'Cannot approve your own access')
       if (target.role !== 'USER' && target.role !== 'MERCHANT')
-        throw new TRPCError({
-          code: 'PRECONDITION_FAILED',
-          message: 'Staff accounts cannot be made merchants by approval',
-        })
+        throw new DomainError(
+          'PRECONDITION_FAILED',
+          'Staff accounts cannot be made merchants by approval',
+        )
       await activeVenue(tx, request.venueId)
       await activateGrant(tx, target.id, request.venueId)
       await tx.user.update({
