@@ -1,12 +1,13 @@
 <script setup lang="ts">
+import type { IngestionRunsResponse } from '@broke-oclock/contracts/ingestion'
 import { BButton } from '@broke-oclock/ui'
-import { api, type RouterOutputs } from '@web/lib/api-client'
+import { api } from '@web/lib/api-client'
 import { errorCode } from '@web/modules/ingestion-admin/errors'
 import { ref, watch } from 'vue'
 
 const props = defineProps<{ revision: number }>()
 const emit = defineEmits<{ denied: [code: string] }>()
-const items = ref<RouterOutputs['ingestion']['runs']['items'] | null>(null)
+const items = ref<IngestionRunsResponse['items'] | null>(null)
 const pending = ref(false)
 const error = ref('')
 let request = 0
@@ -15,7 +16,7 @@ const load = async () => {
   pending.value = true
   error.value = ''
   try {
-    const result = await api.ingestion.runs.query({ limit: 20 })
+    const result = await api.ingestion.runs({ limit: 20 })
     if (current === request) items.value = result.items
   } catch (failure) {
     if (current !== request) return

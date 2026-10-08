@@ -1,3 +1,4 @@
+import { DomainError } from '@api/modules/domain-error'
 import { invalidatePendingRequests } from '@api/modules/platform-admin/invalidation'
 import {
   accessTransaction,
@@ -8,7 +9,6 @@ import {
   requireCurrentAdmin,
 } from '@api/modules/platform-admin/transaction'
 import { activeGrant } from '@api/modules/platform-admin/venues'
-import { TRPCError } from '@trpc/server'
 
 export const changeRole = (
   db: Database,
@@ -22,16 +22,12 @@ export const changeRole = (
 ) =>
   accessTransaction(db, async (tx) => {
     const actor = await requireCurrentAdmin(tx, actorId)
-    if (input.userId === actorId)
-      throw new TRPCError({ code: 'FORBIDDEN', message: 'Cannot change your own role' })
+    if (input.userId === actorId) throw new DomainError('FORBIDDEN', 'Cannot change your own role')
     const target = await currentUser(tx, input.userId)
     checkVersion(target.platformVersion, input.expectedVersion)
     if (target.role === input.role) throw conflict()
     if (target.role === 'ADMIN' && (await tx.user.count({ where: { role: 'ADMIN' } })) <= 1)
-      throw new TRPCError({
-        code: 'PRECONDITION_FAILED',
-        message: 'At least one administrator must remain',
-      })
+      throw new DomainError('PRECONDITION_FAILED', 'At least one administrator must remain')
     await invalidatePendingRequests(
       tx,
       actor,

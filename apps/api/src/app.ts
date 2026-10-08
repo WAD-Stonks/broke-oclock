@@ -1,13 +1,15 @@
-import { createAuth, toCurrentUserResponse } from '@api/auth'
+import { createAuth } from '@api/auth'
 import type { AppConfig } from '@api/config'
-import type { IngestionRuntime } from '@api/modules/ingestion/runtime'
-import { createRpcMiddleware } from '@api/rpc'
+import { apiErrorMiddleware } from '@api/errors'
+import { createIngestionRuntime, type IngestionRuntime } from '@api/modules/ingestion/runtime'
+import { requireJsonRequestBody } from '@api/rest/body'
+import { requireBoundedRestQuery } from '@api/rest/query'
+import { createRestRouter } from '@api/rest/root'
 import { createPhotoRouter } from '@api/uploads'
-import { fromNodeHeaders, toNodeHandler } from '@broke-oclock/auth/node'
-import type { ApiError, HealthResponse, ReadinessResponse } from '@broke-oclock/contracts/api'
-import { db } from '@broke-oclock/db'
+import { toNodeHandler } from '@broke-oclock/auth/node'
+import type { ApiError } from '@broke-oclock/contracts/api'
 import cors from 'cors'
-import express, { type ErrorRequestHandler, type Express } from 'express'
+import express, { type Express } from 'express'
 import helmet from 'helmet'
 
 export const createApp = (
@@ -19,6 +21,11 @@ export const createApp = (
 
   app.disable('x-powered-by')
   app.use(helmet())
+  app.use('/api/trpc', (_request, response) => {
+    response
+      .status(404)
+      .json({ error: { code: 'NOT_FOUND', message: 'Not found' } } satisfies ApiError)
+  })
   app.use(
     cors({
       origin: config.webOrigin,
@@ -28,10 +35,6 @@ export const createApp = (
     }),
   )
 
-  app.get('/api/health', (_request, response) => {
-    response.json({ ok: true } satisfies HealthResponse)
-  })
-
   app.all('/api/auth/*splat', toNodeHandler(auth))
 
   app.use(
@@ -39,38 +42,25 @@ export const createApp = (
     createPhotoRouter(config, (headers) => auth.api.getSession({ headers })),
   )
 
-  app.use('/api/trpc', createRpcMiddleware(config, auth, options.ingestion))
+  app.use(requireBoundedRestQuery)
+  app.use(requireJsonRequestBody)
   app.use(express.json({ limit: '100kb' }))
 
-  app.get('/api/ready', async (_request, response) => {
-    try {
-      await db.user.findFirst({ select: { id: true } })
-      response.json({ ready: true } satisfies ReadinessResponse)
-    } catch {
-      response.status(503).json({ ready: false } satisfies ReadinessResponse)
-    }
-  })
-
-  app.get('/api/me', async (request, response) => {
-    const session = await auth.api.getSession({
-      headers: fromNodeHeaders(request.headers),
-    })
-
-    if (!session) {
-      response.status(401).json({ error: 'Unauthorized' } satisfies ApiError)
-      return
-    }
-
-    response.json(toCurrentUserResponse(session))
-  })
+  app.use(
+    '/api',
+    createRestRouter({
+      config,
+      auth,
+      ingestion: options.ingestion ?? createIngestionRuntime(config),
+    }),
+  )
 
   app.use((_request, response) => {
-    response.status(404).json({ error: 'Not found' } satisfies ApiError)
+    response
+      .status(404)
+      .json({ error: { code: 'NOT_FOUND', message: 'Not found' } } satisfies ApiError)
   })
-  const handleError: ErrorRequestHandler = (_error, _request, response, _next) => {
-    response.status(500).json({ error: 'Internal server error' } satisfies ApiError)
-  }
-  app.use(handleError)
+  app.use(apiErrorMiddleware)
   return app
 }
 

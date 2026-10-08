@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { IngestionDashboardResponse, IngestionRunResponse } from '@broke-oclock/contracts/ingestion'
 import { BButton } from '@broke-oclock/ui'
-import { api, type RouterOutputs } from '@web/lib/api-client'
+import { api } from '@web/lib/api-client'
 import AccountsPanel from '@web/modules/ingestion-admin/AccountsPanel.vue'
 import AdminSignIn from '@web/modules/ingestion-admin/AdminSignIn.vue'
 import DraftQueue from '@web/modules/ingestion-admin/DraftQueue.vue'
@@ -10,11 +11,11 @@ import LocationSearch from '@web/modules/ingestion-admin/LocationSearch.vue'
 import { onMounted, ref } from 'vue'
 
 const access = ref('loading')
-const dashboard = ref<RouterOutputs['ingestion']['dashboard'] | null>(null)
+const dashboard = ref<IngestionDashboardResponse | null>(null)
 const revision = ref(0)
 const runPending = ref(false)
 const runError = ref('')
-const runResult = ref<RouterOutputs['ingestion']['run'] | null>(null)
+const runResult = ref<IngestionRunResponse | null>(null)
 const denied = (code: string) => {
   dashboard.value = null
   access.value = code === 'UNAUTHORIZED' ? 'unauthorized' : 'forbidden'
@@ -22,7 +23,7 @@ const denied = (code: string) => {
 const load = async () => {
   if (!dashboard.value) access.value = 'loading'
   try {
-    dashboard.value = await api.ingestion.dashboard.query()
+    dashboard.value = await api.ingestion.dashboard()
     access.value = 'allowed'
   } catch (error) {
     const code = errorCode(error)
@@ -39,7 +40,7 @@ const run = async () => {
   runError.value = ''
   runResult.value = null
   try {
-    runResult.value = await api.ingestion.run.mutate()
+    runResult.value = await api.ingestion.run()
     await refresh()
   } catch (failure) {
     const code = errorCode(failure)

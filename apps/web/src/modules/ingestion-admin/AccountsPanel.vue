@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import type { IngestionAccountsResponse } from '@broke-oclock/contracts/ingestion'
 import { BButton } from '@broke-oclock/ui'
-import { api, type RouterOutputs } from '@web/lib/api-client'
+import { api } from '@web/lib/api-client'
 import { errorCode } from '@web/modules/ingestion-admin/errors'
 import { ref } from 'vue'
 
 const emit = defineEmits<{ denied: [code: string] }>()
-const items = ref<RouterOutputs['ingestion']['accounts']['items'] | null>(null)
+const items = ref<IngestionAccountsResponse['items'] | null>(null)
 const pending = ref(false)
 const nextCursor = ref<string | null>(null)
 const error = ref('')
@@ -14,7 +15,7 @@ const load = async (cursor?: string) => {
   pending.value = true
   error.value = ''
   try {
-    const result = await api.ingestion.accounts.query({ limit: 20, ...(cursor ? { cursor } : {}) })
+    const result = await api.ingestion.accounts({ limit: 20, ...(cursor ? { cursor } : {}) })
     const combined = cursor ? [...(items.value ?? []), ...result.items] : result.items
     items.value = [...new Map(combined.map(item => [item.id, item])).values()]
     nextCursor.value = result.nextCursor === cursor ? null : result.nextCursor

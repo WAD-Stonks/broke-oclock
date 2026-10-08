@@ -1,6 +1,6 @@
 # Ingestion and admin workstream
 
-Owner: Noah. API work belongs under `apps/api/src/modules/ingestion` and `apps/api/src/trpc/routers/ingestion`; the web workstream is `apps/web/src/modules/ingestion-admin` with the route `/admin/ingestion`.
+Owner: Noah. API domain logic belongs under `apps/api/src/modules/ingestion`; its named REST handlers are assembled under `apps/api/src/rest/routers/ingestion`. The web workstream is `apps/web/src/modules/ingestion-admin` with the route `/admin/ingestion`.
 
 ## Scope of this slice
 
@@ -30,7 +30,7 @@ One run processes a bounded page. Run records expose fetched/created/updated/fai
 
 ## Identity and access
 
-Use the existing Better Auth session and the current server-side database role. ADMIN is required for import administration and account listing; a frontend route or a client-supplied role is not authorization. Existing USER and MODERATOR responsibilities are unchanged.
+Use the existing request-local Better Auth cookie session and the current server-side database role. ADMIN is required for import administration and account listing; a frontend route or a client-supplied role is not authorization. Existing USER and MODERATOR responsibilities are unchanged.
 
 No existing account is automatically promoted. Initial admin provisioning remains an explicitly approved development/production operation. Integration tests create isolated test users and set test roles only inside their disposable database.
 
