@@ -5,12 +5,16 @@
   "type": "module",
   "exports": {
     "./api": "./src/api.ts",
-    "./rpc": "./src/rpc.ts"
+    "./ingestion": "./src/ingestion.ts",
+    "./platform-admin": "./src/platform-admin.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "vitest": "4.1.11"
   }
 }

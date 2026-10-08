@@ -1,6 +1,6 @@
 # Ingestion/admin API
 
-The `ingestion` tRPC namespace implements administrator-only dashboard, bounded run history, paginated draft review, one-page manual ingestion, OneMap address lookup and readonly user listing. Procedure files live under `src/trpc/routers/ingestion/procedures`; parsing, runtime composition, authorization and persistence live here. Existing health/me paths and auth/origin policies are unchanged.
+The ingestion REST resources implement administrator-only dashboard, bounded run history, paginated draft review, one-page manual ingestion, OneMap address lookup and read-only user listing. Named Express handlers are assembled under `apps/api/src/rest/routers/ingestion`; parsing, runtime composition, authorization and persistence live in this module. The infrastructure probes remain `GET /api/health`, `GET /api/ready` and authenticated `GET /api/me`. Every write keeps the existing exact trusted-Origin policy and request-local cookie session checks.
 
 ## Disabled by default
 

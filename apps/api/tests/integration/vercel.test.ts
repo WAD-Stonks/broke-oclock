@@ -63,6 +63,12 @@ it('runs the isolated Node function with real auth/Prisma and no workspace depen
       assert.equal((await request('/api/health')).status, 200);
       assert.equal((await request('/api/ready')).status, 200);
       assert.equal((await request('/api/me')).status, 401);
+      const admin = await request('/api/admin/accounts');
+      assert.equal(admin.status, 401);
+      assert.deepEqual(await admin.json(), {error: {code: 'UNAUTHORIZED', message: 'UNAUTHORIZED'}});
+      const legacy = await request('/api/trpc/platformAdmin.changeRole', {userId: 'aaaaaaaaaaaaaaaaaaaaaaaa', expectedVersion: 0, role: 'ADMIN', note: 'legacy'});
+      assert.equal(legacy.status, 404);
+      assert.deepEqual(await legacy.json(), {error: {code: 'NOT_FOUND', message: 'Not found'}});
       assert.equal((await request('/api/uploadthing')).status, 503);
       const registered = await request('/api/auth/sign-up/email', {
         name: 'Isolated bundle fixture', email: randomUUID() + '@example.test',

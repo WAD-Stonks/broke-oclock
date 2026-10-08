@@ -9,18 +9,17 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
+    "@broke-oclock/api-client": "workspace:*",
     "@broke-oclock/auth": "workspace:*",
     "@broke-oclock/contracts": "workspace:*",
     "@broke-oclock/storage": "workspace:*",
     "@broke-oclock/ui": "workspace:*",
-    "@trpc/client": "11.18.0",
-    "@trpc/server": "11.18.0",
+    "axios": "1.20.0",
     "bootstrap": "5.3.8",
     "vue": "3.5.42",
     "vue-router": "5.1.0"
   },
   "devDependencies": {
-    "@broke-oclock/api": "workspace:*",
     "@vitejs/plugin-vue": "6.0.8",
     "@vue/test-utils": "2.4.11",
     "@vue/tsconfig": "0.9.1",

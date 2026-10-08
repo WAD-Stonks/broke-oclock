@@ -1,10 +1,10 @@
-import type { Context } from '@api/trpc/context'
-import { TRPCError } from '@trpc/server'
+import { DomainError } from '@api/modules/domain-error'
+import type { db } from '@broke-oclock/db'
 
-export type Database = Context['db']
+export type Database = typeof db
 export type AccessTransaction = Parameters<Parameters<Database['$transaction']>[0]>[0]
 export const conflict = () =>
-  new TRPCError({ code: 'CONFLICT', message: 'Access state changed; refresh before trying again' })
+  new DomainError('CONFLICT', 'Access state changed; refresh before trying again')
 
 // Acquire before any authorization read. Mongo snapshot reads alone do not prevent
 // write skew. All platform writers and future merchant mutations share this fence.
@@ -40,7 +40,7 @@ export const requireCurrentAdmin = async (tx: AccessTransaction, actorId: string
     where: { id: actorId },
     select: { id: true, role: true, name: true, updatedAt: true },
   })
-  if (actor?.role !== 'ADMIN') throw new TRPCError({ code: 'FORBIDDEN' })
+  if (actor?.role !== 'ADMIN') throw new DomainError('FORBIDDEN')
   // Also fence the actual identity record against a concurrent out-of-band demotion.
   await tx.user.update({
     where: { id: actor.id },
@@ -50,7 +50,7 @@ export const requireCurrentAdmin = async (tx: AccessTransaction, actorId: string
 }
 export const currentUser = async (tx: AccessTransaction, userId: string) => {
   const user = await tx.user.findUnique({ where: { id: userId } })
-  if (!user) throw new TRPCError({ code: 'NOT_FOUND', message: 'Account not found' })
+  if (!user) throw new DomainError('NOT_FOUND', 'Account not found')
   return user
 }
 export const checkVersion = (actual: number | null, expected: number) => {
