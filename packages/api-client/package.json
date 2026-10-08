@@ -1,0 +1,19 @@
+{
+  "name": "@broke-oclock/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@broke-oclock/contracts": "workspace:*",
+    "axios": "1.20.0"
+  },
+  "devDependencies": {
+    "vitest": "4.1.11"
+  }
+}

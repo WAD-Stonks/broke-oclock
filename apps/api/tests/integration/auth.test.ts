@@ -114,7 +114,9 @@ describe('real Express + Better Auth + Prisma + MongoDB', () => {
     expect(await health.json()).toEqual({ ok: true })
     expect(health.headers.get('x-content-type-options')).toBe('nosniff')
     expect((await request('/api/ready')).status).toBe(200)
-    expect((await request('/api/me')).status).toBe(401)
+    const anonymous = await request('/api/me')
+    expect(anonymous.status).toBe(401)
+    expect(await anonymous.json()).toEqual({ error: 'Unauthorized' })
     expect((await request('/api/auth/ok')).status).toBe(200)
   })
 

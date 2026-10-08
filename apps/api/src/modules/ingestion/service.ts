@@ -1,12 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { DomainError } from '@api/modules/domain-error'
 import { moneyDigestPostSchema, parseMoneyDigestPost } from '@api/modules/ingestion/parser'
 import type { IngestionRuntime } from '@api/modules/ingestion/runtime'
 import { MONEYDIGEST_SOURCE, sourceWhere } from '@api/modules/ingestion/source'
-import type { Context } from '@api/trpc/context'
-import { TRPCError } from '@trpc/server'
+import type { db } from '@broke-oclock/db'
 import { z } from 'zod'
 
-type Database = Context['db']
+type Database = typeof db
 const LEASE_MS = 120_000
 const COOLDOWN_MS = 30_000
 const safeErrorCode = (error: unknown) => {
@@ -29,7 +29,7 @@ export const acquireLease = async (db: Database, now: Date) => {
     update: {},
   })
   if (!source.enabled || source.url !== MONEYDIGEST_SOURCE.url)
-    throw new TRPCError({ code: 'PRECONDITION_FAILED', message: 'Approved source is disabled' })
+    throw new DomainError('PRECONDITION_FAILED', 'Approved source is disabled')
   const token = randomUUID()
   const lease = await db.importSource.updateMany({
     where: {
@@ -44,7 +44,7 @@ export const acquireLease = async (db: Database, now: Date) => {
     },
     data: { leaseToken: token, leaseExpiresAt: new Date(now.getTime() + LEASE_MS) },
   })
-  if (lease.count !== 1) throw new TRPCError({ code: 'CONFLICT', message: 'Source is busy' })
+  if (lease.count !== 1) throw new DomainError('CONFLICT', 'Source is busy')
   try {
     const recent = await db.ingestionRun.findFirst({
       where: { sourceId: source.id },
@@ -52,7 +52,7 @@ export const acquireLease = async (db: Database, now: Date) => {
       select: { startedAt: true },
     })
     if (recent && now.getTime() - recent.startedAt.getTime() < COOLDOWN_MS)
-      throw new TRPCError({ code: 'TOO_MANY_REQUESTS', message: 'Source request cooldown' })
+      throw new DomainError('TOO_MANY_REQUESTS', 'Source request cooldown')
     const run = await db.ingestionRun.create({
       data: { source: { connect: { id: source.id } }, startedAt: now, status: 'RUNNING' },
     })
@@ -78,8 +78,7 @@ const processPost = async (
       where: { id: lease.sourceId, leaseToken: lease.token, leaseExpiresAt: { gt: runtime.now() } },
       data: { leaseToken: lease.token },
     })
-    if (fence.count !== 1)
-      throw new TRPCError({ code: 'CONFLICT', message: 'Source lease expired' })
+    if (fence.count !== 1) throw new DomainError('CONFLICT', 'Source lease expired')
     const previous = await tx.importedPost.findUnique({
       where: { sourceId_externalId: { sourceId: lease.sourceId, externalId: String(post.id) } },
       include: { deals: { include: { deal: true } } },
@@ -133,7 +132,7 @@ const processPost = async (
           publishedAt: null,
         },
       })
-      if (changed.count !== 1) throw new TRPCError({ code: 'CONFLICT', message: 'Draft changed' })
+      if (changed.count !== 1) throw new DomainError('CONFLICT', 'Draft changed')
     }
     await tx.deal.create({
       data: {
@@ -194,10 +193,7 @@ const recordPostFailure = async (
 }
 export const runIngestion = async (db: Database, runtime: IngestionRuntime) => {
   if (!runtime.enabled || !runtime.reuseApproved)
-    throw new TRPCError({
-      code: 'PRECONDITION_FAILED',
-      message: 'Ingestion and source reuse approval are required',
-    })
+    throw new DomainError('PRECONDITION_FAILED', 'Ingestion and source reuse approval are required')
   const lease = await acquireLease(db, runtime.now())
   let fetchedCount = 0
   let createdCount = 0
@@ -220,8 +216,7 @@ export const runIngestion = async (db: Database, runtime: IngestionRuntime) => {
         },
         data: { leaseToken: lease.token },
       })
-      if (fence.count !== 1)
-        throw new TRPCError({ code: 'CONFLICT', message: 'Source lease expired' })
+      if (fence.count !== 1) throw new DomainError('CONFLICT', 'Source lease expired')
       await tx.ingestionRun.update({
         where: { id: lease.run.id },
         data: { startedAt: requestedAt },

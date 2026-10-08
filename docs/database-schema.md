@@ -6,7 +6,7 @@ The original schema change supplied persistence structure. Ingestion and platfor
 
 - Keep Prisma 6.19.3, MongoDB and Better Auth 1.7.5; no dependency upgrade or provider change.
 - One `User.role`: `USER`, `MERCHANT`, `MODERATOR`, `ADMIN`; default `USER`. MERCHANT requires an explicit active stall grant and is not a brand-wide capability. No MEMBER or role array. Store it on Better Auth's existing User model, register it as a server-owned additional field, and forbid client input on signup/profile updates.
-- USER submissions require review before public publication. Staff policy: MODERATOR reviews submissions/reports; ADMIN also manages roles/import administration. The database alone does not enforce the hierarchy. Current ADMIN enforcement lives in the ingestion and platform-admin procedures; future moderation and merchant endpoints must enforce their own scope.
+- USER submissions require review before public publication. Staff policy: MODERATOR reviews submissions/reports; ADMIN also manages roles/import administration. The database alone does not enforce the hierarchy. Current ADMIN enforcement lives in the ingestion and platform-admin REST handlers; future moderation and merchant endpoints must enforce their own scope.
 - Promotions support selected outlets, all outlets of a merchant, online, or other no-fixed-location use. Votes remain deal-wide, as in the team plan.
 - The original schema-only slice did not include feature endpoints. Current platform-admin endpoints and persistence are documented below; ingestion is documented separately. No voting thresholds, scheduler, production seed data or production database writes are introduced.
 
@@ -83,7 +83,7 @@ See [platform administration](platform-admin.md) for invariants, API contracts, 
 
 ## Sources and skill selection
 
-Reviewed Prisma database-setup (MongoDB reference), Prisma Client API/CLI, Better Auth, repository-architecture and security guidance. Postgres/Supabase-specific schema advice does not apply to this MongoDB project. Intent discovery found package-owned tRPC guidance, but no Prisma/Better Auth package skill in the installed project; the installed Hermes skills and official docs supply the database guidance.
+Reviewed Prisma database-setup (MongoDB reference), Prisma Client API/CLI, Better Auth, repository-architecture and security guidance. Postgres/Supabase-specific schema advice does not apply to this MongoDB project. Earlier package-owned tRPC guidance described the prior API transport and is superseded by [the REST API guide](rest-api.md); no Prisma/Better Auth package skill was present, so the installed Hermes skills and official docs supply the database guidance.
 
 - [Prisma MongoDB connector and limitations](https://www.prisma.io/docs/orm/overview/databases/mongodb)
 - [Better Auth additional fields and input ownership](https://better-auth.com/docs/concepts/database#extending-core-schema)
