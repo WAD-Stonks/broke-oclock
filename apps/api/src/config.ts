@@ -10,6 +10,8 @@ export type AppConfig = {
     oneMap?: { email: string; password: string }
   }
   photoStorage?: { token: string; isDev: boolean }
+  // Present only when RESEND_API_KEY and EMAIL_FROM are both set to real values.
+  email?: { apiKey: string; from: string }
 }
 
 type Environment = Record<string, string | undefined>
@@ -78,10 +80,19 @@ const parseIngestion = (env: Environment): AppConfig['ingestion'] => {
   }
 }
 
+const parseEmail = (env: Environment): AppConfig['email'] => {
+  const apiKey = env.RESEND_API_KEY?.trim()
+  const from = env.EMAIL_FROM?.trim()
+  const placeholder = (value: string) => ['UNSET', 'UNCONFIGURED'].includes(value.toUpperCase())
+  if (!apiKey || !from || placeholder(apiKey) || placeholder(from)) return undefined
+  return { apiKey, from }
+}
+
 export const parseConfig = (env: Environment): AppConfig => {
   const betterAuthSecret = requiredString(env, 'BETTER_AUTH_SECRET')
   if (betterAuthSecret.length < 32)
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters')
+  const email = parseEmail(env)
   return {
     port: parsePort(env.PORT),
     ingestion: parseIngestion(env),
@@ -93,6 +104,7 @@ export const parseConfig = (env: Environment): AppConfig => {
     ),
     betterAuthSecret,
     databaseUrl: validateDatabaseUrl(requiredString(env, 'DATABASE_URL')),
+    ...(email ? { email } : {}),
   }
 }
 export const loadConfig = (): AppConfig => parseConfig(process.env)
