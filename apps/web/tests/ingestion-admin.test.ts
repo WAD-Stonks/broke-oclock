@@ -9,6 +9,9 @@ import { beforeEach, expect, it, vi } from 'vitest'
 const rest = vi.hoisted(() => ({
   dashboard: vi.fn(),
   signIn: vi.fn(),
+  session: vi.fn(),
+  signOut: vi.fn(),
+  authMethods: vi.fn(),
   runs: vi.fn(),
   run: vi.fn(),
   queue: vi.fn(),
@@ -27,6 +30,7 @@ vi.mock('@web/lib/api-client', () => ({
     }
   },
   api: {
+    infrastructure: { authMethods: rest.authMethods },
     ingestion: {
       dashboard: rest.dashboard,
       runs: rest.runs,
@@ -39,7 +43,15 @@ vi.mock('@web/lib/api-client', () => ({
   },
 }))
 
-vi.mock('@web/lib/auth-client', () => ({ authClient: { signIn: { email: rest.signIn } } }))
+// Native identity is synthetic here, not real authentication proof.
+vi.mock('@web/lib/auth-client', () => ({
+  authClient: {
+    useSession: () => ({ value: { refetch: async () => {}, error: null } }),
+    getSession: rest.session,
+    signOut: rest.signOut,
+    signIn: { email: rest.signIn },
+  },
+}))
 
 const dashboard = {
   source: {
@@ -52,6 +64,24 @@ const dashboard = {
 } satisfies IngestionDashboardResponse
 beforeEach(() => {
   vi.resetAllMocks()
+  rest.session.mockResolvedValue({
+    data: {
+      user: {
+        id: 'synthetic-admin',
+        name: 'Synthetic admin',
+        email: 'admin@example.test',
+        role: 'USER',
+      },
+    },
+    error: null,
+  })
+  rest.signOut.mockResolvedValue({ data: { success: true }, error: null })
+  rest.authMethods.mockResolvedValue({
+    password: true,
+    google: false,
+    emailOtp: false,
+    passwordRecovery: false,
+  })
   rest.dashboard.mockResolvedValue(dashboard)
   rest.runs.mockResolvedValue({ items: [] })
   rest.queue.mockResolvedValue({ items: [], nextCursor: null })
@@ -75,7 +105,7 @@ it('renders server counts and explains both disabled-source gates', async () => 
   expect(wrapper.get('[aria-label="Ingestion counts"]').text()).toContain('3pending')
   expect(wrapper.text()).toContain('Synthetic fixture source')
   expect(wrapper.text()).toContain('Ingestion is disabled')
-  expect(wrapper.text()).toContain('Content reuse is not approved')
+  expect(wrapper.text()).toContain('Operator reuse attestation is not recorded')
   expect(wrapper.get('[data-testid="run-ingestion"]').attributes('disabled')).toBeDefined()
 })
 
@@ -191,6 +221,8 @@ const draft: IngestionDraft = {
   validUntil: null,
   rawValidityText: 'While stocks last',
   applicability: 'NO_FIXED_LOCATION',
+  merchantId: null,
+  outlet: null,
   reviewStatus: 'PENDING',
   contentVersion: 7,
   sourceUrl: 'https://example.test/post/1',
@@ -853,4 +885,106 @@ it('blocks duplicate sign-ins and clears the password after rejected authenticat
   expect(wrapper.text()).toContain('Sign-in failed')
   expect(wrapper.text()).not.toContain('private auth detail')
   expect(wrapper.get('#admin-password').element).toHaveProperty('value', '')
+})
+
+it('closes all ingestion evidence before logout and ignores a late dashboard success', async () => {
+  let release!: (value: IngestionDashboardResponse) => void
+  rest.dashboard.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  release(dashboard)
+  await flushPromises()
+  expect(w.find('[aria-label="Ingestion counts"]').exists()).toBe(false)
+  expect(w.text()).toContain('Sign in to review ingestion')
+  w.unmount()
+})
+
+it('does not refresh or publish an old run result after logout', async () => {
+  rest.dashboard.mockResolvedValue({
+    ...dashboard,
+    source: { ...dashboard.source, enabled: true, reuseApproved: true },
+  })
+  let release!: (value: unknown) => void
+  rest.run.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  await w.get('[data-testid="run-ingestion"]').trigger('click')
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  release({
+    runId: 'old-run',
+    status: 'COMPLETED',
+    fetchedCount: 1,
+    createdCount: 1,
+    updatedCount: 0,
+    failedCount: 0,
+  })
+  await flushPromises()
+  expect(rest.dashboard).toHaveBeenCalledTimes(1)
+  expect(w.text()).not.toContain('old-run')
+  w.unmount()
+})
+
+it('ignores an old location denial after logout and a freshly authorized sign-in', async () => {
+  rest.dashboard.mockResolvedValue({
+    ...dashboard,
+    source: { ...dashboard.source, onemapConfigured: true },
+  })
+  let reject!: (error: unknown) => void
+  rest.locations.mockImplementationOnce(
+    () =>
+      new Promise((_, no) => {
+        reject = no
+      }),
+  )
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  await w.get('#location-query').setValue('Synthetic plaza')
+  await w.get('[data-testid="location-search"]').trigger('submit')
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  rest.signIn.mockResolvedValue({ error: null })
+  await w.get('#admin-email').setValue('synthetic@example.test')
+  await w.get('#admin-password').setValue('synthetic-not-a-real-password')
+  await w.get('form').trigger('submit')
+  await flushPromises()
+  reject(new ApiClientError('FORBIDDEN', 403, 'Old denial'))
+  await flushPromises()
+  expect(w.find('[aria-label="Ingestion counts"]').exists()).toBe(true)
+  expect(w.text()).not.toContain('You do not have permission')
+  w.unmount()
+})
+
+it('does not restore ingestion after a newer child permission denial closes a pending dashboard refresh', async () => {
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  let release!: (value: IngestionDashboardResponse) => void
+  rest.dashboard.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  // Exercise the D3 public changed/denied protocol without editing its owned component.
+  w.getComponent(DraftQueue).vm.$emit('changed')
+  await flushPromises()
+  w.getComponent(DraftQueue).vm.$emit('denied', 'FORBIDDEN')
+  await flushPromises()
+  release(dashboard)
+  await flushPromises()
+  expect(w.text()).toContain('You do not have permission')
+  expect(w.find('[aria-label="Ingestion counts"]').exists()).toBe(false)
+  w.unmount()
 })

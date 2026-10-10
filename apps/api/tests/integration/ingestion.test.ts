@@ -240,7 +240,7 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
     })
   })
 
-  it('preserves the transaction-time ADMIN denial after a committed demotion between admission and its real role read', async () => {
+  it('conflicts without writes after committed ADMIN demotion between the access fence and transaction role read', async () => {
     const { PrismaClient } = await import('@broke-oclock/db')
     if (!fixtureDatabaseUrl.startsWith('mongodb://127.0.0.1:'))
       throw new Error('Disposable replica fixture required')
@@ -313,7 +313,15 @@ describe('ingestion admin real HTTP/session/disposable Mongo', () => {
       expect(result).toMatchObject({
         status: 'rejected',
         reason: {
-          response: { status: 403, data: { error: { code: 'FORBIDDEN', message: 'FORBIDDEN' } } },
+          response: {
+            status: 409,
+            data: {
+              error: {
+                code: 'CONFLICT',
+                message: 'Access state changed; refresh before trying again',
+              },
+            },
+          },
         },
       })
       expect(await counts()).toEqual(before)

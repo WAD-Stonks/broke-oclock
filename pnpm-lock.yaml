@@ -50,6 +50,9 @@ importers:
       '@broke-oclock/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@broke-oclock/email':
+        specifier: workspace:*
+        version: link:../../packages/email
       '@broke-oclock/integrations':
         specifier: workspace:*
         version: link:../../packages/integrations

@@ -1,7 +1,35 @@
-import { createPasswordResetEmail, createVerificationEmail, EmailInputError } from '@email/server'
+import {
+  createEmailOTPEmail,
+  createPasswordResetEmail,
+  createVerificationEmail,
+  EmailInputError,
+} from '@email/server'
 import { describe, expect, it } from 'vitest'
 
 describe('transactional email templates', () => {
+  it('renders six-digit OTPs unchanged with exact purpose-specific metadata', () => {
+    const types = ['sign-in', 'email-verification', 'forget-password', 'change-email'] as const
+    const subjects = new Set<string>()
+    for (const type of types) {
+      const template = createEmailOTPEmail({ otp: '012345', type })
+      expect(template.html.includes('012345')).toBe(true)
+      expect(template.text.includes('012345')).toBe(true)
+      expect(template.text.includes('5 minutes')).toBe(true)
+      subjects.add(template.subject)
+    }
+    expect(subjects.size).toBe(4)
+  })
+  it.each(['12345', '1234567', '１２３４５６', '<img/>', '12345\n'])(
+    'rejects malformed OTPs',
+    (otp) => {
+      expect(() => createEmailOTPEmail({ otp, type: 'sign-in' })).toThrow(EmailInputError)
+    },
+  )
+  it('rejects forged OTP purpose metadata', () => {
+    expect(() => createEmailOTPEmail({ otp: '012345', type: 'unknown' as 'sign-in' })).toThrow(
+      EmailInputError,
+    )
+  })
   it('renders escaped verification HTML and a matching plain-text message', () => {
     const template = createVerificationEmail({
       verificationUrl: 'https://example.test/verify?token=a&next=%3Cscript%3E',

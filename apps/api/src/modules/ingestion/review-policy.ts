@@ -1,4 +1,7 @@
+import { DomainError } from '@api/modules/domain-error'
 import { MONEYDIGEST_SOURCE } from '@api/modules/ingestion/source'
+import type { AccessTransaction } from '@api/modules/platform-admin/transaction'
+import { activeVenue } from '@api/modules/platform-admin/venues'
 export const importedDealScope = {
   origin: 'IMPORTED' as const,
   OR: [{ deletedAt: null }, { deletedAt: { isSet: false } }],
@@ -12,6 +15,21 @@ export const importedDealScope = {
       },
     },
   },
+}
+// Selected-outlet approval must retain active merchant/outlet authority.
+// Rejection and existing no-location readiness remain unchanged.
+export const requireSelectedOutletAuthority = async (
+  tx: AccessTransaction,
+  deal: { applicability: string; merchantId: string | null; venues: { venueId: string }[] },
+) => {
+  if (deal.applicability !== 'SELECTED_OUTLETS') return
+  if (!deal.merchantId || !deal.venues.length)
+    throw new DomainError('PRECONDITION_FAILED', 'Selected outlet merchant required')
+  for (const link of deal.venues) {
+    const { merchant } = await activeVenue(tx, link.venueId)
+    if (merchant.id !== deal.merchantId)
+      throw new DomainError('PRECONDITION_FAILED', 'Selected outlet merchant mismatch')
+  }
 }
 export const isReviewReady = (
   deal: {
