@@ -50,11 +50,12 @@ See [platform-admin contracts and teammate handoffs](docs/platform-admin.md) and
 - **Ingestion administration at `/admin/ingestion`:** bounded manual MoneyDigest imports, conservative parsing, source attribution, deduplication, run/failure monitoring and version-safe draft review. Imports are **disabled by default** pending permitted reuse and source configuration.
 - **Platform administration at `/admin/accounts`:** account search/details, role changes, merchant-request approval/rejection, stall grants/revocation and atomic action history. Mutations use current server-side permissions, expected versions and transaction safeguards.
 - Server-side OneMap authentication/search adapter, UploadThing integration infrastructure and an opt-in Resend transport package.
+- **Community:** revision-aware verification, outlet evidence, comments, content reports and staff moderation through Axios/REST, with a development-only `/community-demo` page. See [local fixture and testing](docs/community.md).
 
 ### Still to connect or complete
 
 - Public map/feed, shared cuisine/price discovery queries, community deal submission and merchant promotion management.
-- Voting/comments/reports, profiles, bookmarks, own-submission pages and user-facing merchant request/status screens.
+- Comments/reports, agreed verification thresholds and outlet-scoped evidence; profiles, bookmarks, own-submission pages and user-facing merchant request/status screens.
 - Verification/password-reset email flows, live provider acceptance, scheduled ingestion and confirmed imported-deal outlet association.
 - Account deletion after the retention/anonymisation decision, connected end-to-end demo journeys and separately approved deployment.
 
@@ -153,7 +154,7 @@ pnpm run audit           # Documented dependency-audit policy
 
 Use `pnpm run test` for this Vitest project. For an isolated worktree without `.env`, Prisma validation can use the non-connecting URI described in [testing](docs/testing.md); integration suites supply their own disposable databases.
 
-Browser tests currently use explicitly synthetic API/provider responses for affected workflows. They exercise the SPA and client transport, while API integration tests separately exercise real HTTP, authentication and database behaviour. Neither layer is a claim that the proposal's complete connected demo already works. CI records verification for each PR commit; no test count is a permanent project guarantee.
+Most browser tests use explicitly synthetic API/provider responses. The community voting journey forwards browser calls to a real isolated Express API and disposable MongoDB database. API integration tests also exercise real HTTP, authentication and database behaviour. These tests do not claim that the proposal's complete connected demo already works. CI records verification for each PR commit; no test count is a permanent project guarantee.
 
 ## Week 8 plan: 5 to 11 October 2026
 
@@ -192,6 +193,6 @@ Read [AGENTS.md](AGENTS.md), [development guide](docs/development-guide.md), [ar
 
 This repository is public. Never commit credentials, session-state files, personal records, generated clients or unlicensed publisher fixtures. The dependency audit retains one documented Prisma CLI exception; `pnpm run audit` passing does not mean an unfiltered audit is clean. See [security notes](docs/security.md).
 
-AI-assisted work includes scaffolding, framework/auth integration, ingestion and platform-admin feature implementations, tests, CI and documentation. The [AI-use disclosure](docs/ai-use.md) records this work and the course restrictions; instructor clearance remains separate from code verification. Do not present AI-assisted features as student-authored work.
+AI-assisted work includes scaffolding, framework/auth integration, ingestion, platform-admin and community-voting feature implementations, tests, CI and documentation. The [AI-use disclosure](docs/ai-use.md) records this work and the course restrictions; instructor clearance remains separate from code verification. Do not present AI-assisted features as student-authored work.
 
 Keep [README.txt](README.txt) aligned for final submission. Add verified deployment/presentation/video links, actual contributions, complete feature-test results and safe grading-access instructions when available. Do not publish account passwords or invent deployment/demo results.

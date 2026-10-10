@@ -41,9 +41,13 @@ Implemented: auth/database/test foundation; manual default-off MoneyDigest
 import/parsing/deduplication/review at /admin/ingestion; account/role management,
 merchant request review, stall grants/revocation and audit at /admin/accounts;
 server-side OneMap adapter, UploadThing infrastructure and Resend transport.
+Community: revision-aware deal/outlet evidence, verification thresholds,
+comments, reports, staff moderation and development-only /community-demo.
+Local fixture: pnpm run seed:community-demo.
+See docs/community.md.
 
 Remaining: public discovery, submissions, merchant promotion management,
-community features, personal account/saved-deal screens, user-facing merchant
+personal account/saved-deal screens, user-facing merchant
 requests, verification/reset email flows and the connected demo. Account
 deletion awaits an agreed retention/anonymisation policy. No automatic admin
 provisioning or approved deployment is supplied by setup.
@@ -121,7 +125,7 @@ docs/platform-admin.md; docs/database-schema.md; CONTRIBUTING.md.
 
 AI DISCLOSURE AND FINAL SUBMISSION
 Hermes Agent assisted scaffolding, framework/auth, ingestion/parsing/review,
-platform-admin feature implementations, pnpm and Node runtime migration, tests, CI and documentation. These
+platform-admin feature implementations, pnpm and Node runtime migration, tests, CI and documentation. Codex assisted the community voting implementation and tests. These
 features are not claimed as student-authored. Obtain instructor clearance under
 the recorded course restrictions before assessed use; see docs/ai-use.md.
 Before final submission add verified deployed/presentation/video links, actual

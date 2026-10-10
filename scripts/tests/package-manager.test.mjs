@@ -34,11 +34,15 @@ test('pnpm owns dependency management with one isolated workspace lockfile', () 
 })
 
 test('pnpm resolves exactly the documented audit exception', () => {
-  const result = spawnSync('pnpm', ['config', 'get', 'auditConfig', '--json'], {
-    cwd: fileURLToPath(root),
-    encoding: 'utf8',
-    timeout: 30_000,
-  })
+  const result = spawnSync(
+    'pnpm',
+    ['config', 'get', 'auditConfig', '--json', '--location=project'],
+    {
+      cwd: fileURLToPath(root),
+      encoding: 'utf8',
+      timeout: 30_000,
+    },
+  )
   assert.equal(result.status, 0, result.stderr)
   assert.deepEqual(JSON.parse(result.stdout), { ignoreGhsas: ['GHSA-ggr8-5vv4-36mx'] })
 })

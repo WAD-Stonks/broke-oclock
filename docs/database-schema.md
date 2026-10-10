@@ -24,9 +24,11 @@ The canonical schema stays at `packages/db/prisma/schema.prisma`. Auth mapping i
 - **Merchant:** brand/business identity. Names are searchable, not unique identity proofs.
 - **Venue:** a physical merchant outlet, address, area, latitude and longitude. Only resolved physical locations belong here; ambiguous imported addresses stay in ImportedPost. Coordinates are not deduplication keys.
 - **Deal:** promotion text, category, offer type, terms, optional exact price in minor units/discount percentage, validity timestamps plus original wording, merchant/submitter, applicability, review metadata, publication time and soft deletion.
-- **DealVenue:** explicit many-to-many outlet association, unique per deal/venue. Stores no votes: evidence is deal-wide.
-- **DealVote:** one current ALIVE/DEAD vote per user/deal; update that record to change a vote. Timestamps allow freshness calculation. No cached vote totals or hardcoded thresholds.
-- **Comment / Bookmark:** deal comments with soft deletion and unique user/deal bookmarks.
+- **DealVenue:** explicit many-to-many outlet association, unique per deal/venue. It determines selected-outlet applicability; outlet evidence lives in `OutletEvidence`.
+- **DealVote:** one current ALIVE/DEAD vote per user/deal with revision and observation time. Legacy rows without a trustworthy revision never qualify. No cached vote totals.
+- **OutletEvidence:** one current ALIVE/DEAD record per user/deal/outlet, with revision and observation time. Outlet status cannot change whole-deal status.
+- **Comment / Bookmark:** deal comments have optional outlet context, idempotency request keys and soft deletion; bookmarks remain unique per user/deal.
+- **CommunityModerationAudit:** records explicit staff review/hide actions without exposing reporter identities publicly.
 - **DealReport / CommentReport:** separate typed report targets with one report per reporter/target. Resolution metadata is independent of deal expiry or public visibility. Separate models avoid nullable polymorphic unique-index traps in MongoDB.
 - **UploadedFile:** unique UploadThing file key, URL, MIME type, size, uploader and optional attached deal. Unattached uploads can be tracked without a fake deal; provider callbacks/ownership checks and cleanup are not implemented by this schema.
 - **ImportSource:** unique provider/external source identity, original URL, disabled-by-default setting, optional cursor and lease metadata for a future scheduler.
@@ -38,7 +40,7 @@ The canonical schema stays at `packages/db/prisma/schema.prisma`. Auth mapping i
 
 - `Deal.reviewStatus`: PENDING, APPROVED, REJECTED, HIDDEN. New records default PENDING. `publishedAt` is unset until publication. `contentVersion` starts at 1; `reviewedVersion` is unset until approval. A future browse query must require APPROVED, matching content/review versions, a publication timestamp and a non-deleted record. Owner changes to text, price, terms, dates, merchant, applicability or images must atomically increment contentVersion, reset to PENDING and clear reviewer/reviewedVersion/reviewedAt/publishedAt. Approval must compare-and-set the version that staff actually reviewed; a stale review must fail. These transitions still need student-authored API implementation.
 - Commercial validity comes from `validFrom`/`validUntil`, not review status. Unknown dates remain unknown; preserve `rawValidityText`. Define dates as UTC instants with an exclusive `validUntil`; future parsing must interpret Singapore date-only terms deliberately, not invent years.
-- Community verification is derived from DealVote plus explicit configurable policy. Approval is not proof that a promotion is still redeemable. No combined "verified/expired/hidden" status field.
+- Community verification is derived from current-revision `DealVote` or separately scoped `OutletEvidence` plus explicit configurable policy. Approval is not proof that a promotion is still redeemable. No combined "verified/expired/hidden" status field.
 - Report resolution is OPEN, RESOLVED or DISMISSED; filing a report does not automatically hide content.
 
 ## Invariants the schema cannot enforce

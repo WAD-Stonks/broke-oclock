@@ -13,7 +13,26 @@ describe('configuration boundary', () => {
       webOrigin: 'http://localhost:5173',
       betterAuthUrl: 'http://localhost:3000',
       databaseUrl: environment.DATABASE_URL,
+      community: {
+        evidenceWindowHours: 72,
+        confirmThreshold: 3,
+        deadThreshold: 2,
+        reconfirmHours: 24,
+        contentReportThreshold: 3,
+      },
     })
+  })
+  it('parses positive community policy settings', () => {
+    expect(
+      parseConfig({
+        ...environment,
+        DEAL_CONFIRM_THRESHOLD: '4',
+        COMMUNITY_EVIDENCE_WINDOW_HOURS: '48',
+      }).community,
+    ).toMatchObject({ confirmThreshold: 4, evidenceWindowHours: 48 })
+    expect(() => parseConfig({ ...environment, DEAL_DEAD_REPORT_THRESHOLD: '0' })).toThrow(
+      'DEAL_DEAD_REPORT_THRESHOLD',
+    )
   })
   it('requires an explicit database instead of silently using a different one', () => {
     expect(() => parseConfig({ BETTER_AUTH_SECRET: environment.BETTER_AUTH_SECRET })).toThrow(
