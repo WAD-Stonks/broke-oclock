@@ -15,6 +15,7 @@
     "@broke-oclock/auth": "workspace:*",
     "@broke-oclock/contracts": "workspace:*",
     "@broke-oclock/db": "workspace:*",
+    "@broke-oclock/email": "workspace:*",
     "@broke-oclock/integrations": "workspace:*",
     "@broke-oclock/storage": "workspace:*",
     "cors": "2.8.5",
