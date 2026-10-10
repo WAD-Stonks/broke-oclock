@@ -32,6 +32,7 @@ model User {
   submissions            Deal[]          @relation("DealSubmitter")
   reviewedDeals          Deal[]          @relation("DealReviewer")
   votes                  DealVote[]
+  outletEvidence         OutletEvidence[]
   comments               Comment[]
   bookmarks              Bookmark[]
   uploadedFiles          UploadedFile[]
@@ -186,6 +187,7 @@ model Venue {
   updatedAt  DateTime    @updatedAt
   deletedAt  DateTime?
   deals      DealVenue[]
+  outletEvidence OutletEvidence[]
 
   @@index([merchantId, name])
   @@index([latitude, longitude])
@@ -226,6 +228,7 @@ model Deal {
   reviewedBy      User?             @relation("DealReviewer", fields: [reviewedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   venues          DealVenue[]
   votes           DealVote[]
+  outletEvidence  OutletEvidence[]
   comments        Comment[]
   bookmarks       Bookmark[]
   reports         DealReport[]
@@ -261,11 +264,32 @@ model DealVote {
   userId    String    @db.ObjectId
   user      User      @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   value     VoteValue
+  // Null means legacy evidence whose revision cannot be proven; it never qualifies.
+  contentVersion Int?
+  observedAt DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
   @@unique([userId, dealId])
-  @@index([dealId, value, updatedAt])
+  @@index([dealId, contentVersion, observedAt])
+}
+
+model OutletEvidence {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  dealId String @db.ObjectId
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  venueId String @db.ObjectId
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  userId String @db.ObjectId
+  user User @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  value VoteValue
+  contentVersion Int
+  observedAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, dealId, venueId])
+  @@index([dealId, venueId, contentVersion, observedAt])
 }
 
 model Comment {
@@ -275,6 +299,8 @@ model Comment {
   authorId  String          @db.ObjectId
   author    User            @relation(fields: [authorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   body      String
+  venueId   String? @db.ObjectId
+  requestKey String @default(uuid())
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
   deletedAt DateTime?
@@ -283,6 +309,19 @@ model Comment {
 
   @@index([dealId, createdAt])
   @@index([authorId, createdAt])
+  @@unique([authorId, requestKey])
+}
+
+model CommunityModerationAudit {
+  id String @id @default(auto()) @map("_id") @db.ObjectId
+  actorId String @db.ObjectId
+  targetType String
+  targetId String @db.ObjectId
+  action String
+  note String
+  createdAt DateTime @default(now())
+
+  @@index([targetType, targetId, createdAt])
 }
 
 model Bookmark {

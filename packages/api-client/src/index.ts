@@ -6,6 +6,24 @@ import {
   healthResponseSchema,
 } from '@broke-oclock/contracts/api'
 import {
+  actionResponseSchema,
+  commentParamsSchema,
+  commentSchema,
+  commentsQuerySchema,
+  commentsResponseSchema,
+  communityDealParamsSchema,
+  communityResponseSchema,
+  communitySummariesResponseSchema,
+  createCommentBodySchema,
+  createReportBodySchema,
+  moderateBodySchema,
+  moderationQuerySchema,
+  moderationResponseSchema,
+  outletEvidenceParamsSchema,
+  reportResponseSchema,
+  setVoteBodySchema,
+} from '@broke-oclock/contracts/community'
+import {
   ingestionAccountsQuerySchema,
   ingestionAccountsResponseSchema,
   ingestionDashboardResponseSchema,
@@ -132,6 +150,93 @@ export const createApiClient = (baseURL = '/api') => {
 
   return {
     http,
+    community: {
+      summaries: (dealIds: string[]) => {
+        if (dealIds.length < 1 || dealIds.length > 20)
+          throw new ApiClientError('BAD_REQUEST', 400, 'Request 1–20 deal IDs')
+        const ids = dealIds
+          .map((dealId) => validateInput(communityDealParamsSchema, { dealId }).dealId)
+          .join(',')
+        return request(
+          http.get('/community/summaries', { params: { ids } }),
+          communitySummariesResponseSchema,
+        )
+      },
+      get: (dealId: string) => {
+        const params = validateInput(communityDealParamsSchema, { dealId })
+        return request(http.get(`/deals/${params.dealId}/community`), communityResponseSchema)
+      },
+      setVote: (dealId: string, input: SchemaInput<typeof setVoteBodySchema>) => {
+        const params = validateInput(communityDealParamsSchema, { dealId })
+        const body = validateInput(setVoteBodySchema, input)
+        return request(http.put(`/deals/${params.dealId}/vote`, body), communityResponseSchema)
+      },
+      setOutletEvidence: (
+        dealId: string,
+        venueId: string,
+        input: SchemaInput<typeof setVoteBodySchema>,
+      ) => {
+        const params = validateInput(outletEvidenceParamsSchema, { dealId, venueId })
+        const body = validateInput(setVoteBodySchema, input)
+        return request(
+          http.put(`/deals/${params.dealId}/outlets/${params.venueId}/evidence`, body),
+          communityResponseSchema,
+        )
+      },
+      comments: (dealId: string, input: QueryInput<typeof commentsQuerySchema> = {}) => {
+        const { dealId: id } = validateInput(communityDealParamsSchema, { dealId })
+        const query = validateInput(commentsQuerySchema, input)
+        return request(http.get(`/deals/${id}/comments`, { params: query }), commentsResponseSchema)
+      },
+      addComment: (dealId: string, input: SchemaInput<typeof createCommentBodySchema>) => {
+        const { dealId: id } = validateInput(communityDealParamsSchema, { dealId })
+        const body = validateInput(createCommentBodySchema, input)
+        return request(http.post(`/deals/${id}/comments`, body), commentSchema)
+      },
+      deleteComment: (dealId: string, commentId: string) => {
+        const params = validateInput(commentParamsSchema, { dealId, commentId })
+        return request(
+          http.delete(`/deals/${params.dealId}/comments/${params.commentId}`),
+          actionResponseSchema,
+        )
+      },
+      reportDeal: (dealId: string, input: SchemaInput<typeof createReportBodySchema>) => {
+        const { dealId: id } = validateInput(communityDealParamsSchema, { dealId })
+        const body = validateInput(createReportBodySchema, input)
+        return request(http.post(`/deals/${id}/reports`, body), reportResponseSchema)
+      },
+      reportComment: (
+        dealId: string,
+        commentId: string,
+        input: SchemaInput<typeof createReportBodySchema>,
+      ) => {
+        const params = validateInput(commentParamsSchema, { dealId, commentId })
+        const body = validateInput(createReportBodySchema, input)
+        return request(
+          http.post(`/deals/${params.dealId}/comments/${params.commentId}/reports`, body),
+          reportResponseSchema,
+        )
+      },
+      reports: (input: QueryInput<typeof moderationQuerySchema> = {}) => {
+        const query = validateInput(moderationQuerySchema, input)
+        return request(
+          http.get('/admin/community/reports', { params: query }),
+          moderationResponseSchema,
+        )
+      },
+      reviewReport: (
+        kind: 'DEAL' | 'COMMENT',
+        reportId: string,
+        input: SchemaInput<typeof moderateBodySchema>,
+      ) => {
+        const { dealId: id } = validateInput(communityDealParamsSchema, { dealId: reportId })
+        const body = validateInput(moderateBodySchema, input)
+        return request(
+          http.post(`/admin/community/reports/${kind}/${id}/review`, body),
+          reportResponseSchema,
+        )
+      },
+    },
     infrastructure: {
       health: () => request(http.get('/health'), healthResponseSchema),
       me: () => request(http.get('/me'), currentUserResponseSchema),

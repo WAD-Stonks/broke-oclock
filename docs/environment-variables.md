@@ -59,15 +59,17 @@ The fixed-host MoneyDigest transport needs no WordPress username/password. Impor
 
 No cron job or handler is configured. The existing manual-run API does not create scheduling. A future schedule requires separately reviewed deployment configuration and an authenticated trigger. Keep CRON_SECRET unset until that consumer exists.
 
-## Reserved trust/moderation settings — Community
+## Community policy settings
 
-All are GitHub **variables** initially set to `UNCONFIGURED`:
+These are optional API runtime variables. `UNCONFIGURED` uses the code's validated default:
 
-- DEAL_CONFIRM_THRESHOLD — confirmation count required for the agreed evidence scope.
-- DEAL_DEAD_REPORT_THRESHOLD — dead-report count required to flag that scope.
-- CONTENT_REPORT_THRESHOLD — inappropriate-content review/hiding threshold, after the team chooses that policy.
+- DEAL_CONFIRM_THRESHOLD — independent ALIVE confirmations; default 3.
+- DEAL_DEAD_REPORT_THRESHOLD — independent DEAD reports; default 2.
+- CONTENT_REPORT_THRESHOLD — distinct open content reports for staff queue priority only; default 3. It never hides content automatically.
+- COMMUNITY_EVIDENCE_WINDOW_HOURS — evidence freshness; default 72.
+- COMMUNITY_RECONFIRM_HOURS — wait before same-value reconfirmation; default 24.
 
-The team plan specifies configurable N/M values but does not choose them. No numeric defaults were invented. The feature implementation must decide scope, storage (env-backed defaults vs database-managed config), concurrency and strict validation before using these reserved names. No existing business logic reads them.
+All five values are parsed by `apps/api/src/config.ts` as positive integers from 1 to 1000. They apply to current-revision, independent evidence as described in [community.md](community.md). Add production values only through the separately approved deployment workflow.
 
 ## Photo storage — UploadThing adapter and client helper
 

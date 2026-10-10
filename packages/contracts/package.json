@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./api": "./src/api.ts",
+    "./community": "./src/community.ts",
     "./ingestion": "./src/ingestion.ts",
     "./platform-admin": "./src/platform-admin.ts"
   },
