@@ -10,7 +10,7 @@ Both projects exist in `noahmhs-projects` (`team_FRUcWuiMYuhmD9AYY8BStn20`) and 
 - Checked-in install command for both projects: `cd ../.. && pnpm install --frozen-lockfile --ignore-scripts`. Root `packageManager` pins pnpm 10.34.6. Node remains `22.x`; source outside each project root must be included.
 - Checked-in web build: `pnpm run build`.
 - Checked-in API build: `cd ../.. && pnpm run build:vercel:api`. This explicitly generates Prisma and runs pinned esbuild through Node/tsx. All install hooks remain disabled; no runtime bootstrap, global executable or lifecycle exception is needed.
-- These are repository settings, not a claim that live project overrides were changed. The earlier live install/build settings used Bun; compare and approve any necessary live-settings changes separately before an authorized build/deployment. This migration does not access Vercel settings, secrets or production environments.
+- On 11 October 2026, Noah authorized updating the live setup. Both projects' install/build overrides were changed from Bun to the commands above and independently read back. Node `22.x`, roots/frameworks, shared-source inclusion, disabled Git deployments and deployment protection were also verified. Both deployment lists were empty; no Vercel build or deployment was performed.
 
 ## Why a custom API build
 
@@ -28,15 +28,20 @@ Prisma generation includes `native` and `rhel-openssl-3.0.x`; the function expli
 
 ## Environment readiness
 
-The API project's production configuration contains:
+The API project's production configuration was verified on 11 October 2026:
 
 - `WEB_ORIGIN=https://broke-oclock-web.vercel.app`
 - `BETTER_AUTH_URL=https://broke-oclock-web.vercel.app`
 - `PHOTO_STORAGE_PROVIDER=uploadthing`
+- `NODE_ENV=production`
+- `INGESTION_ENABLED=false`
+- `MONEYDIGEST_REUSE_APPROVED=false`
+
+The two origins and storage-provider value matched the intended settings. The final three values were added during the authorized setup update and read back. `DATABASE_URL` and `BETTER_AUTH_SECRET` were absent, with no hidden production variables reported. Google, Resend, OneMap and UploadThing credential variables were also absent. This is a dated setup snapshot, not database or live-provider acceptance.
 
 Manage runtime values directly in **broke-oclock-api → Settings → Environment Variables → Production**. The web currently needs no environment variables. GitHub Environment secrets cannot be read back via GitHub CLI and are not automatically transferred by Vercel Git integration. GitHub-to-Vercel secret synchronization is not planned; existing GitHub settings are retained but are not the Vercel runtime source.
 
-Before deployment, verify that `DATABASE_URL` and the existing intended `BETTER_AUTH_SECRET` are securely populated in the API project's Production environment. Manual entry is the chosen setup method, not proof that credentials have been entered or validated. Do not replace a previously used auth secret casually. Add `UPLOADTHING_TOKEN` only when live uploads are intended; without it uploads return 503. Resend flows remain disabled/unimplemented. Do not populate the API with VERCEL_TOKEN, reserved OneMap settings, or other unused credentials. Environment entry does not authorize deployment.
+Before deployment, securely populate `DATABASE_URL` with the intended Atlas database and the existing intended `BETTER_AUTH_SECRET` in the API project's Production environment. Do not replace a previously used auth secret casually. Native Google and email-OTP sign-in/recovery are implemented but unavailable without their configured provider pairs. Google needs `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and the exact frontend-origin callback `/api/auth/callback/google`; email needs `RESEND_API_KEY`/`EMAIL_FROM` with a verified sender. OneMap lookup needs `ONEMAP_EMAIL`/`ONEMAP_EMAIL_PASSWORD`. Add `UPLOADTHING_TOKEN` only when live uploads are intended; without it uploads return 503. See [the environment inventory](environment-variables.md) for consumers and acceptance boundaries. Do not add VERCEL_TOKEN or unused legacy settings to app runtime. Environment entry does not authorize deployment, database schema application or administrator provisioning.
 
 Vercel's default SSO protection is preserved (`all_except_custom_domains`). That protection can block unauthenticated requests to the assigned vercel.app domains, including the cross-project proxy. Decide approved public-production access/custom domains or a supported server-side bypass before deployment. Do not put a bypass token in frontend code or silently turn protection off.
 
