@@ -1,5 +1,6 @@
 import { EmailInputError } from '@email/errors'
 import type {
+  EmailOTPEmailOptions,
   EmailTemplate,
   PasswordResetEmailOptions,
   VerificationEmailOptions,
@@ -74,6 +75,29 @@ export const createPasswordResetEmail = (options: PasswordResetEmailOptions): Em
     subject: 'Reset your password',
     html: `<p>${htmlGreeting}</p><p>Reset your password by <a href="${htmlUrl}">clicking this link</a>.</p><p>If you did not request a password reset, you can ignore this email.</p>`,
     text: `${textGreeting}\n\nReset your password by opening this link:\n${safeUrl}\n\nIf you did not request a password reset, you can ignore this email.`,
+  }
+}
+
+export const createEmailOTPEmail = (options: EmailOTPEmailOptions): EmailTemplate => {
+  const subjects = {
+    'sign-in': 'Your sign-in code',
+    'email-verification': 'Verify your email address with this code',
+    'forget-password': 'Your password reset code',
+    'change-email': 'Your email change code',
+  } as const
+  if (
+    typeof options !== 'object' ||
+    options === null ||
+    typeof options.otp !== 'string' ||
+    !/^[0-9]{6}$/u.test(options.otp) ||
+    !Object.hasOwn(subjects, options.type)
+  )
+    throw new EmailInputError()
+  const subject = subjects[options.type]
+  return {
+    subject,
+    html: `<p>${escapeHtml(subject)}: <strong>${escapeHtml(options.otp)}</strong></p><p>This code expires in 5 minutes. If you did not request it, ignore this email.</p>`,
+    text: `${subject}: ${options.otp}\n\nThis code expires in 5 minutes. If you did not request it, ignore this email.`,
   }
 }
 

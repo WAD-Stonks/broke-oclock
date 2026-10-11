@@ -1,5 +1,6 @@
 import type { RestDependencies } from '@api/rest/context'
 import { methodNotAllowed } from '@api/rest/policy'
+import { getAuthMethods } from '@api/rest/routers/infrastructure/handlers/auth-methods'
 import { getHealth } from '@api/rest/routers/infrastructure/handlers/health'
 import { getMe } from '@api/rest/routers/infrastructure/handlers/me'
 import { getReady } from '@api/rest/routers/infrastructure/handlers/ready'
@@ -7,6 +8,8 @@ import { Router } from 'express'
 
 export const createInfrastructureRouter = (dependencies: RestDependencies): Router => {
   const router = Router()
+  router.get('/auth-methods', getAuthMethods(dependencies.config))
+  router.all('/auth-methods', methodNotAllowed('GET'))
   router.get('/health', getHealth)
   router.get('/ready', getReady)
   router.get('/me', getMe(dependencies))

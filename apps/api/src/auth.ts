@@ -4,6 +4,7 @@ import type { Session } from '@broke-oclock/auth/types'
 import type { CurrentUserResponse } from '@broke-oclock/contracts/api'
 import {
   createEmailClient,
+  createEmailOTPEmail,
   createPasswordResetEmail,
   createVerificationEmail,
   type EmailTemplate,
@@ -32,13 +33,22 @@ const createEmailSender = (email: NonNullable<AppConfig['email']>): AuthEmailSen
   }
 }
 
-export const createAuth = (config: AppConfig) =>
-  createSharedAuth({
+export const createAuth = (config: AppConfig) => {
+  const email = config.authProviders?.email
+  const sender = email ? createEmailClient(email) : undefined
+  return createSharedAuth({
     baseURL: config.betterAuthUrl,
     secret: config.betterAuthSecret,
     trustedOrigin: config.webOrigin,
     ...(config.email ? { email: createEmailSender(config.email) } : {}),
+    google: config.authProviders?.google,
+    sendEmailOTP: sender
+      ? async ({ email, otp, type }) => {
+          await sender.send({ to: email, ...createEmailOTPEmail({ otp, type }) })
+        }
+      : undefined,
   })
+}
 
 export const toCurrentUserResponse = (session: Session): CurrentUserResponse => ({
   user: {
