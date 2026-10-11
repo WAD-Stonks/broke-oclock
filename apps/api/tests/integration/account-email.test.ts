@@ -15,6 +15,8 @@ let disconnect: (() => Promise<void>) | undefined
 let baseURL = ''
 let db!: typeof import('@broke-oclock/db').db
 
+type MailInput = { to: string | readonly string[]; subject: string; text?: string }
+
 // Fake email provider: never touches the network, and takes a moment to "deliver" so the tests
 // can tell whether Better Auth really waited for the email to be sent.
 const mail = vi.hoisted(() => ({
@@ -23,7 +25,7 @@ const mail = vi.hoisted(() => ({
 }))
 vi.mock('@broke-oclock/email/server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@broke-oclock/email/server')>()
-  const send = async (input: { to: string | readonly string[]; subject: string; text?: string }) => {
+  const send = async (input: MailInput) => {
     await new Promise((resolve) => setTimeout(resolve, mail.delayMs))
     mail.delivered.push({ to: String(input.to), subject: input.subject, text: input.text ?? '' })
     return { id: 'test-email' }
@@ -99,7 +101,7 @@ afterAll(async () => {
 })
 
 describe('account emails with email switched on', () => {
-  it('finishes sending the verification email before sign-up responds, even when delivery is slow', async () => {
+  it('sends the verification email before sign-up responds, even if slow', async () => {
     mail.delayMs = 300
     const email = `verify-${randomUUID()}@example.test`
     const response = await call('POST', '/api/auth/sign-up/email', {
@@ -113,7 +115,7 @@ describe('account emails with email switched on', () => {
     expect(sent[0]?.text).toContain('/verify-email')
   })
 
-  it('finishes sending the reset email before responding, and a reset signs out old sessions', async () => {
+  it('sends the reset email before responding, and a reset signs out old sessions', async () => {
     mail.delayMs = 0
     const email = `reset-${randomUUID()}@example.test`
     const password = randomBytes(24).toString('base64url')
