@@ -62,6 +62,33 @@ export const ingestionDraftsQuerySchema = z
     cursor: objectIdSchema.optional(),
   })
   .strict()
+export const ingestionOutletSchema = z.strictObject({
+  id: objectIdSchema,
+  name: z.string(),
+  address: z.string(),
+  merchantName: z.string(),
+})
+export const ingestionOutletAssociationParamsSchema = z.strictObject({ dealId: objectIdSchema })
+export const ingestionOutletAssociationRequestSchema = z.strictObject({
+  expectedContentVersion: z.number().int().min(1).max(2_147_483_646),
+  venueId: objectIdSchema,
+})
+export const ingestionOutletAssociationResponseSchema = z.strictObject({
+  id: objectIdSchema,
+  contentVersion: z.number().int().min(1).max(2_147_483_647),
+  reviewStatus: z.literal('PENDING'),
+  applicability: z.literal('SELECTED_OUTLETS'),
+  merchantId: objectIdSchema,
+  outlet: ingestionOutletSchema,
+})
+export type IngestionOutlet = z.infer<typeof ingestionOutletSchema>
+export type IngestionOutletAssociationRequest = z.infer<
+  typeof ingestionOutletAssociationRequestSchema
+>
+export type IngestionOutletAssociationResponse = z.infer<
+  typeof ingestionOutletAssociationResponseSchema
+>
+
 export const ingestionDraftSchema = z
   .object({
     id: objectIdSchema,
@@ -74,6 +101,8 @@ export const ingestionDraftSchema = z
     validUntil: z.string().nullable(),
     rawValidityText: z.string().nullable(),
     applicability: z.string(),
+    merchantId: objectIdSchema.nullable().default(null),
+    outlet: ingestionOutletSchema.nullable().default(null),
     reviewStatus: z.string(),
     contentVersion: z.number().int(),
     sourceUrl: z.string(),

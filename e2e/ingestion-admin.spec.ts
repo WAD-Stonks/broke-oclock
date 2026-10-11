@@ -9,6 +9,37 @@ import { expect, type Page, test } from '@playwright/test'
 // Explicitly synthetic browser-boundary responses. These exercise the real SPA/Axios REST client,
 // not live ingestion, provider delivery, database policies, or real account authentication.
 const installSyntheticBoundary = async (page: Page) => {
+  // Synthetic native identity and method presentation, not connected authentication.
+  await page.route('**/api/auth/get-session**', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        user: {
+          id: 'synthetic-admin',
+          name: 'Synthetic operator',
+          email: 'operator@example.test',
+          role: 'USER',
+        },
+        session: {
+          id: 'synthetic-session',
+          userId: 'synthetic-admin',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+        },
+      }),
+    }),
+  )
+  await page.route('**/api/auth-methods', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        password: true,
+        google: false,
+        emailOtp: false,
+        passwordRecovery: false,
+      }),
+    }),
+  )
+
   const state: {
     access: 'UNAUTHORIZED' | 'FORBIDDEN' | ''
     dashboard: IngestionDashboardResponse
@@ -42,6 +73,8 @@ const installSyntheticBoundary = async (page: Page) => {
         validUntil: null,
         rawValidityText: 'While stocks last',
         applicability: 'NO_FIXED_LOCATION',
+        merchantId: null,
+        outlet: null,
         reviewStatus: 'PENDING',
         contentVersion: 7,
         sourceUrl: 'https://example.test/source/1',
@@ -231,7 +264,9 @@ for (const width of [320, 390, 1280]) {
     await page.goto('/admin/ingestion')
     await expect(page.getByRole('button', { name: 'Run ingestion', exact: true })).toBeDisabled()
     await expect(page.getByText('Ingestion is disabled', { exact: true })).toBeVisible()
-    await expect(page.getByText('Content reuse is not approved', { exact: true })).toBeVisible()
+    await expect(
+      page.getByText('Operator reuse attestation is not recorded', { exact: true }),
+    ).toBeVisible()
     const details = page.getByRole('button', { name: /View details:/ })
     await details.focus()
     await details.press('Enter')
@@ -377,7 +412,11 @@ test('pagination preserves stale-review conflict until reloading the current dra
   )
   await expect(approve).toBeDisabled()
   await expect(reject).toBeDisabled()
-  await page.getByRole('article').locator('form').dispatchEvent('submit')
+  await page
+    .getByRole('article')
+    .locator('form')
+    .filter({ has: page.locator('#review-note') })
+    .dispatchEvent('submit')
   await reject.dispatchEvent('click')
   expect(fixture.requests.filter((request) => request.path === 'ingestion.review')).toHaveLength(1)
 
@@ -472,7 +511,11 @@ test('reload drops a superseded second-page draft and requires selection of its 
   await expect(note).toHaveValue('')
   await expect(approve).toBeDisabled()
   await expect(reject).toBeDisabled()
-  await page.getByRole('article').locator('form').dispatchEvent('submit')
+  await page
+    .getByRole('article')
+    .locator('form')
+    .filter({ has: page.locator('#review-note') })
+    .dispatchEvent('submit')
   await reject.dispatchEvent('click')
   expect(fixture.requests.filter((request) => request.path === 'ingestion.review')).toHaveLength(1)
   await note.fill('Review of replacement source evidence')

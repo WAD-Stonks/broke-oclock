@@ -1,3 +1,4 @@
+import AdminOverviewPage from '@web/pages/AdminOverviewPage.vue'
 import GettingStartedPage from '@web/pages/GettingStartedPage.vue'
 import HomePage from '@web/pages/HomePage.vue'
 import IngestionAdminPage from '@web/pages/IngestionAdminPage.vue'
@@ -6,6 +7,7 @@ import PlatformAdminPage from '@web/pages/PlatformAdminPage.vue'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
+  { path: '/admin', name: 'admin-overview', component: AdminOverviewPage },
   {
     path: '/',
     name: 'home',

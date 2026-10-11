@@ -6,6 +6,7 @@ import { listPlatformAudit } from '@api/rest/routers/platform-admin/audit'
 import { changePlatformRole } from '@api/rest/routers/platform-admin/change-role'
 import { createStallGrant } from '@api/rest/routers/platform-admin/grant-stall'
 import { listMerchantRequests } from '@api/rest/routers/platform-admin/merchant-requests'
+import { getAdminOverview } from '@api/rest/routers/platform-admin/overview'
 import { reviewMerchantRequest } from '@api/rest/routers/platform-admin/review-merchant-request'
 import { deleteStallGrant } from '@api/rest/routers/platform-admin/revoke-stall'
 import { listAdminVenues } from '@api/rest/routers/platform-admin/venues'
@@ -13,6 +14,8 @@ import { Router } from 'express'
 
 export const createPlatformAdminRouter = (dependencies: RestDependencies) => {
   const router = Router()
+  router.get('/admin/overview', getAdminOverview(dependencies))
+  router.all('/admin/overview', methodNotAllowed('GET'))
   router.get('/admin/accounts', listAdminAccounts(dependencies))
   router.get('/admin/accounts/:userId', getAdminAccount(dependencies))
   router.patch('/admin/accounts/:userId/role', changePlatformRole(dependencies))

@@ -24,6 +24,37 @@ const grantB = '666666666666666666666666'
 // Explicitly synthetic API boundaries. These verify the real Vue SPA and same-origin
 // Axios REST transport, NOT live authentication, database authorization or backend acceptance.
 async function syntheticBoundary(page: Page) {
+  // Synthetic native identity and method presentation, not connected authentication.
+  await page.route('**/api/auth/get-session**', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        user: {
+          id: 'synthetic-admin',
+          name: 'Synthetic operator',
+          email: 'operator@example.test',
+          role: 'USER',
+        },
+        session: {
+          id: 'synthetic-session',
+          userId: 'synthetic-admin',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+        },
+      }),
+    }),
+  )
+  await page.route('**/api/auth-methods', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        password: true,
+        google: false,
+        emailOtp: false,
+        passwordRecovery: false,
+      }),
+    }),
+  )
+
   const state = {
     access: '',
     accounts: [

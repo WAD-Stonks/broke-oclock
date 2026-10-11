@@ -11,7 +11,9 @@ import type {
   PlatformVenue,
   ReviewMerchantRequestBody,
 } from '@broke-oclock/contracts/platform-admin'
+import { createAdminReadFence } from '@web/lib/admin-session'
 import { api } from '@web/lib/api-client'
+import { authClient } from '@web/lib/auth-client'
 import { errorCode } from '@web/modules/ingestion-admin/errors'
 import { queryState } from '@web/modules/platform-admin/query-state'
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
@@ -21,7 +23,16 @@ function mergeItems<T extends { id: string }>(previous: T[], incoming: T[]): T[]
 }
 
 type Page<T> = { items: T[]; nextCursor: string | null }
-export function usePlatformAdmin() {
+export function usePlatformAdmin(
+  initialRequestStatus: 'PENDING' | 'APPROVED' | 'REJECTED' = 'PENDING',
+) {
+  const fence = createAdminReadFence()
+  const nativeFence = createAdminReadFence()
+  const logoutStarting = (event: Event) => {
+    if ((event.target as Element)?.closest('[data-testid="admin-sign-out"]'))
+      nativeFence.invalidate()
+  }
+  const sessionRefreshKey = ref(0)
   const access = ref('loading')
   const busy = ref(false)
   const notice = ref('')
@@ -35,21 +46,42 @@ export function usePlatformAdmin() {
     return version
   }
   const denied = (code: string) => {
+    fence.invalidate()
     access.value = code
+    busy.value = false
     notice.value = ''
     for (const query of queries) query.invalidate()
     selectedId.value = ''
     selectedRequest.value = null
     resetRequestForm()
     resetAccountForm()
+    accountError.value = ''
+    requestError.value = ''
+    venueId.value = ''
+    grantId.value = ''
+    venueSearch.value = ''
+    accountSearch.value = ''
+    roleFilter.value = ''
+    auditUser.value = ''
+    action.value = 'role'
+    newRole.value = 'USER'
+    decision.value = 'APPROVE'
+    staleAccounts.clear()
+    staleRequests.clear()
+    accountVersions.clear()
+    accountFilters = { limit: 20 }
+    venueFilter = { limit: 20 }
+    auditFilter = { limit: 20 }
   }
+  const close = () => denied('closed')
+  const anonymous = () => denied('UNAUTHORIZED')
   const accounts = queryState<Page<PlatformAccountSummary>>(denied)
   const detail = queryState<PlatformAccountResponse>(denied)
   const requests = queryState<Page<MerchantRequest>>(denied)
   const audit = queryState<Page<PlatformAuditEntry>>(denied)
   const venues = queryState<Page<PlatformVenue>>(denied)
   const queries = [accounts, detail, requests, audit, venues]
-  const requestStatus = ref<NonNullable<MerchantRequestsQuery['status']>>('PENDING')
+  const requestStatus = ref<NonNullable<MerchantRequestsQuery['status']>>(initialRequestStatus)
   const selectedRequest = ref<MerchantRequest | null>(null)
   const requestNote = ref('')
   const requestConfirmed = ref(false)
@@ -204,10 +236,16 @@ export function usePlatformAdmin() {
       }
     }
   }
-  watch(requestStatus, () => {
-    selectedRequest.value = null
-    void loadRequests()
-  })
+  watch(
+    requestStatus,
+    () => {
+      requests.invalidate()
+      selectedRequest.value = null
+      resetRequestForm()
+      if (access.value === 'allowed') void loadRequests()
+    },
+    { flush: 'sync' },
+  )
   const auditUser = ref('')
   let auditFilter: PlatformAuditQuery = { limit: 20 }
   const loadAudit = (more = false) => {
@@ -254,8 +292,28 @@ export function usePlatformAdmin() {
     await loadDetail(id)
   }
   const loadAuthorizedPage = async () => {
+    close()
+    const ticket = fence.begin()
     access.value = 'loading'
+    const probe = nativeFence.begin()
+    try {
+      const identity = await authClient.getSession({ query: { disableCookieCache: true } })
+      if (!nativeFence.current(probe)) return
+      if (identity.error) {
+        close()
+        return
+      }
+      if (!identity.data?.user) {
+        if (access.value === 'closed' || access.value === 'loading') anonymous()
+        return
+      }
+      if (!fence.current(ticket)) return
+    } catch {
+      if (nativeFence.current(probe) && fence.current(ticket)) close()
+      return
+    }
     const result = await loadAccounts()
+    if (!fence.current(ticket)) return
     if (!result) {
       if (access.value === 'loading') access.value = 'error'
       return
@@ -271,8 +329,8 @@ export function usePlatformAdmin() {
     // Clear protected evidence first; the accounts query rechecks the actor's ADMIN
     // role against the database, even when the filtered page contains no accounts.
     denied('loading')
-    notice.value = refusal
     await loadAuthorizedPage()
+    if (access.value === 'allowed') notice.value = refusal
   }
   const refresh = async () => {
     await Promise.all([
@@ -310,6 +368,7 @@ export function usePlatformAdmin() {
       note: currentNote,
     }
     const grant = chosenGrant.value
+    const ticket = fence.begin()
     busy.value = true
     notice.value = ''
     accountError.value = ''
@@ -321,11 +380,14 @@ export function usePlatformAdmin() {
           expectedVersion: grant.version,
           note: currentNote,
         })
+      if (!fence.current(ticket)) return
       resetAccountForm()
       await refresh()
+      if (!fence.current(ticket)) return
       notice.value =
         'Account action completed. Check the panels below for the latest available evidence.'
     } catch (failure) {
+      if (!fence.current(ticket)) return
       const code = errorCode(failure)
       if (code === 'UNAUTHORIZED') denied(code)
       else if (code === 'FORBIDDEN')
@@ -339,7 +401,7 @@ export function usePlatformAdmin() {
         resetAccountForm()
       }
     } finally {
-      busy.value = false
+      if (fence.current(ticket)) busy.value = false
     }
   }
   const requestReady = computed(
@@ -362,15 +424,19 @@ export function usePlatformAdmin() {
       decision: decision.value,
       note: requestNote.value.trim(),
     }
+    const ticket = fence.begin()
     busy.value = true
     notice.value = ''
     requestError.value = ''
     try {
       await api.platformAdmin.reviewRequest(record.id, input)
+      if (!fence.current(ticket)) return
       resetRequestForm()
       await refresh()
+      if (!fence.current(ticket)) return
       notice.value = 'Request reviewed. Check the panels below for the latest available evidence.'
     } catch (failure) {
+      if (!fence.current(ticket)) return
       const code = errorCode(failure)
       if (code === 'UNAUTHORIZED') denied(code)
       else if (code === 'FORBIDDEN')
@@ -384,14 +450,25 @@ export function usePlatformAdmin() {
         resetRequestForm()
       }
     } finally {
-      busy.value = false
+      if (fence.current(ticket)) busy.value = false
     }
+  }
+  const signedIn = () => {
+    sessionRefreshKey.value++
+    void loadAuthorizedPage()
   }
   onMounted(load)
   onUnmounted(() => {
+    fence.dispose()
+    nativeFence.dispose()
     for (const query of queries) query.invalidate()
   })
   return reactive({
+    close,
+    anonymous,
+    signedIn,
+    sessionRefreshKey,
+    logoutStarting,
     access,
     busy,
     notice,
