@@ -18,4 +18,6 @@ The 10 October 2026 admin/authentication completion request adds AI-assisted nat
 
 The 11 October 2026 authentication correction is also AI-assisted: native Request-owned provider-email proof, compatibility with the pinned direct ID-token linking path, retained transaction-bound email/ownership/session admission, and controlled native regression tests. It changes shared authentication infrastructure, not another member's account UI or a new provider/session architecture. Automated fixture success does not establish live-provider acceptance or assessed-use clearance.
 
+The 11 October 2026 venue-image request adds AI-assisted optional `Venue.imageUrl` persistence and disposable-database regression tests. It leaves existing deal-image ownership and UploadThing integration unchanged and does not implement a venue-image endpoint, UI, fetching or upload attachment workflow. Real-deal seeding is a separate operation, with no demo records or fabricated image references supplied by this schema change.
+
 Do not remove this disclosure when adding student code. Record what AI supplied and what students authored/reviewed, and include the required disclosure in the final README.txt. Ask the instructor where a borderline use is unclear.

@@ -78,6 +78,46 @@ afterAll(async () => {
 })
 
 describe('domain schema on a real disposable MongoDB replica set', () => {
+  it('persists an optional venue image URL without changing deal images', async () => {
+    const imageUrl = 'https://example.test/venue-photo.webp'
+    const venue = await db.venue.create({
+      data: {
+        merchant: { connect: { id: merchantId } },
+        name: 'Synthetic venue image fixture',
+        address: 'Synthetic test address, not a real listing',
+        latitude: 1.3,
+        longitude: 103.8,
+        imageUrl,
+      },
+    })
+    expect((await db.venue.findUniqueOrThrow({ where: { id: venue.id } })).imageUrl).toBe(imageUrl)
+  })
+
+  it('reads an omitted venue image as null without requiring a backfill', async () => {
+    const venue = await db.venue.findUniqueOrThrow({ where: { id: venueId } })
+    expect(venue.imageUrl).toBeNull()
+  })
+
+  it('accepts an explicit null venue image and clears an existing image', async () => {
+    const venue = await db.venue.create({
+      data: {
+        merchant: { connect: { id: merchantId } },
+        name: 'Synthetic optional image fixture',
+        address: 'Synthetic test address, not a real listing',
+        latitude: 1.3,
+        longitude: 103.8,
+        imageUrl: null,
+      },
+    })
+    expect(venue.imageUrl).toBeNull()
+    await db.venue.update({
+      where: { id: venue.id },
+      data: { imageUrl: 'https://example.test/venue-photo.webp' },
+    })
+    await db.venue.update({ where: { id: venue.id }, data: { imageUrl: null } })
+    expect((await db.venue.findUniqueOrThrow({ where: { id: venue.id } })).imageUrl).toBeNull()
+  })
+
   it('keeps new submissions pending, unpublished and without fabricated validity', async () => {
     const deal = await db.deal.create({ data: dealData() })
     expect(deal).toMatchObject({

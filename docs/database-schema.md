@@ -22,7 +22,7 @@ The canonical schema stays at `packages/db/prisma/schema.prisma`. Auth mapping i
 
 - **User / Session / Account / Verification:** existing Better Auth records; User gains a single defaulted role and domain back-relations. Account/session identifiers, password handling and cookie behaviour remain Better Auth-owned.
 - **Merchant:** brand/business identity. Names are searchable, not unique identity proofs.
-- **Venue:** a physical merchant outlet, address, area, latitude and longitude. Only resolved physical locations belong here; ambiguous imported addresses stay in ImportedPost. Coordinates are not deduplication keys.
+- **Venue:** a physical merchant outlet, address, area, latitude and longitude, plus an optional `imageUrl`. Omit the image or store null when no verified venue image is available; existing records need no fabricated placeholder or backfill. This single venue image reference is separate from `Deal.images` and does not add upload ownership, callbacks, URL validation, image fetching or a new public API/UI. Only resolved physical locations belong here; ambiguous imported addresses stay in ImportedPost. Coordinates are not deduplication keys.
 - **Deal:** promotion text, category, offer type, terms, optional exact price in minor units/discount percentage, validity timestamps plus original wording, merchant/submitter, applicability, review metadata, publication time and soft deletion.
 - **DealVenue:** explicit many-to-many outlet association, unique per deal/venue. Stores no votes: evidence is deal-wide.
 - **DealVote:** one current ALIVE/DEAD vote per user/deal; update that record to change a vote. Timestamps allow freshness calculation. No cached vote totals or hardcoded thresholds.
