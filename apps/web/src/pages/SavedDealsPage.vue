@@ -9,6 +9,8 @@ import { RouterLink } from 'vue-router'
 const bookmarks = ref<Bookmark[]>([])
 const nextCursor = ref<string | null>(null)
 const loading = ref(true)
+const loadingMore = ref(false)
+const loadMoreError = ref('')
 const notLoggedIn = ref(false)
 const errorMessage = ref('')
 const removeError = ref('')
@@ -34,13 +36,19 @@ const loadBookmarks = async () => {
 
 // Load the next page and add it to the end of the list
 const loadMore = async () => {
-  if (!nextCursor.value) return
+  // A second click while the first request is still running would fetch the same page again.
+  if (!nextCursor.value || loadingMore.value) return
+  loadingMore.value = true
+  loadMoreError.value = ''
   try {
     const result = await api.account.bookmarks({ cursor: nextCursor.value })
     bookmarks.value = [...bookmarks.value, ...result.items]
     nextCursor.value = result.nextCursor
   } catch {
-    errorMessage.value = 'Could not load more deals. Please try again.'
+    // Shown under the list, so the pages already loaded stay visible and the user can click again.
+    loadMoreError.value = 'Could not load more deals. Please try again.'
+  } finally {
+    loadingMore.value = false
   }
 }
 
@@ -98,8 +106,15 @@ onMounted(loadBookmarks)
           </button>
         </li>
       </ul>
-      <button v-if="nextCursor" type="button" class="btn btn-outline-secondary" @click="loadMore">
-        Load more
+      <p v-if="loadMoreError" class="text-danger" role="alert">{{ loadMoreError }}</p>
+      <button
+        v-if="nextCursor"
+        type="button"
+        class="btn btn-outline-secondary"
+        :disabled="loadingMore"
+        @click="loadMore"
+      >
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
       </button>
     </div>
   </section>

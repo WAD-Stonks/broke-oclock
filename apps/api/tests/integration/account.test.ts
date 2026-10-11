@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { parseConfig } from '@api/config'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url))
 const origin = 'http://localhost:5173'
@@ -15,6 +15,12 @@ let server: Server | undefined
 let disconnect: (() => Promise<void>) | undefined
 let baseURL = ''
 let db!: typeof import('@broke-oclock/db').db
+// Better Auth allows only 3 sign-ups per 10 seconds per client, and the production rate limit stays
+// on. So the whole file signs up exactly three accounts once and reuses them; each test starts
+// from clean records (see beforeEach) instead of creating new users.
+let alice!: Account
+let bob!: Account
+let staff!: Account
 
 type Account = { id: string; email: string; cookies: string }
 type Page<Item> = { items: Item[]; nextCursor: string | null }
@@ -112,7 +118,20 @@ beforeAll(async () => {
       }),
     ),
   )
+  alice = await signUp()
+  bob = await signUp()
+  staff = await signUp()
 }, 180_000)
+
+beforeEach(async () => {
+  const ids = [alice.id, bob.id, staff.id]
+  await db.bookmark.deleteMany({ where: { userId: { in: ids } } })
+  await db.merchantAccessRequest.deleteMany({ where: { userId: { in: ids } } })
+  await db.stallGrant.deleteMany({ where: { userId: { in: ids } } })
+  await db.deal.deleteMany({ where: { submittedById: { in: ids } } })
+  await db.user.updateMany({ where: { id: { in: [alice.id, bob.id] } }, data: { role: 'USER' } })
+  await db.user.update({ where: { id: staff.id }, data: { role: 'ADMIN' } })
+})
 
 afterAll(async () => {
   if (server) {
@@ -147,7 +166,7 @@ describe('account endpoints: authentication', () => {
   })
 
   it('refuses writes from an untrusted or missing Origin, even when logged in', async () => {
-    const user = await signUp()
+    const user = alice
     const deal = await publicDeal('Origin test deal')
     for (const requestOrigin of ['http://evil.example', null]) {
       const save = await call('PUT', `/api/account/bookmarks/${deal.id}`, {
@@ -166,8 +185,8 @@ describe('account endpoints: authentication', () => {
   })
 
   it('returns only the current user in the profile, with the role read from the database', async () => {
-    const first = await signUp()
-    const second = await signUp()
+    const first = alice
+    const second = bob
     const read = async (account: Account) =>
       (await (await call('GET', '/api/account/profile', { cookie: account.cookies })).json()) as {
         id: string
@@ -183,7 +202,7 @@ describe('account endpoints: authentication', () => {
 
 describe('account endpoints: saved deals', () => {
   it('saves a public deal once, and lists it', async () => {
-    const user = await signUp()
+    const user = alice
     const deal = await publicDeal('Saved deal')
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const save = await call('PUT', `/api/account/bookmarks/${deal.id}`, { cookie: user.cookies })
@@ -198,7 +217,7 @@ describe('account endpoints: saved deals', () => {
   })
 
   it('treats pending, missing and malformed deal ids without revealing hidden deals', async () => {
-    const user = await signUp()
+    const user = alice
     const pending = await pendingDeal('Not public yet')
     const pendingSave = await call('PUT', `/api/account/bookmarks/${pending.id}`, {
       cookie: user.cookies,
@@ -216,8 +235,8 @@ describe('account endpoints: saved deals', () => {
   })
 
   it("never shows or deletes another user's bookmarks", async () => {
-    const owner = await signUp()
-    const stranger = await signUp()
+    const owner = alice
+    const stranger = bob
     const deal = await publicDeal('Owner only')
     await call('PUT', `/api/account/bookmarks/${deal.id}`, { cookie: owner.cookies })
 
@@ -235,7 +254,7 @@ describe('account endpoints: saved deals', () => {
   })
 
   it('hides the details of a saved deal once it is no longer public', async () => {
-    const user = await signUp()
+    const user = alice
     const deal = await publicDeal('Soon hidden')
     await call('PUT', `/api/account/bookmarks/${deal.id}`, { cookie: user.cookies })
     await db.deal.update({ where: { id: deal.id }, data: { reviewStatus: 'HIDDEN' } })
@@ -249,8 +268,8 @@ describe('account endpoints: saved deals', () => {
 
 describe('account endpoints: my submissions', () => {
   it("lists the user's own submissions in any state and nobody else's", async () => {
-    const author = await signUp()
-    const other = await signUp()
+    const author = alice
+    const other = bob
     await pendingDeal('Mine, pending', author.id)
     await pendingDeal('Someone else', other.id)
     const removed = await pendingDeal('Mine, removed', author.id)
@@ -265,7 +284,7 @@ describe('account endpoints: my submissions', () => {
 
 describe('account endpoints: merchant access requests', () => {
   it('creates a pending request without granting any merchant privileges', async () => {
-    const user = await signUp()
+    const user = alice
     const venue = await syntheticVenue()
     const response = await call('POST', '/api/account/merchant-requests', {
       cookie: user.cookies,
@@ -286,7 +305,7 @@ describe('account endpoints: merchant access requests', () => {
   })
 
   it('rejects a second pending request for the same stall', async () => {
-    const user = await signUp()
+    const user = alice
     const venue = await syntheticVenue()
     const send = () =>
       call('POST', '/api/account/merchant-requests', {
@@ -299,8 +318,8 @@ describe('account endpoints: merchant access requests', () => {
   })
 
   it('ignores identity and role fields smuggled into the request', async () => {
-    const user = await signUp()
-    const victim = await signUp()
+    const user = alice
+    const victim = bob
     const venue = await syntheticVenue()
     for (const extra of [{ userId: victim.id }, { role: 'ADMIN' }, { status: 'APPROVED' }]) {
       const response = await call('POST', '/api/account/merchant-requests', {
@@ -316,10 +335,8 @@ describe('account endpoints: merchant access requests', () => {
   })
 
   it('refuses staff accounts and inactive or unknown stalls', async () => {
-    const staff = await signUp()
-    const user = await signUp()
+    const user = alice
     const venue = await syntheticVenue()
-    await db.user.update({ where: { id: staff.id }, data: { role: 'ADMIN' } })
     const asStaff = await call('POST', '/api/account/merchant-requests', {
       cookie: staff.cookies,
       body: { venueId: venue.id, message: 'Staff request' },
@@ -340,8 +357,8 @@ describe('account endpoints: merchant access requests', () => {
   })
 
   it("lists only the caller's own requests", async () => {
-    const first = await signUp()
-    const second = await signUp()
+    const first = alice
+    const second = bob
     const venue = await syntheticVenue()
     await call('POST', '/api/account/merchant-requests', {
       cookie: first.cookies,
