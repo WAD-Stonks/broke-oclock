@@ -58,3 +58,22 @@ Five behavior slices have preserved genuine RED/GREEN evidence. The final six-fi
 4. Fix blocking findings, rebind/recheck final bytes, then publish the verified PR.
 
 Unresolved external dependencies stay explicit; implementation capability, automated proof and deployed/live acceptance are separate states.
+
+## Venue image follow-up
+
+Noah approved adding an optional venue image field and updating this existing plan on 11 October 2026. Preserve the historical auth ledger above. Independent work starts from `b0665cb41dfef1986e3ef74d36dd42296cc77b7c` on `feat/venue-image`.
+
+### Task 1: Optional venue image persistence
+
+- [ ] Add `Venue.imageUrl String?` without a default or required backfill. Missing images stay null; no fabricated image URLs.
+- [ ] Prove URL persistence, missing-field compatibility, explicit null and clearing through typed Prisma on a disposable MongoDB replica set, with a preserved pre-change failure.
+- [ ] Update schema documentation. Keep Deal.images and UploadThing ownership unchanged. No UI, upload callback or assessed endpoint implementation.
+
+### Task 2: Verify and publish
+
+- [ ] Run format, schema generation, focused schema tests, the complete check:all gate, audit and diff checks on final bytes.
+- [ ] Obtain independent source-bound review, then publish a focused PR and verify its latest quality check. No merge or deployment.
+
+### Separate seeding follow-up
+
+Noah corrected the earlier demo choice: seed only real sourced deals. Missing venue images may remain null. No demo records, invented promotions, fabricated upload keys or account provisioning. Source selection, evidence, reuse rights, actual outlet locations and image handling must be established before insertion. This field-only change does not perform seeding or mutate Atlas.
