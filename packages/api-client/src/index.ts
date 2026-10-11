@@ -1,6 +1,7 @@
 import {
   type ApiErrorCode,
   apiErrorSchema,
+  authMethodsResponseSchema,
   currentUserResponseSchema,
   currentUserUnauthorizedResponseSchema,
   healthResponseSchema,
@@ -13,6 +14,9 @@ import {
   ingestionDraftsResponseSchema,
   ingestionLocationsQuerySchema,
   ingestionLocationsResponseSchema,
+  ingestionOutletAssociationParamsSchema,
+  ingestionOutletAssociationRequestSchema,
+  ingestionOutletAssociationResponseSchema,
   ingestionReviewRequestSchema,
   ingestionReviewResponseSchema,
   ingestionRunResponseSchema,
@@ -20,6 +24,7 @@ import {
   ingestionRunsResponseSchema,
 } from '@broke-oclock/contracts/ingestion'
 import {
+  adminOverviewResponseSchema,
   changePlatformRoleBodySchema,
   grantParamsSchema,
   grantStallBodySchema,
@@ -134,6 +139,7 @@ export const createApiClient = (baseURL = '/api') => {
     http,
     infrastructure: {
       health: () => request(http.get('/health'), healthResponseSchema),
+      authMethods: () => request(http.get('/auth-methods'), authMethodsResponseSchema),
       me: () => request(http.get('/me'), currentUserResponseSchema),
     },
     ingestion: {
@@ -148,6 +154,17 @@ export const createApiClient = (baseURL = '/api') => {
         return request(
           http.get('/ingestion/drafts', { params: query }),
           ingestionDraftsResponseSchema,
+        )
+      },
+      associateDraftOutlet: (
+        dealId: string,
+        input: SchemaInput<typeof ingestionOutletAssociationRequestSchema>,
+      ) => {
+        const { dealId: id } = validateInput(ingestionOutletAssociationParamsSchema, { dealId })
+        const body = validateInput(ingestionOutletAssociationRequestSchema, input)
+        return request(
+          http.patch(`/ingestion/drafts/${id}/outlet`, body),
+          ingestionOutletAssociationResponseSchema,
         )
       },
       reviewDraft: (dealId: string, input: SchemaInput<typeof ingestionReviewRequestSchema>) => {
@@ -174,6 +191,7 @@ export const createApiClient = (baseURL = '/api') => {
       },
     },
     platformAdmin: {
+      overview: () => request(http.get('/admin/overview'), adminOverviewResponseSchema),
       accounts: (input: QueryInput<typeof platformAccountsQuerySchema> = {}) => {
         const query = validateInput(platformAccountsQuerySchema, input)
         return request(

@@ -1,19 +1,26 @@
 <script setup lang="ts">
-import AdminSignIn from '@web/modules/ingestion-admin/AdminSignIn.vue'
+import AdminShell from '@web/components/admin/AdminShell.vue'
+import SharedSignIn from '@web/components/auth/SharedSignIn.vue'
 import { usePlatformAdmin } from '@web/modules/platform-admin/use-platform-admin'
+import { inject, watch } from 'vue'
+import { routeLocationKey } from 'vue-router'
 
-const s = usePlatformAdmin()
+const route = inject(routeLocationKey, null)
+const status = (value: unknown): 'PENDING' | 'APPROVED' | 'REJECTED' => value === 'APPROVED' || value === 'REJECTED' ? value : 'PENDING'
+const s = usePlatformAdmin(status(route?.query.requestStatus))
+watch(() => route?.query.requestStatus, value => { s.requestStatus = status(value) }, { flush: 'sync' })
 </script>
 <template>
-  <section aria-labelledby="platform-title" class="platform-admin">
-    <h1 id="platform-title">Platform admin</h1>
+  <AdminShell @click.capture="s.logoutStarting" title="Platform admin" :refresh-key="s.sessionRefreshKey" @closing="s.close" @signed-out="s.anonymous" @access-reload="s.load">
+  <section aria-label="Platform administration" class="platform-admin">
     <p>Manage account roles and explicit stall access. Permissions are checked against the current server record for every action.</p>
     <p>Account deletion is unavailable pending the retention and anonymisation policy.</p>
     <p v-if="s.access === 'loading'" role="status">Loading accounts…</p>
-    <AdminSignIn v-else-if="s.access === 'UNAUTHORIZED'" title="Sign in to manage accounts" @signed-in="s.load" />
+    <SharedSignIn v-else-if="s.access === 'UNAUTHORIZED'" title="Sign in to manage accounts" destination="/admin/accounts" @signed-in="s.signedIn" />
+    <p v-else-if="s.access === 'closed'" role="status">Access is closed. Use the session controls to retry or recheck.</p>
     <p v-else-if="s.access === 'FORBIDDEN'" role="alert">You do not have permission to manage platform accounts.</p>
     <div v-else-if="s.access === 'error'" role="alert">
-      <p>Unable to load platform administration.</p><button type="button" class="btn btn-outline-primary" @click="s.load">Retry platform admin</button>
+      <p>Unable to load platform administration.</p><button type="button" class="btn btn-outline-primary" data-testid="retry-platform-admin" @click="s.load">Retry platform admin</button>
     </div>
     <template v-else-if="s.access === 'allowed'">
       <p v-if="s.notice" role="status">{{ s.notice }}</p>
@@ -87,7 +94,7 @@ const s = usePlatformAdmin()
         </form>
       </section>
       <section aria-label="Merchant requests" class="card p-3 mb-3">
-        <h2 class="h4">Merchant requests</h2>
+        <h2 id="merchant-requests" class="h4">Merchant requests</h2>
         <label for="request-status" class="form-label">Request status</label>
         <select id="request-status" v-model="s.requestStatus" :disabled="s.busy" class="form-select mb-3"><option>PENDING</option><option>APPROVED</option><option>REJECTED</option></select>
         <p v-if="s.requests.loading" role="status">Loading requests…</p>
@@ -135,6 +142,7 @@ const s = usePlatformAdmin()
       </section>
     </template>
   </section>
+  </AdminShell>
 </template>
 <style scoped>
 .platform-admin { overflow-wrap: anywhere; }

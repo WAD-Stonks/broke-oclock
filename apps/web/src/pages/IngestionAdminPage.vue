@@ -1,14 +1,18 @@
 <script setup lang="ts">
 import type { IngestionDashboardResponse, IngestionRunResponse } from '@broke-oclock/contracts/ingestion'
 import { BButton } from '@broke-oclock/ui'
+import AdminShell from '@web/components/admin/AdminShell.vue'
+import { createAdminReadFence } from '@web/lib/admin-session'
 import { api } from '@web/lib/api-client'
+import { authClient } from '@web/lib/auth-client'
 import AccountsPanel from '@web/modules/ingestion-admin/AccountsPanel.vue'
 import AdminSignIn from '@web/modules/ingestion-admin/AdminSignIn.vue'
 import DraftQueue from '@web/modules/ingestion-admin/DraftQueue.vue'
 import { errorCode } from '@web/modules/ingestion-admin/errors'
 import IngestionRuns from '@web/modules/ingestion-admin/IngestionRuns.vue'
 import LocationSearch from '@web/modules/ingestion-admin/LocationSearch.vue'
-import { onMounted, ref } from 'vue'
+import { inject, onMounted, onUnmounted, ref, watch } from 'vue'
+import { routeLocationKey } from 'vue-router'
 
 const access = ref('loading')
 const dashboard = ref<IngestionDashboardResponse | null>(null)
@@ -16,52 +20,103 @@ const revision = ref(0)
 const runPending = ref(false)
 const runError = ref('')
 const runResult = ref<IngestionRunResponse | null>(null)
+const fence = createAdminReadFence()
+const operationFence = createAdminReadFence()
+const nativeFence = createAdminReadFence()
+const logoutStarting = (event: Event) => { if ((event.target as Element)?.closest('[data-testid="admin-sign-out"]')) nativeFence.invalidate() }
+const sessionRefreshKey = ref(0)
+const panelKey = ref(0)
+const route = inject(routeLocationKey, null)
+const filter = (value: unknown): 'PENDING' | 'APPROVED' | 'REJECTED' => value === 'APPROVED' || value === 'REJECTED' ? value : 'PENDING'
+const initialStatus = ref(filter(route?.query.status))
+watch(() => route?.query.status, value => { initialStatus.value = filter(value); panelKey.value++ }, { flush: 'sync' })
+const close = () => {
+  fence.invalidate()
+  operationFence.invalidate()
+  access.value = 'closed'
+  dashboard.value = null
+  runResult.value = null
+  runError.value = ''
+  runPending.value = false
+  revision.value++
+  panelKey.value++
+}
+const anonymous = () => { close(); access.value = 'unauthorized' }
 const denied = (code: string) => {
+  nativeFence.invalidate()
+  close()
   dashboard.value = null
   access.value = code === 'UNAUTHORIZED' ? 'unauthorized' : 'forbidden'
 }
 const load = async () => {
+  const ticket = fence.begin()
   if (!dashboard.value) access.value = 'loading'
   try {
-    dashboard.value = await api.ingestion.dashboard()
+    const result = await api.ingestion.dashboard()
+    if (!fence.current(ticket)) return false
+    dashboard.value = result
     access.value = 'allowed'
+    return true
   } catch (error) {
+    if (!fence.current(ticket)) return false
     const code = errorCode(error)
+    close()
     access.value = code === 'UNAUTHORIZED' ? 'unauthorized' : code === 'FORBIDDEN' ? 'forbidden' : 'error'
+    return false
   }
 }
 const refresh = async () => {
-  await load()
-  revision.value += 1
+  if (await load()) revision.value += 1
 }
 const run = async () => {
-  if (runPending.value || !dashboard.value?.source.enabled || !dashboard.value.source.reuseApproved) return
+  if (access.value !== 'allowed' || runPending.value || !dashboard.value?.source.enabled || !dashboard.value.source.reuseApproved) return
+  const ticket = operationFence.begin()
   runPending.value = true
   runError.value = ''
   runResult.value = null
   try {
-    runResult.value = await api.ingestion.run()
+    const result = await api.ingestion.run()
+    if (!operationFence.current(ticket)) return
+    runResult.value = result
     await refresh()
   } catch (failure) {
+    if (!operationFence.current(ticket)) return
     const code = errorCode(failure)
-    if (code === 'UNAUTHORIZED' || code === 'FORBIDDEN') denied(code)
+    if (code === 'UNAUTHORIZED' || code === 'FORBIDDEN') { denied(code); return }
     runError.value = 'Unable to run ingestion. Please try again.'
   } finally {
-    runPending.value = false
+    if (operationFence.current(ticket)) runPending.value = false
   }
 }
-onMounted(load)
+const reload = async () => {
+  close()
+  const ticket = fence.begin()
+  const probe = nativeFence.begin()
+  access.value = 'loading'
+  try {
+    const identity = await authClient.getSession({ query: { disableCookieCache: true } })
+    if (!nativeFence.current(probe)) return
+    if (identity.error) { close(); return }
+    if (!identity.data?.user) { if (access.value === 'closed' || access.value === 'loading') anonymous(); return }
+    if (!fence.current(ticket)) return
+    await load()
+  } catch { if (nativeFence.current(probe) && fence.current(ticket)) close() }
+}
+const signedIn = () => { sessionRefreshKey.value++; void reload() }
+onMounted(reload)
+onUnmounted(() => { fence.dispose(); operationFence.dispose(); nativeFence.dispose() })
 </script>
 
 <template>
-  <section aria-labelledby="ingestion-title">
-    <h1 id="ingestion-title" class="h2 mb-4">Ingestion admin</h1>
+  <AdminShell @click.capture="logoutStarting" title="Ingestion admin" :refresh-key="sessionRefreshKey" @closing="close" @signed-out="anonymous" @access-reload="reload">
+  <section aria-label="Ingestion administration">
     <p v-if="access === 'loading'" role="status">Loading ingestion…</p>
-    <AdminSignIn v-else-if="access === 'unauthorized'" @signed-in="load" />
+    <AdminSignIn v-else-if="access === 'unauthorized'" @signed-in="signedIn" />
+    <p v-else-if="access === 'closed'" role="status">Access is closed. Use the session controls to retry or recheck.</p>
     <p v-else-if="access === 'forbidden'" role="alert">You do not have permission to review ingestion.</p>
     <div v-else-if="access === 'error'" role="alert">
       <p>Unable to load ingestion. Please try again.</p>
-      <BButton data-testid="retry-dashboard" @click="load">Retry dashboard</BButton>
+      <BButton data-testid="retry-dashboard" @click="reload">Retry dashboard</BButton>
     </div>
     <template v-else-if="dashboard">
       <section class="card p-4 mb-4" aria-labelledby="source-title">
@@ -69,7 +124,7 @@ onMounted(load)
         <p class="fw-semibold">{{ dashboard.source.name }}</p>
         <ul>
           <li>{{ dashboard.source.enabled ? 'Ingestion is enabled' : 'Ingestion is disabled' }}</li>
-          <li>{{ dashboard.source.reuseApproved ? 'Content reuse is approved' : 'Content reuse is not approved' }}</li>
+          <li>{{ dashboard.source.reuseApproved ? 'Operator reuse attestation is recorded, not publisher permission' : 'Operator reuse attestation is not recorded' }}</li>
           <li>{{ dashboard.source.onemapConfigured ? 'OneMap is configured' : 'OneMap is not configured' }}</li>
         </ul>
         <BButton data-testid="run-ingestion" variant="primary" :disabled="runPending || !dashboard.source.enabled || !dashboard.source.reuseApproved" @click="run">{{ runPending ? 'Running ingestion…' : 'Run ingestion' }}</BButton>
@@ -81,10 +136,11 @@ onMounted(load)
           <div class="card p-3"><dd class="h2 mb-1">{{ count }}</dd><dt class="text-capitalize">{{ status }}</dt></div>
         </div>
       </dl>
-      <DraftQueue :revision="revision" @changed="refresh" @denied="denied" />
+      <DraftQueue :key="panelKey" :initial-status="initialStatus" :revision="revision" @changed="refresh" @denied="denied" />
       <IngestionRuns :revision="revision" @denied="denied" />
       <LocationSearch :configured="dashboard.source.onemapConfigured" @denied="denied" />
       <AccountsPanel @denied="denied" />
     </template>
   </section>
+  </AdminShell>
 </template>

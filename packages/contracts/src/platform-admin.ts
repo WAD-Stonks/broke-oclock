@@ -1,3 +1,4 @@
+import { ingestionRunsResponseSchema } from '@contracts/ingestion'
 import { boundedQueryInteger } from '@contracts/query'
 import { z } from 'zod'
 
@@ -110,6 +111,29 @@ export const platformAuditEntrySchema = z.object({
   roleAfter: platformRoleSchema.nullable(),
   createdAt: z.string().datetime(),
 })
+
+export const adminOverviewQuerySchema = z.strictObject({})
+export const adminOverviewResponseSchema = z.strictObject({
+  generatedAt: z.iso.datetime(),
+  counts: z.strictObject({
+    pendingMerchantRequests: z.number().int().nonnegative(),
+    pendingImportedDrafts: z.number().int().nonnegative(),
+    failedImportedPosts: z.number().int().nonnegative(),
+  }),
+  recentRuns: ingestionRunsResponseSchema.shape.items.max(10),
+  readiness: z.strictObject({
+    googleConfigured: z.boolean(),
+    emailConfigured: z.boolean(),
+    oneMapConfigured: z.boolean(),
+    ingestionOptIn: z.boolean(),
+    reuseAttested: z.boolean(),
+    sourceRecordEnabled: z.boolean(),
+    sourceIdentityValid: z.boolean(),
+    importAllowed: z.boolean(),
+    liveProviderAcceptance: z.literal('NOT_ESTABLISHED'),
+  }),
+})
+export type AdminOverviewResponse = z.infer<typeof adminOverviewResponseSchema>
 
 export type PlatformAccountsQuery = z.input<typeof platformAccountsQuerySchema>
 export type PlatformAccountSummary = z.infer<typeof platformAccountSummarySchema>

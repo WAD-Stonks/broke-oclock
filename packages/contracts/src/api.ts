@@ -40,6 +40,15 @@ export const currentUserResponseSchema = z
   })
   .strict()
 
+export const authMethodsQuerySchema = z.strictObject({})
+export const authMethodsResponseSchema = z.strictObject({
+  password: z.literal(true),
+  google: z.boolean(),
+  emailOtp: z.boolean(),
+  passwordRecovery: z.boolean(),
+})
+export type AuthMethodsResponse = z.infer<typeof authMethodsResponseSchema>
+
 export type ApiError = z.infer<typeof apiErrorSchema>
 export type ApiErrorCode = z.infer<typeof apiErrorCodeSchema>
 export type HealthResponse = z.infer<typeof healthResponseSchema>

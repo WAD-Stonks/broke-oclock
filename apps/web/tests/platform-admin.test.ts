@@ -27,6 +27,9 @@ const rest = vi.hoisted(() => ({
   grantStall: vi.fn(),
   revokeStall: vi.fn(),
   signIn: vi.fn(),
+  session: vi.fn(),
+  signOut: vi.fn(),
+  authMethods: vi.fn(),
 }))
 vi.mock('@web/lib/api-client', () => ({
   ApiClientError: class ApiClientError extends Error {
@@ -39,6 +42,7 @@ vi.mock('@web/lib/api-client', () => ({
     }
   },
   api: {
+    infrastructure: { authMethods: rest.authMethods },
     platformAdmin: {
       accounts: rest.accounts,
       account: rest.account,
@@ -52,7 +56,15 @@ vi.mock('@web/lib/api-client', () => ({
     },
   },
 }))
-vi.mock('@web/lib/auth-client', () => ({ authClient: { signIn: { email: rest.signIn } } }))
+// Native identity is synthetic here, not real authentication proof.
+vi.mock('@web/lib/auth-client', () => ({
+  authClient: {
+    useSession: () => ({ value: { refetch: async () => {}, error: null } }),
+    getSession: rest.session,
+    signOut: rest.signOut,
+    signIn: { email: rest.signIn },
+  },
+}))
 const account = {
   id: 'user-a',
   name: '<img src=x> Alice',
@@ -64,12 +76,30 @@ const account = {
 } satisfies PlatformAccountResponse
 beforeEach(() => {
   vi.resetAllMocks()
+  rest.session.mockResolvedValue({
+    data: {
+      user: {
+        id: 'synthetic-admin',
+        name: 'Synthetic admin',
+        email: 'admin@example.test',
+        role: 'USER',
+      },
+    },
+    error: null,
+  })
+  rest.signOut.mockResolvedValue({ data: { success: true }, error: null })
+  rest.authMethods.mockResolvedValue({
+    password: true,
+    google: false,
+    emailOtp: false,
+    passwordRecovery: false,
+  })
   for (const name of ['accounts', 'requests', 'venues', 'audit'] as const)
     rest[name].mockResolvedValue({ items: [], nextCursor: null })
 })
-async function open() {
+async function open(path = '/admin/accounts') {
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push('/admin/accounts')
+  await router.push(path)
   await router.isReady()
   const wrapper = mount(App, { global: { plugins: [router] } })
   await flushPromises()
@@ -526,7 +556,7 @@ it('distinguishes a server permission denial from anonymous and recoverable fail
   const failure = await open()
   expect(failure.text()).toContain('Unable to load platform administration')
   expect(failure.text()).not.toContain('private synthetic error')
-  await failure.get('main button').trigger('click')
+  await failure.get('[data-testid="retry-platform-admin"]').trigger('click')
   await flushPromises()
   expect(failure.text()).toContain('No accounts match these filters.')
 })
@@ -611,7 +641,7 @@ it.each(['account', 'request'] as const)(
     expect(rest.audit).toHaveBeenCalledTimes(1)
     const retry = deferred<Page<PlatformAccountSummary>>()
     rest.accounts.mockReturnValueOnce(retry.promise)
-    await w.get('main button').trigger('click')
+    await w.get('[data-testid="retry-platform-admin"]').trigger('click')
     await flushPromises()
     expect(w.find('[aria-label="Accounts"]').exists()).toBe(false)
     retry.resolve({ items: [account], nextCursor: null })
@@ -937,4 +967,63 @@ it('invalidates selected account actions when a list fetch reveals changed versi
   await w.get('#account-action-form').trigger('submit')
   await flushPromises()
   expect(rest.changeRole).not.toHaveBeenCalled()
+})
+
+it('ignores a pre-logout account response and never restores protected panels', async () => {
+  let release!: (value: Page<PlatformAccountSummary>) => void
+  rest.accounts.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  const w = await open()
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  release({ items: [account], nextCursor: null })
+  await flushPromises()
+  expect(w.find('[aria-label="Accounts"]').exists()).toBe(false)
+  expect(w.text()).toContain('Sign in to manage accounts')
+  expect(rest.requests).not.toHaveBeenCalled()
+  w.unmount()
+})
+
+it('does not replay follow-up reads after an old account action completes after logout', async () => {
+  rest.accounts.mockResolvedValue({ items: [account], nextCursor: null })
+  rest.account.mockResolvedValue(account)
+  let release!: () => void
+  rest.changeRole.mockImplementationOnce(
+    () =>
+      new Promise<void>((resolve) => {
+        release = resolve
+      }),
+  )
+  const w = await open()
+  await w.get('[data-testid="account-user-a"]').trigger('click')
+  await flushPromises()
+  await w.get('#new-role').setValue('MERCHANT')
+  await w.get('#account-note').setValue('Synthetic reviewed evidence')
+  await w.get('#account-confirm').setValue(true)
+  await w.get('#account-action-form').trigger('submit')
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  release()
+  await flushPromises()
+  expect(rest.accounts).toHaveBeenCalledTimes(1)
+  expect(w.text()).not.toContain('Account action completed')
+  expect(w.find('[aria-label="Account details"]').exists()).toBe(false)
+  w.unmount()
+})
+
+it.each([
+  ['PENDING', 'PENDING'],
+  ['APPROVED', 'APPROVED'],
+  ['REJECTED', 'REJECTED'],
+  ['ADMIN', 'PENDING'],
+  ['APPROVED&requestStatus=REJECTED', 'PENDING'],
+])('uses only allowlisted deep-link request status %s', async (query, expected) => {
+  const w = await open(`/admin/accounts?requestStatus=${query}#merchant-requests`)
+  expect(rest.requests).toHaveBeenCalledWith({ status: expected, limit: 20 })
+  expect(w.find('#merchant-requests').exists()).toBe(true)
+  w.unmount()
 })

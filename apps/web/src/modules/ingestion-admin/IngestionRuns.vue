@@ -1,33 +1,35 @@
 <script setup lang="ts">
 import type { IngestionRunsResponse } from '@broke-oclock/contracts/ingestion'
 import { BButton } from '@broke-oclock/ui'
+import { createAdminReadFence } from '@web/lib/admin-session'
 import { api } from '@web/lib/api-client'
 import { errorCode } from '@web/modules/ingestion-admin/errors'
-import { ref, watch } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 
 const props = defineProps<{ revision: number }>()
 const emit = defineEmits<{ denied: [code: string] }>()
 const items = ref<IngestionRunsResponse['items'] | null>(null)
 const pending = ref(false)
 const error = ref('')
-let request = 0
+const fence = createAdminReadFence()
 const load = async () => {
-  const current = ++request
+  const current = fence.begin()
   pending.value = true
   error.value = ''
   try {
     const result = await api.ingestion.runs({ limit: 20 })
-    if (current === request) items.value = result.items
+    if (fence.current(current)) items.value = result.items
   } catch (failure) {
-    if (current !== request) return
+    if (!fence.current(current)) return
     const code = errorCode(failure)
     if (code === 'UNAUTHORIZED' || code === 'FORBIDDEN') emit('denied', code)
     error.value = 'Unable to load runs. Please retry.'
   } finally {
-    if (current === request) pending.value = false
+    if (fence.current(current)) pending.value = false
   }
 }
-watch(() => props.revision, load, { immediate: true })
+watch(() => props.revision, load, { immediate: true, flush: 'sync' })
+onUnmounted(() => { fence.dispose(); items.value = null; error.value = '' })
 </script>
 
 <template>

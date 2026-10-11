@@ -29,6 +29,11 @@ export type EmailTemplate = {
   text: string
 }
 
+export type EmailOTPEmailOptions = {
+  otp: string
+  type: 'sign-in' | 'email-verification' | 'forget-password' | 'change-email'
+}
+
 export type VerificationEmailOptions = {
   verificationUrl: string
   recipientName?: string
