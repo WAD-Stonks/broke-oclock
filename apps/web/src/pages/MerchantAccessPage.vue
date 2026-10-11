@@ -11,6 +11,7 @@ const message = ref('')
 const myRequests = ref<MyMerchantRequest[]>([])
 const requestsCursor = ref<string | null>(null)
 const loadingMoreRequests = ref(false)
+const refreshingRequests = ref(false)
 const submitting = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
@@ -36,28 +37,42 @@ const findVenues = async () => {
   }
 }
 
+// Each refresh of the first page starts a new "generation" of the list. A response that belongs
+// to an older generation (for example a slow Load more that was started before a request was
+// sent) is thrown away, so it can't append stale items or move the cursor.
+let requestsGeneration = 0
 const loadMyRequests = async () => {
+  const generation = ++requestsGeneration
+  refreshingRequests.value = true
+  loadingMoreRequests.value = false // any Load more still running belongs to the old list
   try {
     const result = await api.account.merchantRequests()
+    if (generation !== requestsGeneration) return
     myRequests.value = result.items
     requestsCursor.value = result.nextCursor
   } catch {
+    if (generation !== requestsGeneration) return
     errorMessage.value = 'Could not load your earlier requests.'
+  } finally {
+    if (generation === requestsGeneration) refreshingRequests.value = false
   }
 }
 
 // Older requests: the API returns 20 at a time plus a cursor for the next page.
 const loadMoreRequests = async () => {
-  if (!requestsCursor.value || loadingMoreRequests.value) return
+  if (!requestsCursor.value || loadingMoreRequests.value || refreshingRequests.value) return
+  const generation = requestsGeneration
   loadingMoreRequests.value = true
   try {
     const result = await api.account.merchantRequests({ cursor: requestsCursor.value })
+    if (generation !== requestsGeneration) return
     myRequests.value = [...myRequests.value, ...result.items]
     requestsCursor.value = result.nextCursor
   } catch {
+    if (generation !== requestsGeneration) return
     errorMessage.value = 'Could not load more requests. Please try again.'
   } finally {
-    loadingMoreRequests.value = false
+    if (generation === requestsGeneration) loadingMoreRequests.value = false
   }
 }
 
@@ -142,7 +157,7 @@ onMounted(() => {
       v-if="requestsCursor"
       type="button"
       class="btn btn-outline-secondary mt-3"
-      :disabled="loadingMoreRequests"
+      :disabled="loadingMoreRequests || refreshingRequests"
       @click="loadMoreRequests"
     >
       {{ loadingMoreRequests ? 'Loading…' : 'Load more' }}

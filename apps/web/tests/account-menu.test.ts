@@ -1,4 +1,4 @@
-import { flushPromises, mount } from '@vue/test-utils'
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import AccountMenu from '@web/components/AccountMenu.vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { h, ref } from 'vue'
@@ -10,14 +10,26 @@ vi.mock('@web/lib/auth-client', () => ({
   authClient: { useSession: auth.useSession, signOut: auth.signOut },
 }))
 
-const mountMenu = async (session: { data: { user: { name: string } } | null; isPending: boolean }) => {
+type MenuSession = { data: { user: { name: string } } | null; isPending: boolean }
+
+const signedOut: MenuSession = { data: null, isPending: false }
+const signedIn: MenuSession = { data: { user: { name: 'Alice' } }, isPending: false }
+const paths = [
+  '/',
+  '/saved',
+  '/login',
+  '/register',
+  '/me/submissions',
+  '/me/merchant-access',
+  '/me/profile',
+]
+
+const mountMenu = async (session: MenuSession) => {
   auth.useSession.mockReturnValue(ref(session))
   const stub = { render: () => h('div') }
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: ['/', '/saved', '/login', '/register', '/me/submissions', '/me/merchant-access', '/me/profile'].map(
-      (path) => ({ path, component: stub }),
-    ),
+    routes: paths.map((path) => ({ path, component: stub })),
   })
   await router.push('/saved')
   await router.isReady()
@@ -26,7 +38,7 @@ const mountMenu = async (session: { data: { user: { name: string } } | null; isP
   return { wrapper, router }
 }
 
-const links = (wrapper: Awaited<ReturnType<typeof mountMenu>>['wrapper']) =>
+const links = (wrapper: VueWrapper) =>
   wrapper.findAll('a').map((link) => [link.text(), link.attributes('href')])
 
 beforeEach(() => {
@@ -41,7 +53,7 @@ describe('AccountMenu', () => {
   })
 
   it('offers Log in and Sign up to a signed-out visitor, and no account links', async () => {
-    const { wrapper } = await mountMenu({ data: null, isPending: false })
+    const { wrapper } = await mountMenu(signedOut)
     expect(links(wrapper)).toEqual([
       ['Log in', '/login'],
       ['Sign up', '/register'],
@@ -49,8 +61,8 @@ describe('AccountMenu', () => {
     expect(wrapper.find('[data-testid="log-out"]').exists()).toBe(false)
   })
 
-  it('shows the account links, a profile link with the name, and Log out when signed in', async () => {
-    const { wrapper } = await mountMenu({ data: { user: { name: 'Alice' } }, isPending: false })
+  it('shows the account links, a profile link and Log out when signed in', async () => {
+    const { wrapper } = await mountMenu(signedIn)
     expect(links(wrapper)).toEqual([
       ['Saved', '/saved'],
       ['My submissions', '/me/submissions'],
@@ -62,18 +74,17 @@ describe('AccountMenu', () => {
   })
 
   it('renders a hostile name as text, not markup', async () => {
-    const { wrapper } = await mountMenu({
-      data: { user: { name: '<img src=x onerror=alert(1)>' } },
-      isPending: false,
-    })
+    const hostile = '<img src=x onerror=alert(1)>'
+    const { wrapper } = await mountMenu({ data: { user: { name: hostile } }, isPending: false })
     expect(wrapper.find('img').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="signed-in-name"]').text()).toBe('<img src=x onerror=alert(1)>')
+    expect(wrapper.find('[data-testid="signed-in-name"]').text()).toBe(hostile)
   })
 
   it('signs out and goes home when Log out is clicked', async () => {
     auth.signOut.mockResolvedValue({ data: { success: true }, error: null })
-    const { wrapper, router } = await mountMenu({ data: { user: { name: 'Alice' } }, isPending: false })
+    const { wrapper, router } = await mountMenu(signedIn)
     expect(router.currentRoute.value.fullPath).toBe('/saved')
+
     await wrapper.find('[data-testid="log-out"]').trigger('click')
     await flushPromises()
     expect(auth.signOut).toHaveBeenCalledTimes(1)

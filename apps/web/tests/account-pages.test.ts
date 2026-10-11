@@ -150,6 +150,52 @@ describe('Load more on the saved-deals and submissions pages', () => {
       'Submission 2',
     ])
   })
+
+  it('keeps older deals reachable when the whole visible page is removed', async () => {
+    account.bookmarks.mockResolvedValueOnce({ items: [bookmark(1)], nextCursor: 'cursor-1' })
+    account.unsaveDeal.mockResolvedValue({ saved: false })
+    const wrapper = await mountPage(SavedDealsPage)
+
+    const nextPage = deferred<Page<Bookmark>>()
+    account.bookmarks.mockReturnValueOnce(nextPage.promise)
+    await buttonWithText(wrapper, 'Remove')?.trigger('click')
+    await flushPromises()
+
+    // Nothing is visible, but an older page exists: the page must not claim nothing is saved.
+    expect(wrapper.text()).not.toContain("You haven't saved any deals yet")
+    expect(account.bookmarks).toHaveBeenLastCalledWith({ cursor: 'cursor-1' })
+
+    nextPage.resolve({ items: [bookmark(2)], nextCursor: null })
+    await flushPromises()
+    expect(wrapper.findAll('h2').map((heading) => heading.text())).toEqual(['Deal 2'])
+  })
+
+  it('still offers Load more if the automatic fetch after the last removal fails', async () => {
+    account.bookmarks.mockResolvedValueOnce({ items: [bookmark(1)], nextCursor: 'cursor-1' })
+    account.unsaveDeal.mockResolvedValue({ saved: false })
+    const wrapper = await mountPage(SavedDealsPage)
+
+    account.bookmarks.mockRejectedValueOnce(new Error('offline'))
+    await buttonWithText(wrapper, 'Remove')?.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain("You haven't saved any deals yet")
+
+    account.bookmarks.mockResolvedValueOnce({ items: [bookmark(2)], nextCursor: null })
+    await buttonWithText(wrapper, 'Load more')?.trigger('click')
+    await flushPromises()
+    expect(wrapper.findAll('h2').map((heading) => heading.text())).toEqual(['Deal 2'])
+  })
+
+  it('shows the empty message after the last bookmark goes and nothing older exists', async () => {
+    account.bookmarks.mockResolvedValueOnce({ items: [bookmark(1)], nextCursor: null })
+    account.unsaveDeal.mockResolvedValue({ saved: false })
+    const wrapper = await mountPage(SavedDealsPage)
+
+    await buttonWithText(wrapper, 'Remove')?.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain("You haven't saved any deals yet")
+    expect(account.bookmarks).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('merchant access page', () => {
@@ -222,5 +268,60 @@ describe('merchant access page', () => {
     expect(wrapper.findAll('#venue option').map((option) => option.text())).toContain(
       'Stall B (Merchant)',
     )
+  })
+
+  it('discards a Load more response that finishes after a refresh', async () => {
+    account.venues.mockResolvedValue([venue('venue-1', 'Stall V')])
+    account.requestMerchantAccess.mockResolvedValue({ id: 'new-request', version: 0 })
+    account.merchantRequests.mockResolvedValueOnce({ items: [request(1)], nextCursor: 'cursor-1' })
+    const wrapper = await mountPage(MerchantAccessPage)
+
+    // The user clicks Load more, and that slow request is still pending...
+    const stale = deferred<Page<MyMerchantRequest>>()
+    account.merchantRequests.mockReturnValueOnce(stale.promise)
+    await buttonWithText(wrapper, 'Load more')?.trigger('click')
+
+    // ...when they send a new request, which refreshes the first page.
+    account.merchantRequests.mockResolvedValueOnce({
+      items: [request(9), request(1)],
+      nextCursor: 'cursor-new',
+    })
+    await wrapper.find('#venue').setValue('venue-1')
+    await wrapper.find('#why').setValue('Please approve')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Stall 9')
+
+    // The old Load more now finishes. It belongs to the old list and must change nothing.
+    stale.resolve({ items: [request(21)], nextCursor: 'cursor-stale' })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Stall 21')
+
+    // The cursor still points at the refreshed list.
+    account.merchantRequests.mockResolvedValueOnce({ items: [request(10)], nextCursor: null })
+    await buttonWithText(wrapper, 'Load more')?.trigger('click')
+    await flushPromises()
+    expect(account.merchantRequests).toHaveBeenLastCalledWith({ cursor: 'cursor-new' })
+  })
+
+  it('does not start Load more while the first page is being refreshed', async () => {
+    account.venues.mockResolvedValue([venue('venue-1', 'Stall V')])
+    account.requestMerchantAccess.mockResolvedValue({ id: 'new-request', version: 0 })
+    account.merchantRequests.mockResolvedValueOnce({ items: [request(1)], nextCursor: 'cursor-1' })
+    const wrapper = await mountPage(MerchantAccessPage)
+
+    const refresh = deferred<Page<MyMerchantRequest>>()
+    account.merchantRequests.mockReturnValueOnce(refresh.promise)
+    await wrapper.find('#venue').setValue('venue-1')
+    await wrapper.find('#why').setValue('Please approve')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(buttonWithText(wrapper, 'Load more')?.attributes('disabled')).toBeDefined()
+    expect(account.merchantRequests).toHaveBeenCalledTimes(2) // first page + the refresh
+
+    refresh.resolve({ items: [request(9)], nextCursor: 'cursor-new' })
+    await flushPromises()
+    expect(buttonWithText(wrapper, 'Load more')?.attributes('disabled')).toBeUndefined()
   })
 })

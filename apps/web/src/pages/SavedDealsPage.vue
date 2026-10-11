@@ -58,6 +58,9 @@ const removeBookmark = async (dealId: string) => {
   try {
     await api.account.unsaveDeal(dealId)
     bookmarks.value = bookmarks.value.filter((item) => item.dealId !== dealId)
+    // If that was the last deal on screen but older ones exist, fetch the next page right away,
+    // so the page never says nothing is saved while more bookmarks remain.
+    if (bookmarks.value.length === 0 && nextCursor.value) await loadMore()
   } catch {
     removeError.value = 'Could not remove that deal. Please try again.'
   }
@@ -83,7 +86,7 @@ onMounted(loadBookmarks)
       </button>
     </div>
 
-    <p v-else-if="bookmarks.length === 0" class="text-secondary">
+    <p v-else-if="bookmarks.length === 0 && !nextCursor" class="text-secondary">
       You haven't saved any deals yet.
     </p>
 
