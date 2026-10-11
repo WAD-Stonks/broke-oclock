@@ -11,3 +11,12 @@
 - [ ] Commit/push and PR against current main, exact remote file/head readback, and latest quality CI verified. Leave PR open; do not merge.
 
 See [implementation plan](plan.md).
+
+## Venue image follow-up
+
+- [ ] Add optional Venue.imageUrl and disposable-database persistence/null-compatibility regressions.
+- [ ] Update schema and AI-assistance documentation; preserve existing deal images and upload ownership.
+- [ ] Run focused and complete verification, then independent source-bound review.
+- [ ] Publish a focused PR and verify quality CI, leaving it unmerged.
+
+Real-deal seeding remains a separate follow-up with verified sources, outlet locations and image reuse handling. No demo seeding.
