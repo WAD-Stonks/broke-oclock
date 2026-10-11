@@ -9,6 +9,8 @@ const venues = ref<AccountVenue[]>([])
 const venueId = ref('')
 const message = ref('')
 const myRequests = ref<MyMerchantRequest[]>([])
+const requestsCursor = ref<string | null>(null)
+const loadingMoreRequests = ref(false)
 const submitting = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
@@ -18,11 +20,18 @@ const canSubmit = computed(() => {
   return venueId.value !== '' && message.value.trim() !== '' && !submitting.value
 })
 
+// Every search gets a number. Only the newest search may change the page, so a slow older
+// search finishing last can't replace newer results or clear the stall the user already chose.
+let latestSearch = 0
 const findVenues = async () => {
+  const thisSearch = ++latestSearch
   try {
-    venues.value = await api.account.venues({ search: search.value })
+    const result = await api.account.venues({ search: search.value })
+    if (thisSearch !== latestSearch) return
+    venues.value = result
     venueId.value = '' // the old choice may not be in the new list
   } catch {
+    if (thisSearch !== latestSearch) return
     errorMessage.value = 'Could not search stalls. Please try again.'
   }
 }
@@ -31,8 +40,24 @@ const loadMyRequests = async () => {
   try {
     const result = await api.account.merchantRequests()
     myRequests.value = result.items
+    requestsCursor.value = result.nextCursor
   } catch {
     errorMessage.value = 'Could not load your earlier requests.'
+  }
+}
+
+// Older requests: the API returns 20 at a time plus a cursor for the next page.
+const loadMoreRequests = async () => {
+  if (!requestsCursor.value || loadingMoreRequests.value) return
+  loadingMoreRequests.value = true
+  try {
+    const result = await api.account.merchantRequests({ cursor: requestsCursor.value })
+    myRequests.value = [...myRequests.value, ...result.items]
+    requestsCursor.value = result.nextCursor
+  } catch {
+    errorMessage.value = 'Could not load more requests. Please try again.'
+  } finally {
+    loadingMoreRequests.value = false
   }
 }
 
@@ -113,5 +138,14 @@ onMounted(() => {
         <p v-if="item.reviewNote" class="small mb-0 mt-2">Reviewer note: {{ item.reviewNote }}</p>
       </li>
     </ul>
+    <button
+      v-if="requestsCursor"
+      type="button"
+      class="btn btn-outline-secondary mt-3"
+      :disabled="loadingMoreRequests"
+      @click="loadMoreRequests"
+    >
+      {{ loadingMoreRequests ? 'Loading…' : 'Load more' }}
+    </button>
   </section>
 </template>

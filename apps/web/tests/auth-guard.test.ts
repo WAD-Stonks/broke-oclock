@@ -12,7 +12,9 @@ const signedIn = (role = 'USER') => getSession.mockResolvedValue({ data: { user:
 const signedOut = () => getSession.mockResolvedValue({ data: null })
 
 describe('authGuard', () => {
-  beforeEach(() => getSession.mockReset())
+  beforeEach(() => {
+    getSession.mockReset()
+  })
 
   it('lets public routes through without calling the API', async () => {
     expect(await authGuard(to({}))).toBe(true)

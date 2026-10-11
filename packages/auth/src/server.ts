@@ -262,12 +262,10 @@ export const createAuth = (config: AuthConfig) => {
       requireEmailVerification: Boolean(sender),
       ...(sender
         ? {
-            // Not awaited on purpose: waiting for the provider would make the response time
-            // reveal whether the address belongs to an account.
+            // Awaited: on Vercel, work still running after the response can be stopped, so the
+            // email must be finished (the sender never throws) before this hook returns.
             sendResetPassword: async ({ user, url }: EmailHookData) => {
-              void sender
-                .sendPasswordReset({ name: user.name, email: user.email, url })
-                .catch(() => undefined)
+              await sender.sendPasswordReset({ name: user.name, email: user.email, url })
             },
           }
         : {}),
@@ -278,9 +276,7 @@ export const createAuth = (config: AuthConfig) => {
             sendOnSignUp: true,
             sendOnSignIn: true,
             sendVerificationEmail: async ({ user, url }: EmailHookData) => {
-              void sender
-                .sendVerification({ name: user.name, email: user.email, url })
-                .catch(() => undefined)
+              await sender.sendVerification({ name: user.name, email: user.email, url })
             },
           },
         }
