@@ -1,3 +1,4 @@
+import AdminOverviewPage from '@web/pages/AdminOverviewPage.vue'
 import ForgotPasswordPage from '@web/pages/ForgotPasswordPage.vue'
 import GettingStartedPage from '@web/pages/GettingStartedPage.vue'
 import HomePage from '@web/pages/HomePage.vue'
@@ -14,6 +15,7 @@ import SavedDealsPage from '@web/pages/SavedDealsPage.vue'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
+  { path: '/admin', name: 'admin-overview', component: AdminOverviewPage },
   {
     path: '/',
     name: 'home',

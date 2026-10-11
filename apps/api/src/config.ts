@@ -12,6 +12,10 @@ export type AppConfig = {
   photoStorage?: { token: string; isDev: boolean }
   // Present only when RESEND_API_KEY and EMAIL_FROM are both set to real values.
   email?: { apiKey: string; from: string }
+  authProviders?: {
+    google?: { clientId: string; clientSecret: string }
+    email?: { apiKey: string; from: string }
+  }
 }
 
 type Environment = Record<string, string | undefined>
@@ -80,22 +84,36 @@ const parseIngestion = (env: Environment): AppConfig['ingestion'] => {
   }
 }
 
-const parseEmail = (env: Environment): AppConfig['email'] => {
-  const apiKey = env.RESEND_API_KEY?.trim()
-  const from = env.EMAIL_FROM?.trim()
-  const placeholder = (value: string) => ['UNSET', 'UNCONFIGURED'].includes(value.toUpperCase())
-  if (!apiKey || !from || placeholder(apiKey) || placeholder(from)) return undefined
-  return { apiKey, from }
+const parseAuthProviders = (env: Environment): AppConfig['authProviders'] => {
+  const value = (name: string, valid: RegExp) => {
+    const raw = env[name]
+    if (raw === undefined) return undefined
+    if (/[\r\n]/u.test(raw)) throw new Error('Invalid authentication provider configuration')
+    const trimmed = raw.trim()
+    if (!trimmed || /^(?:unset|unconfigured)$/iu.test(trimmed)) return undefined
+    if (!valid.test(trimmed)) throw new Error('Invalid authentication provider configuration')
+    return trimmed
+  }
+  const clientId = value('GOOGLE_CLIENT_ID', /^[A-Za-z0-9._-]+\.apps\.googleusercontent\.com$/u)
+  const clientSecret = value('GOOGLE_CLIENT_SECRET', /^[A-Za-z0-9._-]+$/u)
+  const apiKey = value('RESEND_API_KEY', /^re_[A-Za-z0-9_-]+$/u)
+  const from = value('EMAIL_FROM', /^(?:[^<>\r\n]+ <)?[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+>?$/u)
+  return {
+    ...(clientId && clientSecret ? { google: { clientId, clientSecret } } : {}),
+    ...(apiKey && from ? { email: { apiKey, from } } : {}),
+  }
 }
 
 export const parseConfig = (env: Environment): AppConfig => {
   const betterAuthSecret = requiredString(env, 'BETTER_AUTH_SECRET')
   if (betterAuthSecret.length < 32)
     throw new Error('BETTER_AUTH_SECRET must be at least 32 characters')
-  const email = parseEmail(env)
+  const authProviders = parseAuthProviders(env)
+  const email = authProviders?.email
   return {
     port: parsePort(env.PORT),
     ingestion: parseIngestion(env),
+    authProviders,
     photoStorage: parsePhotoStorage(env),
     webOrigin: parseOrigin(env.WEB_ORIGIN?.trim() || 'http://localhost:5173', 'WEB_ORIGIN'),
     betterAuthUrl: parseOrigin(

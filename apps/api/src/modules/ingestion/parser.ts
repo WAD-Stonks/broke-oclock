@@ -167,7 +167,18 @@ const scanNumericCandidates = (text: string, tokens: Token[]): NumericCandidate[
   for (let index = 0; index < tokens.length; index++) {
     const anchor = tokens[index]
     if (!anchor) continue
-    if (anchor.kind === 'word' && ['percent', 'percentage'].includes(anchor.value)) {
+    // Inventory word-form percent markers independently of supported `%`
+    // matching, including markers merged with quantities in maximal identifiers.
+    // Underscores/combining marks expose evidence only, never a valid operand
+    // or operator suffix. Missing quantities still leave an unsupported marker.
+    const markerWord = anchor.value.replace(/[_\p{M}]/gu, '')
+    if (
+      (['word', 'identifier'].includes(anchor.kind) &&
+        ['percent', 'percentage'].includes(markerWord)) ||
+      (anchor.kind === 'identifier' &&
+        /\p{N}/u.test(anchor.value) &&
+        markerWord.includes('percent'))
+    ) {
       candidates.push({
         kind: 'percent',
         start: anchor.start,
@@ -295,6 +306,24 @@ const skipPunctuation = (tokens: Token[], start: number) => {
   while (punctuation(tokens[cursor])) cursor++
   return cursor
 }
+// Nearest grammar-bearing tokens in this field. Punctuation runs have no
+// delimiter-count limit; cache their boundaries so inventory stays linear.
+// A word, identifier, number, currency marker or non-prose symbol ends the run.
+const punctuationNeighbors = (tokens: Token[]) => {
+  const left: number[] = []
+  const right: number[] = []
+  let previous = -1
+  for (let index = 0; index < tokens.length; index++) {
+    left[index] = previous
+    if (!punctuation(tokens[index])) previous = index
+  }
+  let next = tokens.length
+  for (let index = tokens.length - 1; index >= 0; index--) {
+    right[index] = next
+    if (!punctuation(tokens[index])) next = index
+  }
+  return { left, right }
+}
 const consumeValues = (tokens: Token[], start: number, values: string[]) => {
   let cursor = start
   for (const [index, value] of values.entries()) {
@@ -339,7 +368,58 @@ const completeBogoSuffix = (tokens: Token[], start: number) => {
 }
 const scanBogoCandidates = (tokens: Token[]) => {
   const candidates: { start: number; end: number; complete: boolean; supported: boolean }[] = []
+  const neighbors = punctuationNeighbors(tokens)
+  // These projections inventory malformed evidence only; they never supply
+  // supported suffix tokens. A prefixed operator needs its paired offer context,
+  // so an incidental get1 inside Target1 or a part code is not itself an offer.
+  const quantityOperators = tokens.map((token) => {
+    const value = token.kind === 'identifier' ? token.value.replace(/[_\p{M}]/gu, '') : ''
+    const quantityAfter = (operator: 'buy' | 'get', start = 0) => {
+      const operatorAt = value.indexOf(operator, start)
+      if (operatorAt < 0) return -1
+      const quantityAt = value.slice(operatorAt + operator.length).search(/\p{N}/u)
+      return quantityAt < 0 ? -1 : operatorAt + operator.length + quantityAt
+    }
+    const buyQuantity = quantityAfter('buy')
+    return {
+      buy: buyQuantity >= 0,
+      get: quantityAfter('get') >= 0,
+      joined: buyQuantity >= 0 && quantityAfter('get', buyQuantity + 1) >= 0,
+    }
+  })
   for (let start = 0; start < tokens.length; start++) {
+    const token = tokens[start]
+    const operators = quantityOperators[start]
+    if (operators?.buy) {
+      let paired = neighbors.right[start] ?? tokens.length
+      // Only the complete conjunction may join the pair. Intervening prose
+      // cannot provide context; these projections never recognize an operand.
+      if (tokens[paired]?.value === 'and') paired = neighbors.right[paired] ?? tokens.length
+      if (
+        operators.joined ||
+        quantityOperators[paired]?.get ||
+        consumeValues(tokens, paired, ['get', 'one']) !== null
+      )
+        candidates.push({ start, end: paired + 1, supported: false, complete: false })
+    }
+    // A buy/get operator merged with a numeric quantity is malformed offer
+    // context, not unrelated metadata. Inventory the whole lexeme without
+    // treating its numeric suffix (or a later valid offer) as supported.
+    if (token?.kind === 'identifier' && /^(?:buy|get).*\p{N}/u.test(token.value))
+      candidates.push({ start, end: start + 1, supported: false, complete: false })
+    // Named-product wording is retained only as evidence. Product/continuation
+    // terms are not inferred, so this candidate can never supply ready dates.
+    const purchaseEnd = consumeValues(tokens, start, ['buy', 'one'])
+    if (purchaseEnd !== null) {
+      for (let cursor = purchaseEnd + 1; cursor <= purchaseEnd + 8; cursor++) {
+        if (tokens[cursor - 1]?.kind !== 'word') break
+        const end = consumeValues(tokens, cursor, ['and', 'get', 'another', 'free'])
+        if (end !== null) {
+          candidates.push({ start, end, supported: true, complete: false })
+          break
+        }
+      }
+    }
     for (const phrase of [
       ['buy', 'one', 'get', 'one'],
       ['1', 'for', '1'],
@@ -447,9 +527,25 @@ const scanBogoCandidates = (tokens: Token[]) => {
 }
 const secondItemQualification = (tokens: Token[]) => {
   const candidates = scanBogoCandidates(tokens)
+  const neighbors = punctuationNeighbors(tokens)
+  const ordinalItemEvidence = tokens.map((token, index) => {
+    if (token.kind !== 'identifier') return false
+    // Inspect the whole malformed lexeme only for a veto, never as a supported
+    // ordinal suffix. Prefixed/interstitial forms require bounded item context.
+    const value = token.value.replace(/[_\p{M}]/gu, '')
+    if (!value.includes('2nd')) return false
+    if (/(?:2nditems?|items?2nd)/u.test(value)) return true
+    return [neighbors.left[index] ?? -1, neighbors.right[index] ?? tokens.length].some((cursor) =>
+      ['item', 'items'].includes(tokens[cursor]?.value ?? ''),
+    )
+  })
   return tokens.some(
     (token, index) =>
+      ordinalItemEvidence[index] ||
       token.value === 'second' ||
+      // The maximal lexer keeps the complete ordinal as one identifier; it is
+      // qualification evidence, never a supported numeric operand.
+      /^2_*nd/u.test(token.value) ||
       (token.value === '2' && tokens[index + 1]?.value === 'nd') ||
       consumeValues(tokens, index, ['next', 'item']) !== null ||
       consumeValues(tokens, index, ['half', 'price']) !== null ||
@@ -487,16 +583,18 @@ export const parseMoneyDigestPost = (input: unknown) => {
   const qualifiedBogo =
     fields.some((field) => secondItemQualification(field.tokens)) ||
     (bogo && numericCandidates.length > 0)
+  // Mixed identifiers alone can be opening hours, brands or outlet codes.
+  // The candidate inventories still reject them as currency/percent/ratio operands.
   const unsupportedNumericExpression =
     numericCandidates.some((candidate) => !candidate.supported) ||
     bogoCandidates.some((candidate) => !candidate.supported) ||
     fields.some((field) =>
       field.tokens.some(
         (token, index) =>
-          (token.kind === 'identifier' && /\p{N}/u.test(token.value)) ||
           // A detached exponent letter is still part of unsupported numeric
           // evidence, including when HTML extraction supplied its whitespace.
-          (token.value === 'e' && numericAtom(field.tokens[index - 1])),
+          (token.value === 'e' && numericAtom(field.tokens[index - 1])) ||
+          (token.kind === 'identifier' && /^\p{N}+e(?:_*\p{N}|$)/u.test(token.value)),
       ),
     )
   const percentages = numericCandidates.flatMap((candidate) =>

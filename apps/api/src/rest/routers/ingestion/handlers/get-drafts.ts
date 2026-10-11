@@ -30,6 +30,14 @@ export const getIngestionDrafts = (dependencies: RestDependencies): RequestHandl
         validUntil: true,
         rawValidityText: true,
         applicability: true,
+        merchantId: true,
+        venues: {
+          select: {
+            venue: {
+              select: { id: true, name: true, address: true, merchant: { select: { name: true } } },
+            },
+          },
+        },
         reviewStatus: true,
         contentVersion: true,
         reviewNote: true,
@@ -59,6 +67,16 @@ export const getIngestionDrafts = (dependencies: RestDependencies): RequestHandl
       validUntil: row.validUntil?.toISOString() ?? null,
       rawValidityText: row.rawValidityText,
       applicability: row.applicability,
+      merchantId: row.merchantId,
+      outlet:
+        row.venues.length === 1 && row.venues[0]
+          ? {
+              id: row.venues[0].venue.id,
+              name: row.venues[0].venue.name,
+              address: row.venues[0].venue.address,
+              merchantName: row.venues[0].venue.merchant.name,
+            }
+          : null,
       reviewStatus: row.reviewStatus,
       contentVersion: row.contentVersion,
       sourceUrl: row.sources[0]?.sourceUrl ?? '',
