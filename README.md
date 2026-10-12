@@ -98,10 +98,6 @@ pnpm run setup
 
 pnpm is the only package manager. `pnpm-workspace.yaml` disables automatic install scripts and hoisting; Prisma generation is an explicit setup step. Users migrating an existing checkout must remove only the root/workspace `node_modules` directories, then reinstall from the frozen pnpm lockfile. Preserve `.env` and `.local/mongodb`. See [package-manager policy](docs/package-manager.md) and the Node runtime/build guidance.
 
-### Development seed data
-
-With `pnpm run db:local` running in one terminal, `pnpm run db:seed` loads about 55 synthetic deals placed at real Singapore outlets (approximate coordinates) into the local database only. It refuses any non-local `DATABASE_URL`. The data mixes current, expired, upcoming and open-ended validity, selected-outlet, all-outlet, online and no-fixed-location applicability, and approved, pending, rejected and hidden review states, so discovery queries must filter correctly. Rerunning replaces the seed deals and keeps seed merchants/venues in place. Every reviewed seed deal carries a synthetic-data marker in its staff-only review note, so public descriptions read like real listings; these are not real promotions and seed users cannot sign in.
-
 `setup` preserves an existing `.env`, otherwise creates an ignored local configuration with a random auth secret, and generates Prisma Client. It does not provision Atlas, promote an administrator, seed deals, activate imports or send email.
 
 Start the local database in terminal 1:
@@ -142,6 +138,7 @@ pnpm run dev:web          # Vue only
 pnpm run dev:api          # Express only
 pnpm run db:generate      # Generate Prisma Client
 pnpm run db:validate      # Validate Prisma schema
+pnpm db:studio            # Open Prisma Studio on http://127.0.0.1:5555
 pnpm run format          # Biome formatting/import fixes
 pnpm run lint            # Biome checks
 pnpm run typecheck       # Workspace and tool types
@@ -156,6 +153,8 @@ pnpm run audit           # Documented dependency-audit policy
 ```
 
 Use `pnpm run test` for this Vitest project. For an isolated worktree without `.env`, Prisma validation can use the non-connecting URI described in [testing](docs/testing.md); integration suites supply their own disposable databases.
+
+`pnpm db:studio` loads the root `.env` through the same workspace launcher as the other database commands. Start your local database first and confirm `DATABASE_URL` targets the intended development database. Studio can edit and delete records directly, so do not point it at production unintentionally. It binds to loopback only; use `pnpm db:studio --port 5556` for another port or `pnpm db:studio --browser none` to skip opening a browser. Stop it with Ctrl+C.
 
 Browser tests currently use explicitly synthetic API/provider responses for affected workflows. They exercise the SPA and client transport, while API integration tests separately exercise real HTTP, authentication and database behaviour. Neither layer is a claim that the proposal's complete connected demo already works. CI records verification for each PR commit; no test count is a permanent project guarantee.
 

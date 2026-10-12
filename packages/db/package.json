@@ -5,15 +5,14 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./client": "./src/client.ts",
-    "./seed": "./src/seed/index.ts"
+    "./client": "./src/client.ts"
   },
   "scripts": {
     "generate": "prisma generate",
     "validate": "prisma validate",
     "push": "prisma db push",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
-    "seed": "tsx src/seed/run.ts"
+    "studio": "prisma studio --hostname 127.0.0.1",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@prisma/client": "6.19.3"

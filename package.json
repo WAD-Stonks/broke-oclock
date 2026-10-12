@@ -16,7 +16,7 @@
     "db:generate": "node --import tsx scripts/workspace.ts packages/db generate",
     "db:validate": "node --import tsx scripts/workspace.ts packages/db validate",
     "db:push": "node --import tsx scripts/workspace.ts packages/db push",
-    "db:seed": "node --import tsx scripts/workspace.ts packages/db seed",
+    "db:studio": "node --import tsx scripts/workspace.ts packages/db studio",
     "typecheck": "node --import tsx scripts/workspace.ts packages/db typecheck && node --import tsx scripts/workspace.ts packages/auth typecheck && node --import tsx scripts/workspace.ts packages/storage typecheck && node --import tsx scripts/workspace.ts packages/contracts typecheck && node --import tsx scripts/workspace.ts packages/api-client typecheck && node --import tsx scripts/workspace.ts packages/integrations typecheck && node --import tsx scripts/workspace.ts packages/email typecheck && node --import tsx scripts/workspace.ts packages/ui typecheck && node --import tsx scripts/workspace.ts apps/api typecheck && node --import tsx scripts/workspace.ts apps/web typecheck && pnpm run typecheck:tools",
     "lint": "biome check . --error-on-warnings",
     "format": "biome check --write .",
@@ -43,7 +43,6 @@
     "mongodb-memory-server": "11.2.0",
     "vitest": "4.1.11",
     "tsx": "4.23.15",
-    "esbuild": "0.28.2",
-    "prisma": "8.0.0-rc.22"
+    "esbuild": "0.28.2"
   }
 }
