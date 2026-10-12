@@ -2,7 +2,7 @@
 
 ## CI triggers
 
-The `quality` workflow runs only for pull requests targeting `main`: when opened, reopened or updated with new commits. It does not run on pushes/merges to `main` or manual dispatch. The required pre-merge `quality` check and all test steps remain unchanged. Deployment is a separate concern; this workflow does not deploy.
+The `quality` workflow runs only for pull requests targeting `main`: when opened, reopened or updated with new commits. It does not run on pushes/merges to `main` or manual dispatch. It runs lint, schema validation, typechecks, unit tests, builds, integration tests and browser tests. Dependency auditing is a separate manual check with `pnpm run audit`, not a CI step. Deployment is a separate concern; this workflow does not deploy.
 
 Integration suites run serially to avoid concurrent first-download races in the shared MongoDB binary cache. Disposable Prisma pushes use asynchronous child processes so the parent can drain MongoDB stdout; synchronous spawn can stall larger schema pushes. Tests within a suite still exercise concurrent requests; no security cases are skipped.
 
