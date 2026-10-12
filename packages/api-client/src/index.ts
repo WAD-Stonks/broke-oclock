@@ -18,6 +18,8 @@ import {
   currentUserUnauthorizedResponseSchema,
   healthResponseSchema,
 } from '@broke-oclock/contracts/api'
+import { dealsQuerySchema, dealsResponseSchema } from '@broke-oclock/contracts/deals'
+
 import {
   ingestionAccountsQuerySchema,
   ingestionAccountsResponseSchema,
@@ -203,6 +205,12 @@ export const createApiClient = (baseURL = '/api') => {
         )
       },
     },
+    deals: {
+      list: (input: QueryInput<typeof dealsQuerySchema> = {}) => {
+        const query = validateInput(dealsQuerySchema, input)
+        return request(http.get('/deals', { params: query }), dealsResponseSchema)
+      },
+    },
     platformAdmin: {
       overview: () => request(http.get('/admin/overview'), adminOverviewResponseSchema),
       accounts: (input: QueryInput<typeof platformAccountsQuerySchema> = {}) => {
@@ -213,11 +221,15 @@ export const createApiClient = (baseURL = '/api') => {
         )
       },
       account: (userId: string) => {
-        const { userId: id } = validateInput(platformAccountParamsSchema, { userId })
+        const { userId: id } = validateInput(platformAccountParamsSchema, {
+          userId,
+        })
         return request(http.get(`/admin/accounts/${id}`), platformAccountResponseSchema)
       },
       changeRole: (userId: string, input: SchemaInput<typeof changePlatformRoleBodySchema>) => {
-        const { userId: id } = validateInput(platformAccountParamsSchema, { userId })
+        const { userId: id } = validateInput(platformAccountParamsSchema, {
+          userId,
+        })
         const body = validateInput(changePlatformRoleBodySchema, input)
         return request(
           http.patch(`/admin/accounts/${id}/role`, body),
@@ -262,6 +274,8 @@ export const createApiClient = (baseURL = '/api') => {
         const query = validateInput(platformAuditQuerySchema, input)
         return request(http.get('/admin/audit', { params: query }), platformAuditResponseSchema)
       },
+
+      //platform deals endpoints
     },
     venues: {
       get: (venueId: string) => {

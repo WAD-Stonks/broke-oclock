@@ -1,7 +1,70 @@
 :root {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #212529;
-  background: #f8f9fa;
+  /* "Paper" palette: white cards floating over a light paper-coloured map, ink text and a
+     single coral accent for prices, pins and active states. */
+  --paper-white: #ffffff;
+  --paper: #f3f2ef;
+  --ink: #1b1b1f;
+  --ink-muted: #6f6e73;
+  --hairline: #e6e4df;
+  --coral: #d8603f;
+  --coral-deep: #bf4f30;
+  --coral-soft: rgba(216, 96, 63, 0.16);
+  --coral-ring: rgba(216, 96, 63, 0.45);
+
+  /* "Bubbly" accents: sunny yellow for primary actions, sky blue for the visitor's dot and
+     soft category tints behind the pin icons. */
+  --sunny: #f6d64b;
+  --sunny-deep: #e9c62a;
+  --sunny-soft: rgba(246, 214, 75, 0.35);
+  --sunny-ring: rgba(246, 214, 75, 0.85);
+  --sky: #4f7df3;
+  --sky-soft: rgba(79, 125, 243, 0.16);
+  --tint-drinks: #a9def4;
+  --tint-food: #f9c7bb;
+  --tint-dessert: #f6bfe6;
+  --tint-snacks: #f7d6a2;
+  --tint-bakery: #efe39a;
+  --tint-other: #e3e1dc;
+
+  --font-sans:
+    "Plus Jakarta Sans", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-md: 1.0625rem;
+  --text-lg: 1.375rem;
+  --text-xl: 2.25rem;
+  /* Rounded display face for titles, prices and pills; body text stays on the sans. */
+  --font-display: Fredoka, var(--font-sans);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  --radius-card: 1.5rem;
+  --radius-control: 0.75rem;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 12px 32px rgba(27, 27, 31, 0.1), 0 1px 2px rgba(27, 27, 31, 0.05);
+  --shadow-pill: 0 6px 18px rgba(27, 27, 31, 0.14);
+
+  /* Shown behind map tiles while they load; matches the paper land colour so nothing flashes. */
+  --map-canvas: var(--paper);
+  /* Space the fixed header card takes above page content (top offset + card height). */
+  --site-header-clearance: calc(var(--space-5) + 4rem);
+
+  /* Bootstrap reads these on <body>; keeping them in sync lets BootstrapVueNext pages match. */
+  --bs-body-font-family: var(--font-sans);
+  --bs-body-color: var(--ink);
+  --bs-body-bg: var(--paper);
+
+  font-family: var(--font-sans);
+  color: var(--ink);
+  background: var(--paper);
 }
 
 body {
@@ -9,22 +72,109 @@ body {
   margin: 0;
 }
 
-.navbar-brand:focus-visible,
-.nav-link:focus-visible,
 a:focus-visible,
+button:focus-visible,
 .btn:focus-visible {
-  outline: 3px solid rgba(13, 110, 253, 0.4);
+  outline: 3px solid var(--sunny-ring);
   outline-offset: 3px;
 }
 
-.nav-link.router-link-exact-active {
-  color: var(--bs-primary);
-  font-weight: 600;
+/* White floating surface shared by the header, filters, list panel and status chips. */
+.paper-card {
+  background: var(--paper-white);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
 }
 
-.starter-intro {
-  max-width: 48rem;
-  padding: clamp(2rem, 8vw, 6rem) 0;
+/* Floating pill button: white by default, sunny yellow for the primary action. */
+.browse-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-6);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper-white);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-pill);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease,
+    transform 160ms ease;
+}
+
+.browse-pill:hover,
+.browse-pill:focus-visible {
+  background: var(--paper);
+}
+
+.browse-pill:active {
+  transform: translateY(1px);
+}
+
+.browse-pill:disabled {
+  opacity: 0.6;
+  cursor: progress;
+  transform: none;
+}
+
+.browse-pill--primary {
+  color: var(--ink);
+  background: var(--sunny);
+}
+
+.browse-pill--primary:hover,
+.browse-pill--primary:focus-visible {
+  background: var(--sunny-deep);
+}
+
+.browse-pill--ink {
+  color: var(--paper-white);
+  background: var(--ink);
+}
+
+.browse-pill--ink:hover,
+.browse-pill--ink:focus-visible {
+  background: #000000;
+}
+
+/* Round white back button that sits over a photo or at the top of a panel section. */
+.browse-back {
+  display: inline-grid;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  color: var(--ink);
+  background: var(--paper-white);
+  border: 0;
+  border-radius: 50%;
+  box-shadow: var(--shadow-pill);
+  cursor: pointer;
+}
+
+.browse-back:hover,
+.browse-back:focus-visible {
+  background: var(--paper);
+}
+
+/* Small inline icon inside a pill or row. */
+.browse-icon {
+  flex: 0 0 auto;
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.browse-pill--compact {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  background: var(--paper);
+  box-shadow: none;
 }
 
 .setup-copy {
@@ -41,10 +191,6 @@ a:focus-visible,
 }
 
 @media (max-width: 575.98px) {
-  .navbar-nav {
-    gap: 1rem;
-  }
-
   .module-list dt {
     padding-bottom: 0.35rem;
     border-bottom: 0;
