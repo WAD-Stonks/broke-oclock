@@ -1,4 +1,34 @@
 :root {
+  /* DESIGN.md tokens (Drive Capital reference) used by the floating site header. */
+  --color-cream: #fff8f1;
+  --color-ash: #e2e8f0;
+  --color-ink: #000000;
+  --color-voltage-blue: #006eff;
+  --font-founders-grotesk:
+    "Founders Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, sans-serif;
+  --font-weight-light: 300;
+  --font-weight-regular: 400;
+  --text-body-sm: 16px;
+  --leading-body-sm: 1.5;
+  --text-body: 18px;
+  --text-subheading: 28px;
+  --spacing-7: 7px;
+  --spacing-11: 11px;
+  --spacing-14: 14px;
+  --spacing-20: 20px;
+  --spacing-29: 29px;
+  --spacing-35: 35px;
+  --spacing-43: 43px;
+  --radius-pills: 60px;
+  /* Browse map: CARTO Dark Matter tiles pushed toward navy so the basemap sits in the blue
+     family instead of neutral black. Applied to Leaflet's tile pane only; UI stays untinted. */
+  --map-tile-tint: sepia(1) hue-rotate(195deg) saturate(2.2) brightness(1.08);
+  /* Shown behind tiles while they load; matches the tinted land colour so nothing flashes grey. */
+  --map-canvas: #0b1022;
+  /* Space the fixed pill header takes above page content (top offset + pill height). */
+  --site-header-clearance: calc(var(--spacing-20) + 3.5rem);
+
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   color: #212529;
   background: #f8f9fa;
@@ -9,17 +39,47 @@ body {
   margin: 0;
 }
 
-.navbar-brand:focus-visible,
-.nav-link:focus-visible,
 a:focus-visible,
+button:focus-visible,
 .btn:focus-visible {
   outline: 3px solid rgba(13, 110, 253, 0.4);
   outline-offset: 3px;
 }
 
-.nav-link.router-link-exact-active {
-  color: var(--bs-primary);
-  font-weight: 600;
+/* Outlined pill button from DESIGN.md: transparent fill, Voltage Blue hairline, 60px radius. */
+.browse-pill {
+  padding: var(--spacing-14) var(--spacing-43);
+  font-family: var(--font-founders-grotesk);
+  font-size: var(--text-body-sm);
+  font-weight: var(--font-weight-light);
+  letter-spacing: -0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--color-voltage-blue);
+  background: var(--color-cream);
+  border: 1.5px solid var(--color-voltage-blue);
+  border-radius: var(--radius-pills);
+  cursor: pointer;
+  transition:
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.browse-pill:hover,
+.browse-pill:focus-visible {
+  color: var(--color-cream);
+  background: var(--color-voltage-blue);
+}
+
+.browse-pill:disabled {
+  color: var(--color-voltage-blue);
+  background: var(--color-cream);
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.browse-pill--compact {
+  padding: var(--spacing-7) var(--spacing-20);
 }
 
 .starter-intro {
@@ -41,10 +101,6 @@ a:focus-visible,
 }
 
 @media (max-width: 575.98px) {
-  .navbar-nav {
-    gap: 1rem;
-  }
-
   .module-list dt {
     padding-bottom: 0.35rem;
     border-bottom: 0;
