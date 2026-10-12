@@ -20,4 +20,6 @@ The 11 October 2026 authentication correction is also AI-assisted: native Reques
 
 The 11 October 2026 venue-image request adds AI-assisted optional `Venue.imageUrl` persistence and disposable-database regression tests. It leaves existing deal-image ownership and UploadThing integration unchanged and does not implement a venue-image endpoint, UI, fetching or upload attachment workflow. Real-deal seeding is a separate operation, with no demo records or fabricated image references supplied by this schema change.
 
+The requested cross-device formatting correction is AI-assisted tooling and regression-test work: repository-controlled LF checkouts, explicit Biome configuration and artifact exclusions, plus reproducible Git/Biome fixtures. It does not modify student-owned feature behavior or relax lint rules.
+
 Do not remove this disclosure when adding student code. Record what AI supplied and what students authored/reviewed, and include the required disclosure in the final README.txt. Ask the instructor where a borderline use is unclear.
