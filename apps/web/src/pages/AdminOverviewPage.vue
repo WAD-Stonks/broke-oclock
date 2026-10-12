@@ -57,7 +57,8 @@ onUnmounted(() => { fence.dispose(); nativeFence.dispose() })
     </div>
     <template v-else-if="overview">
       <p class="small text-secondary">Snapshot: {{ overview.generatedAt }}</p>
-      <section class="card p-3 mb-3" aria-labelledby="work-title">
+      <div class="admin-overview-panels">
+      <section class="card p-3 mb-3 admin-work-panel" aria-labelledby="work-title">
         <h2 id="work-title" class="h4">Work awaiting review</h2>
         <ul class="admin-work-list">
           <li><a href="/admin/accounts?requestStatus=PENDING#merchant-requests">Pending merchant requests: {{ overview.counts.pendingMerchantRequests }}</a></li>
@@ -65,6 +66,19 @@ onUnmounted(() => { fence.dispose(); nativeFence.dispose() })
           <li>Failed imported posts: {{ overview.counts.failedImportedPosts }}</li>
         </ul>
         <p class="small mb-0">Failures count imported posts, not ingestion runs.</p>
+      </section>
+      <section class="card p-3 mb-3 admin-runs-panel" aria-labelledby="overview-runs-title">
+        <h2 id="overview-runs-title" class="h4">Recent ingestion runs</h2>
+        <a href="/admin/ingestion#runs-title">View ingestion run history</a>
+        <p v-if="!overview.recentRuns.length">No ingestion runs yet.</p>
+        <ul v-else class="list-unstyled">
+          <li v-for="run in overview.recentRuns" :key="run.id" class="border-top py-3 text-break">
+            <h3 class="h6">{{ run.sourceName }}: {{ run.status }}</h3>
+            <p>Run {{ run.id }} | Started {{ run.startedAt }} | Finished {{ run.finishedAt ?? 'Not finished' }}</p>
+            <p>Fetched {{ run.fetchedCount }}, created {{ run.createdCount }}, updated {{ run.updatedCount }}, failed posts {{ run.failedCount }}.</p>
+            <p v-if="run.errorCode" class="text-danger">Error: {{ run.errorCode }}</p>
+          </li>
+        </ul>
       </section>
       <section class="card p-3 mb-3 admin-readiness" aria-labelledby="readiness-title">
         <h2 id="readiness-title" class="h4">Configuration readiness</h2>
@@ -81,19 +95,7 @@ onUnmounted(() => { fence.dispose(); nativeFence.dispose() })
           <dt>Live provider acceptance</dt><dd>{{ overview.readiness.liveProviderAcceptance }}</dd>
         </dl>
       </section>
-      <section class="card p-3 mb-3" aria-labelledby="overview-runs-title">
-        <h2 id="overview-runs-title" class="h4">Recent ingestion runs</h2>
-        <a href="/admin/ingestion#runs-title">View ingestion run history</a>
-        <p v-if="!overview.recentRuns.length">No ingestion runs yet.</p>
-        <ul v-else class="list-unstyled">
-          <li v-for="run in overview.recentRuns" :key="run.id" class="border-top py-3 text-break">
-            <h3 class="h6">{{ run.sourceName }}: {{ run.status }}</h3>
-            <p>Run {{ run.id }} | Started {{ run.startedAt }} | Finished {{ run.finishedAt ?? 'Not finished' }}</p>
-            <p>Fetched {{ run.fetchedCount }}, created {{ run.createdCount }}, updated {{ run.updatedCount }}, failed posts {{ run.failedCount }}.</p>
-            <p v-if="run.errorCode" class="text-danger">Error: {{ run.errorCode }}</p>
-          </li>
-        </ul>
-      </section>
+      </div>
     </template>
   </AdminShell>
 </template>

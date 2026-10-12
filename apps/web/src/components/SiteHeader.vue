@@ -7,6 +7,7 @@ import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const root = ref<HTMLElement | null>(null)
+withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 const toggleButton = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 
@@ -14,7 +15,7 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 </script>
 
 <template>
-  <header ref="root" class="site-header" :class="{ 'is-open': isOpen }">
+  <header ref="root" class="site-header" :class="{ 'is-open': isOpen, 'site-header--embedded': embedded }">
     <nav aria-label="Primary navigation" class="site-pill" data-testid="primary-nav">
       <RouterLink class="site-brand" to="/" @click="close">
         <img :src="logoUrl" alt="Lobangers" class="site-logo" />
@@ -301,5 +302,37 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
   aspect-ratio: 5.6;
   object-fit: cover;
   object-position: center 48%;
+}
+
+/* Administration uses ordinary page chrome; the browse canvas keeps its floating card. */
+.site-header--embedded {
+  position: relative;
+  top: auto;
+  left: auto;
+  width: 100%;
+  background: var(--paper-white);
+  border-bottom: 1px solid var(--hairline);
+}
+
+.site-header--embedded .site-pill {
+  max-width: 72rem;
+  height: 4.5rem;
+  margin-inline: auto;
+  padding-inline: var(--space-6);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  animation: none;
+}
+
+.site-header--embedded .site-menu {
+  left: auto;
+  right: var(--space-4);
+  width: min(22rem, calc(100vw - 2rem));
+  border-radius: var(--radius-control);
+}
+
+@media (max-width: 575.98px) {
+  .site-header--embedded .site-pill { padding-inline: var(--space-4); }
 }
 </style>

@@ -1,5 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import App from '@web/App.vue'
+import SiteHeader from '@web/components/SiteHeader.vue'
 import routes from '@web/router/routes'
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
@@ -16,6 +17,21 @@ vi.mock('@web/lib/auth-client', () => ({
 const NAV = '[data-testid="primary-nav"]'
 const TOGGLE = '[data-testid="nav-toggle"]'
 const MENU = '[data-testid="nav-menu"]'
+
+it('supports an inline admin header without changing the floating map default', async () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/', component: SiteHeader }],
+  })
+  await router.push('/')
+  const wrapper = mount(SiteHeader, { props: { embedded: true }, global: { plugins: [router] } })
+  expect(wrapper.classes()).toContain('site-header--embedded')
+  await wrapper.get(TOGGLE).trigger('click')
+  expect(wrapper.find(MENU).exists()).toBe(true)
+  await wrapper.setProps({ embedded: false })
+  expect(wrapper.classes()).not.toContain('site-header--embedded')
+  wrapper.unmount()
+})
 
 async function mountAt(path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes })

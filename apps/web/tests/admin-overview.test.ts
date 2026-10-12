@@ -71,6 +71,9 @@ async function open() {
 it('renders protected operational counts and exact actionable links without live-readiness claims', async () => {
   const w = await open()
   expect(w.get('h1').text()).toBe('Admin overview')
+  expect(w.findAll('.admin-overview-panels h2').map((heading) => heading.attributes('id'))).toEqual(
+    ['work-title', 'overview-runs-title', 'readiness-title'],
+  )
   expect(
     w.get('a[href="/admin/accounts?requestStatus=PENDING#merchant-requests"]').text(),
   ).toContain('3')
