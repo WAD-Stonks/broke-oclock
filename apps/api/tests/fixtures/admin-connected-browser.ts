@@ -27,6 +27,8 @@ let webURL = ''
 let apiURL = ''
 let stopped = false
 const mail = new Map<string, string>()
+// Verification links captured from controlled delivery (password sign-up needs them).
+const verifications = new Map<string, string>()
 const grants = new Map<
   string,
   { email: string; verified: boolean; subject: string; challenge: string }
@@ -43,10 +45,10 @@ const jwk = {
 }
 let otpAdmin: { id: string; email: string; password: string; cookie: string }
 let ownedRecordId = ''
-const request = (path: string, body?: object, cookie = '') =>
+const request = (path: string, body?: object, cookie = '', headers: Record<string, string> = {}) =>
   nativeFetch(`${apiURL}${path}`, {
     method: body ? 'POST' : 'GET',
-    headers: { 'Content-Type': 'application/json', Origin: webURL, Cookie: cookie },
+    headers: { 'Content-Type': 'application/json', Origin: webURL, Cookie: cookie, ...headers },
     ...(body ? { body: JSON.stringify(body) } : {}),
     redirect: 'manual',
   })
@@ -69,12 +71,18 @@ const stop = async () => {
   await mongo?.stop()
   globalThis.fetch = nativeFetch
   mail.clear()
+  verifications.clear()
   grants.clear()
 }
 const controlledProviderFetch: typeof fetch = async (input, init) => {
   const url = input instanceof Request ? input.url : String(input)
   if (url === 'https://api.resend.com/emails') {
     const body = JSON.parse(String(init?.body)) as { to: string; text: string }
+    const link = body.text.match(/https?:\/\/[^\s]+\/verify-email\?[^\s]+/u)?.[0]
+    if (link && body.to.endsWith('@example.test')) {
+      verifications.set(body.to, link)
+      return Response.json({ id: randomUUID() })
+    }
     const code = body.text.match(/\b[0-9]{6}\b/u)?.[0]
     if (!code || !body.to.endsWith('@example.test'))
       throw new Error('Controlled delivery rejected malformed fixture mail')
@@ -108,22 +116,47 @@ const controlledProviderFetch: typeof fetch = async (input, init) => {
   if (!url.startsWith('http://127.0.0.1:')) throw new Error('Unexpected external request blocked')
   return nativeFetch(input, init)
 }
-const seedAdmin = async (label: string) => {
+// Each setup call uses its own client address, so Better Auth's sign-in/sign-up rate limit
+// (which stays on) is never shared with the browser journey that follows.
+let nextSetupIp = 1
+const setupIp = () => ({ 'X-Forwarded-For': `203.0.113.${nextSetupIp++}` })
+const seedAdmin = async (label: string, options: { verified: boolean }) => {
   const email = `connected-${label}-${randomUUID()}@example.test`
   const password = randomBytes(24).toString('base64url')
-  const response = await request('/api/auth/sign-up/email', {
-    name: `Synthetic ${label} operator`,
-    email,
-    password,
-    role: 'ADMIN',
-  })
+  const response = await request(
+    '/api/auth/sign-up/email',
+    { name: `Synthetic ${label} operator`, email, password, role: 'ADMIN' },
+    '',
+    setupIp(),
+  )
   if (response.status !== 200) throw new Error(`Native fixture signup failed (${response.status})`)
   const user = await requireDatabase().user.findUniqueOrThrow({ where: { email } })
   if (user.role !== 'USER' || user.emailVerified)
     throw new Error('Native signup accepted forged role or invented verification')
-  // Explicit fixture-only DB promotion of an identity produced by native USER signup.
-  await requireDatabase().user.update({ where: { id: user.id }, data: { role: 'ADMIN' } })
-  return { id: user.id, email, password, cookie: cookieFrom(response) }
+  // Email is configured, so an unverified password identity must be refused.
+  const refused = await request('/api/auth/sign-in/email', { email, password }, '', setupIp())
+  if (refused.status !== 403) throw new Error('Unverified password sign-in was not refused')
+  // Verify through the controlled Resend delivery: the real emailed link, opened like a user would.
+  const link = verifications.get(email)
+  if (!link) throw new Error('Controlled Resend captured no verification link')
+  verifications.delete(email)
+  const verification = new URL(link)
+  const opened = await request(
+    `${verification.pathname}${verification.search}`,
+    undefined,
+    '',
+    setupIp(),
+  )
+  if (![200, 302].includes(opened.status)) throw new Error('Verification link was refused')
+  const login = await request('/api/auth/sign-in/email', { email, password }, '', setupIp())
+  if (login.status !== 200) throw new Error(`Native fixture sign-in failed (${login.status})`)
+  // Explicit fixture-only DB promotion of an identity produced by native USER signup. The OTP
+  // identity is deliberately returned to unverified so its first-OTP cleanup is what gets tested.
+  await requireDatabase().user.update({
+    where: { id: user.id },
+    data: { role: 'ADMIN', emailVerified: options.verified },
+  })
+  return { id: user.id, email, password, cookie: cookieFrom(login) }
 }
 const initialize = async () => {
   mongo = await MongoMemoryReplSet.create({
@@ -199,12 +232,12 @@ const initialize = async () => {
       }),
     ),
   )
-  const passwordAdmin = await seedAdmin('password')
+  const passwordAdmin = await seedAdmin('password', { verified: true })
   // Native logout closes setup's independent signup session. Browser then owns the
   // password identity's only session; OTP setup session deliberately remains for revocation proof.
   if ((await request('/api/auth/sign-out', {}, passwordAdmin.cookie)).status !== 200)
     throw new Error('Native setup logout failed')
-  otpAdmin = await seedAdmin('otp')
+  otpAdmin = await seedAdmin('otp', { verified: false })
   const merchant = await db.merchant.create({ data: { name: 'Synthetic connected merchant' } })
   const venue = await db.venue.create({
     data: {
