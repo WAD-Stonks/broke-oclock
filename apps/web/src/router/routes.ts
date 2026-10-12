@@ -9,11 +9,11 @@ import MerchantAccessPage from '@web/pages/MerchantAccessPage.vue'
 import MySubmissionsPage from '@web/pages/MySubmissionsPage.vue'
 import NotFoundPage from '@web/pages/NotFoundPage.vue'
 import PlatformAdminPage from '@web/pages/PlatformAdminPage.vue'
-import VenuePage from '@web/pages/VenuePage.vue'
 import ProfilePage from '@web/pages/ProfilePage.vue'
 import RegisterPage from '@web/pages/RegisterPage.vue'
 import ResetPasswordPage from '@web/pages/ResetPasswordPage.vue'
 import SavedDealsPage from '@web/pages/SavedDealsPage.vue'
+import VenuePage from '@web/pages/VenuePage.vue'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
