@@ -14,11 +14,22 @@ import {
 import { verifyProviderIdToken } from 'better-auth/oauth2'
 import { type EmailOTPOptions, emailOTP } from 'better-auth/plugins/email-otp'
 
+export type AuthEmailMessage = { name: string; email: string; url: string }
+
+// Supplied by the API (which owns the email provider). Implementations must never throw:
+// a failed email must not break sign-up or the password-reset request.
+export type AuthEmailSender = {
+  sendVerification: (message: AuthEmailMessage) => Promise<void>
+  sendPasswordReset: (message: AuthEmailMessage) => Promise<void>
+}
+
 export type EmailOTPData = Parameters<EmailOTPOptions['sendVerificationOTP']>[0]
 export type AuthConfig = {
   baseURL: string
   secret: string
   trustedOrigin: string
+  // Present only when the email provider is configured.
+  email?: AuthEmailSender
   google?: { clientId: string; clientSecret: string }
   sendEmailOTP?: (data: EmailOTPData) => Promise<void>
 }
@@ -30,8 +41,11 @@ const linkFailure = () =>
     message: 'Verify your local email before linking.',
   })
 
+type EmailHookData = { user: { name: string; email: string }; url: string }
+
 // The consuming API validates environment values before calling this factory.
 export const createAuth = (config: AuthConfig) => {
+  const sender = config.email
   const googleFence = createGoogleAccountFence()
   // Public native Request identity survives endpoint/hook contexts; shared AuthContext does not own proof.
   const googleEmails = new WeakMap<
@@ -242,6 +256,31 @@ export const createAuth = (config: AuthConfig) => {
         },
       },
     },
+    emailAndPassword: {
+      enabled: true,
+      revokeSessionsOnPasswordReset: true,
+      requireEmailVerification: Boolean(sender),
+      ...(sender
+        ? {
+            // Awaited: on Vercel, work still running after the response can be stopped, so the
+            // email must be finished (the sender never throws) before this hook returns.
+            sendResetPassword: async ({ user, url }: EmailHookData) => {
+              await sender.sendPasswordReset({ name: user.name, email: user.email, url })
+            },
+          }
+        : {}),
+    },
+    ...(sender
+      ? {
+          emailVerification: {
+            sendOnSignUp: true,
+            sendOnSignIn: true,
+            sendVerificationEmail: async ({ user, url }: EmailHookData) => {
+              await sender.sendVerification({ name: user.name, email: user.email, url })
+            },
+          },
+        }
+      : {}),
     // Staff authorization must use fresh DB sessions. GET preserves DB; native POST renews.
     session: { cookieCache: { enabled: false }, deferSessionRefresh: true },
     databaseHooks: {
@@ -288,7 +327,6 @@ export const createAuth = (config: AuthConfig) => {
         },
       },
     },
-    emailAndPassword: { enabled: true, revokeSessionsOnPasswordReset: true },
     advanced: {
       // Keep security checks identical under NODE_ENV=test and production.
       disableOriginCheck: false,

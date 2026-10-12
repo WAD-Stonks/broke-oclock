@@ -1,4 +1,16 @@
 import {
+  accountPageQuerySchema,
+  accountProfileSchema,
+  accountVenuesQuerySchema,
+  accountVenuesResponseSchema,
+  bookmarkParamsSchema,
+  bookmarkStateSchema,
+  bookmarksResponseSchema,
+  createMerchantRequestBodySchema,
+  myMerchantRequestsResponseSchema,
+  submissionsResponseSchema,
+} from '@broke-oclock/contracts/account'
+import {
   type ApiErrorCode,
   apiErrorSchema,
   authMethodsResponseSchema,
@@ -256,6 +268,46 @@ export const createApiClient = (baseURL = '/api') => {
         const { venueId: id } = validateInput(venueParamsSchema, { venueId })
         return request(http.get(`/venues/${id}`), venueDetailResponseSchema)
       },
-    },
+      account: {
+        profile: () => request(http.get('/account/profile'), accountProfileSchema),
+        bookmarks: (input: QueryInput<typeof accountPageQuerySchema> = {}) => {
+          const query = validateInput(accountPageQuerySchema, input)
+          return request(http.get('/account/bookmarks', { params: query }), bookmarksResponseSchema)
+        },
+        saveDeal: (dealId: string) => {
+          const { dealId: id } = validateInput(bookmarkParamsSchema, { dealId })
+          return request(http.put(`/account/bookmarks/${id}`), bookmarkStateSchema)
+        },
+        unsaveDeal: (dealId: string) => {
+          const { dealId: id } = validateInput(bookmarkParamsSchema, { dealId })
+          return request(http.delete(`/account/bookmarks/${id}`), bookmarkStateSchema)
+        },
+        submissions: (input: QueryInput<typeof accountPageQuerySchema> = {}) => {
+          const query = validateInput(accountPageQuerySchema, input)
+          return request(
+            http.get('/account/submissions', { params: query }),
+            submissionsResponseSchema,
+          )
+        },
+        venues: (input: QueryInput<typeof accountVenuesQuerySchema> = {}) => {
+          const query = validateInput(accountVenuesQuerySchema, input)
+          return request(http.get('/account/venues', { params: query }), accountVenuesResponseSchema)
+        },
+        requestMerchantAccess: (input: SchemaInput<typeof createMerchantRequestBodySchema>) => {
+          const body = validateInput(createMerchantRequestBodySchema, input)
+          return request(
+            http.post('/account/merchant-requests', body),
+            platformMutationResponseSchema,
+          )
+        },
+        merchantRequests: (input: QueryInput<typeof accountPageQuerySchema> = {}) => {
+          const query = validateInput(accountPageQuerySchema, input)
+          return request(
+            http.get('/account/merchant-requests', { params: query }),
+            myMerchantRequestsResponseSchema,
+          )
+        },
+      },
+    }
   }
 }
