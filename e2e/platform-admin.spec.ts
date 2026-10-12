@@ -357,6 +357,7 @@ for (const width of [320, 390, 1280]) {
     page.on('pageerror', (error) => errors.push(error.message))
     await page.setViewportSize({ width, height: 850 })
     await page.goto('/')
+    await page.getByTestId('nav-toggle').click()
     await page.getByRole('link', { name: 'Platform admin', exact: true }).click()
     await expect(page).toHaveURL('/admin/accounts')
     await page.getByTestId(`account-${userA}`).click()

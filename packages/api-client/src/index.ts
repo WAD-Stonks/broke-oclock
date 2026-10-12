@@ -59,6 +59,7 @@ import {
   reviewMerchantRequestParamsSchema,
   revokeStallBodySchema,
 } from '@broke-oclock/contracts/platform-admin'
+import { venueDetailResponseSchema, venueParamsSchema } from '@broke-oclock/contracts/venues'
 import axios, { type AxiosResponse } from 'axios'
 
 export type ApiClientErrorCode = ApiErrorCode
@@ -275,6 +276,12 @@ export const createApiClient = (baseURL = '/api') => {
       },
 
       //platform deals endpoints
+    },
+    venues: {
+      get: (venueId: string) => {
+        const { venueId: id } = validateInput(venueParamsSchema, { venueId })
+        return request(http.get(`/venues/${id}`), venueDetailResponseSchema)
+      },
     },
     account: {
       profile: () => request(http.get('/account/profile'), accountProfileSchema),

@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import logoUrl from '@web/assets/logo.png'
 import AccountMenu from '@web/components/AccountMenu.vue'
-import { SITE_BRAND, SITE_MENU_ID, SITE_NAV_LINKS } from '@web/components/site-nav-links'
+import { SITE_MENU_ID, SITE_NAV_LINKS } from '@web/components/site-nav-links'
 import { useSiteMenu } from '@web/components/use-site-menu'
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -15,9 +16,9 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 <template>
   <header ref="root" class="site-header" :class="{ 'is-open': isOpen }">
     <nav aria-label="Primary navigation" class="site-pill" data-testid="primary-nav">
-      <RouterLink class="site-brand" to="/" @click="close"
-        >{{ SITE_BRAND.lead }}<span class="site-brand__mark">{{ SITE_BRAND.mark }}</span></RouterLink
-      >
+      <RouterLink class="site-brand" to="/" @click="close">
+        <img :src="logoUrl" alt="Lobangers" class="site-logo" />
+      </RouterLink>
 
       <button
         ref="toggleButton"
@@ -95,27 +96,9 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 }
 
 .site-brand {
-  font-family: var(--font-display);
-  font-size: var(--text-lg);
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  line-height: 1;
-  color: var(--ink);
-  text-decoration: none;
-  white-space: nowrap;
-}
-
-/* Sunny highlighter stroke behind the second half of the name. */
-.site-brand__mark {
-  padding: 0.1em 0.3em;
-  margin-left: 0.15em;
-  background: var(--sunny);
-  border-radius: var(--radius-pill);
-}
-
-.site-brand:hover .site-brand__mark,
-.site-brand:focus-visible .site-brand__mark {
-  background: var(--sunny-deep);
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-control);
 }
 
 /* Hamburger: three ink bars that fold into an X. */
@@ -310,5 +293,13 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
     animation: none;
     transition: none;
   }
+}
+
+.site-logo {
+  display: block;
+  height: 2rem;
+  aspect-ratio: 5.6;
+  object-fit: cover;
+  object-position: center 48%;
 }
 </style>
