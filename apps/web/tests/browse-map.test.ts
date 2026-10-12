@@ -4,11 +4,16 @@ import { createDefaultFilters, updateFilters } from '@web/modules/browse-map/fil
 import { useGeolocation } from '@web/modules/browse-map/use-geolocation'
 import routes from '@web/router/routes'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-
+import { ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 const rest = vi.hoisted(() => ({ list: vi.fn() }))
 vi.mock('@web/lib/api-client', () => ({ api: { deals: { list: rest.list } } }))
+
+// Synthetic signed-out session: these tests cover the shell, not authentication.
+vi.mock('@web/lib/auth-client', () => ({
+  authClient: { useSession: () => ref({ data: null, isPending: false }), signOut: vi.fn() },
+}))
 
 async function mountAt(path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes })

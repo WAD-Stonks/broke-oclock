@@ -18,11 +18,22 @@ let nextIp = 1
 let rejectMail = false
 // Mail is the only controlled external boundary. Codes never enter snapshots or logs.
 const mail = new Map<string, string>()
+// Verification links from sign-up/sign-in emails (the password path must verify before login).
+const verifications = new Map<string, string>()
 const mailbox = () => `otp-security-${randomUUID()}@example.test`
 const capture = (email: string) => {
   const otp = mail.get(email)
   if (!otp) throw new Error('Controlled delivery did not capture an OTP')
   return otp
+}
+const verifyEmail = async (email: string) => {
+  const link = verifications.get(email)
+  if (!link) throw new Error('Controlled delivery did not capture a verification link')
+  verifications.delete(email)
+  const url = new URL(link)
+  const response = await flow()(`${url.pathname}${url.search}`)
+  expect([200, 302]).toContain(response.status)
+  expect((await db.user.findUniqueOrThrow({ where: { email } })).emailVerified).toBe(true)
 }
 const wrongCode = (otp: string) => `${otp[0] === '0' ? '1' : '0'}${otp.slice(1)}`
 const cookieFrom = (response: Response) =>
@@ -87,6 +98,11 @@ beforeAll(async () => {
       if (rejectMail)
         return Response.json({ message: 'Controlled delivery rejected' }, { status: 503 })
       const body = JSON.parse(String(init?.body)) as { to: string; text: string }
+      const link = body.text.match(/https?:\/\/[^\s]+\/verify-email\?[^\s]+/u)?.[0]
+      if (link) {
+        verifications.set(body.to, link)
+        return Response.json({ id: randomUUID() })
+      }
       const otp = body.text.match(/\b[0-9]{6}\b/u)?.[0]
       if (!otp) throw new Error('Controlled mail has no six-digit code')
       mail.set(body.to, otp)
@@ -367,6 +383,9 @@ describe('native primary password and OTP cookies share the same fresh ADMIN gua
             })
           ).status,
         ).toBe(200)
+        // An unverified password identity is refused until its emailed link has been used.
+        expect((await flow()('/api/auth/sign-in/email', { email, password })).status).toBe(403)
+        await verifyEmail(email)
         login = await flow()('/api/auth/sign-in/email', { email, password })
       } else login = await redeem(email, await send(email))
       expect(login.status).toBe(200)
