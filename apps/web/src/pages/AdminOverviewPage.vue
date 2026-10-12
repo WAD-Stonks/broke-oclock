@@ -59,14 +59,14 @@ onUnmounted(() => { fence.dispose(); nativeFence.dispose() })
       <p class="small text-secondary">Snapshot: {{ overview.generatedAt }}</p>
       <section class="card p-3 mb-3" aria-labelledby="work-title">
         <h2 id="work-title" class="h4">Work awaiting review</h2>
-        <ul>
+        <ul class="admin-work-list">
           <li><a href="/admin/accounts?requestStatus=PENDING#merchant-requests">Pending merchant requests: {{ overview.counts.pendingMerchantRequests }}</a></li>
           <li><a href="/admin/ingestion?status=PENDING#queue-title">Pending imported drafts: {{ overview.counts.pendingImportedDrafts }}</a></li>
           <li>Failed imported posts: {{ overview.counts.failedImportedPosts }}</li>
         </ul>
         <p class="small mb-0">Failures count imported posts, not ingestion runs.</p>
       </section>
-      <section class="card p-3 mb-3" aria-labelledby="readiness-title">
+      <section class="card p-3 mb-3 admin-readiness" aria-labelledby="readiness-title">
         <h2 id="readiness-title" class="h4">Configuration readiness</h2>
         <p>Configured and wired does not establish live provider acceptance.</p>
         <dl>

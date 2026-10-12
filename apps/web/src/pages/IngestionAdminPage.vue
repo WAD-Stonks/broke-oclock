@@ -131,7 +131,7 @@ onUnmounted(() => { fence.dispose(); operationFence.dispose(); nativeFence.dispo
         <p v-if="runError" role="alert" class="text-danger mt-3 mb-0">{{ runError }}</p>
         <p v-if="runResult" role="status" class="mt-3 mb-0">Run {{ runResult.runId }}: {{ runResult.status }}. Fetched {{ runResult.fetchedCount }}, created {{ runResult.createdCount }}, updated {{ runResult.updatedCount }}, failed {{ runResult.failedCount }}.</p>
       </section>
-      <dl aria-label="Ingestion counts" class="row g-3 mb-4">
+      <dl aria-label="Ingestion counts" class="admin-counts row g-3 mb-4">
         <div v-for="(count, status) in dashboard.counts" :key="status" class="col-6 col-md-3">
           <div class="card p-3"><dd class="h2 mb-1">{{ count }}</dd><dt class="text-capitalize">{{ status }}</dt></div>
         </div>

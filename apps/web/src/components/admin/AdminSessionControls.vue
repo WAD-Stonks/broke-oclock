@@ -20,10 +20,12 @@ onUnmounted(() => { state.dispose(); window.removeEventListener('focus', focus) 
 </script>
 
 <template>
-  <section aria-label="Admin session" class="border rounded p-3 mb-3" :aria-busy="loading || pending">
+  <section aria-label="Admin session" class="admin-session" :aria-busy="loading || pending">
+    <div class="admin-session-copy">
     <p v-if="session" class="text-break mb-2">Signed in as {{ session.user.name }} ({{ session.user.email }}). Server authorization is checked separately.</p>
     <p v-else-if="loading" role="status">Checking current session…</p>
     <p v-if="notice" :role="uncertain ? 'alert' : 'status'">{{ notice }}</p>
+    </div>
     <div class="d-flex flex-wrap gap-2">
       <button data-testid="admin-sign-out" type="button" class="btn btn-outline-secondary" :disabled="pending" @click="state.signOut">{{ pending ? 'Signing out…' : uncertain ? 'Retry sign-out' : 'Sign out' }}</button>
       <button v-if="uncertain || !session" type="button" class="btn btn-link" :disabled="pending || loading" @click="state.refresh">Recheck session</button>
