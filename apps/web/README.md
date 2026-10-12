@@ -22,7 +22,8 @@ The Vite dev server binds to `localhost:5173` and proxies same-origin `/api` req
 
 ## Routes
 
-- `/` — starter home page
+- `/` — browse map landing page: full-bleed Leaflet map fitted to Singapore with floating filters and a list panel. Uses the `canvas` route layout from `src/router/layouts.ts`.
+- `/browse` — redirects to `/` so older links keep working
 - `/getting-started` — six-module ownership notes and folder path
 - `/:pathMatch(.*)*` — accessible 404 page
 

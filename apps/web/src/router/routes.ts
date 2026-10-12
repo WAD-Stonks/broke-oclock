@@ -1,8 +1,8 @@
 import AdminOverviewPage from '@web/pages/AdminOverviewPage.vue'
+import BrowsePage from '@web/pages/BrowsePage.vue'
 import DealsPage from '@web/pages/DealsPage.vue'
 import ForgotPasswordPage from '@web/pages/ForgotPasswordPage.vue'
 import GettingStartedPage from '@web/pages/GettingStartedPage.vue'
-import HomePage from '@web/pages/HomePage.vue'
 import IngestionAdminPage from '@web/pages/IngestionAdminPage.vue'
 import LoginPage from '@web/pages/LoginPage.vue'
 import MerchantAccessPage from '@web/pages/MerchantAccessPage.vue'
@@ -20,9 +20,16 @@ import type { RouteRecordRaw } from 'vue-router'
 const routes: RouteRecordRaw[] = [
   { path: '/admin', name: 'admin-overview', component: AdminOverviewPage },
   {
+    // The deal map is the landing page.
     path: '/',
-    name: 'home',
-    component: HomePage,
+    name: 'browse',
+    component: BrowsePage,
+    meta: { layout: 'canvas' },
+  },
+  {
+    // Older links and bookmarks still reach the map.
+    path: '/browse',
+    redirect: { name: 'browse' },
   },
   {
     path: '/getting-started',

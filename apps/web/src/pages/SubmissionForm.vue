@@ -1,14 +1,32 @@
-<!-- @ts-nocheck -->
 <script setup lang="ts">
 import { ref } from 'vue'
 
+type DealForm = {
+  merchantName: string
+  title: string
+  description: string
+  cuisine: string
+  originalPrice: string | number
+  promotionalPrice: string | number
+  location: string
+  photo: File | null
+}
+
+type FormErrors = Partial<Record<keyof DealForm, string>>
+
 const cuisines = [
-  'Chinese', 'Japanese', 'Korean', 'Western',
-  'Indian', 'Thai', 'Malay', 'Cafe & Desserts',
-  'Other'
+  'Chinese',
+  'Japanese',
+  'Korean',
+  'Western',
+  'Indian',
+  'Thai',
+  'Malay',
+  'Cafe & Desserts',
+  'Other',
 ]
 
-const deal = ref({
+const deal = ref<DealForm>({
   merchantName: '',
   title: '',
   description: '',
@@ -16,22 +34,23 @@ const deal = ref({
   originalPrice: '',
   promotionalPrice: '',
   location: '',
-  photo: null
+  photo: null,
 })
 
 const photoPreview = ref('')
-const errors = ref({})
+const errors = ref<FormErrors>({})
 const saving = ref(false)
 const message = ref('')
 
 // Load previously saved deals safely
-let savedDealsList = []
+// Existing entries can have any JSON shape; preserve them without a new storage schema.
+let savedDealsList: unknown[] = []
 
 try {
   const storedDeals = localStorage.getItem('student_deals')
 
   if (storedDeals) {
-    const parsedDeals = JSON.parse(storedDeals)
+    const parsedDeals: unknown = JSON.parse(storedDeals)
 
     if (Array.isArray(parsedDeals)) {
       savedDealsList = parsedDeals
@@ -50,15 +69,12 @@ try {
   message.value = 'Unable to load saved deals. Starting with an empty list.'
 }
 
-const savedDeals = ref(savedDealsList)
+const savedDeals = ref<unknown[]>(savedDealsList)
 
 // File handling
-function selectPhoto(event) {
-  let file = null
-
-  if (event.target.files && event.target.files.length > 0) {
-    file = event.target.files[0]
-  }
+function selectPhoto(event: Event) {
+  const input = event.target
+  const file = input instanceof HTMLInputElement ? (input.files?.[0] ?? null) : null
 
   if (file === null) {
     return
@@ -99,11 +115,7 @@ function validate() {
   const originalPrice = Number(deal.value.originalPrice)
   const promotionalPrice = Number(deal.value.promotionalPrice)
 
-  if (
-    deal.value.originalPrice === '' ||
-    !Number.isFinite(originalPrice) ||
-    originalPrice <= 0
-  ) {
+  if (deal.value.originalPrice === '' || !Number.isFinite(originalPrice) || originalPrice <= 0) {
     errors.value.originalPrice = 'Enter a valid original price.'
   }
 
@@ -113,8 +125,7 @@ function validate() {
     promotionalPrice < 0 ||
     promotionalPrice >= originalPrice
   ) {
-    errors.value.promotionalPrice =
-      'Promo price must be below the original price.'
+    errors.value.promotionalPrice = 'Promo price must be below the original price.'
   }
 
   if (!deal.value.location.trim()) {
@@ -125,7 +136,7 @@ function validate() {
 }
 
 // Save draft or local preview
-function saveDeal(status) {
+function saveDeal(status: 'draft' | 'preview') {
   message.value = ''
   errors.value = {}
 
@@ -137,21 +148,21 @@ function saveDeal(status) {
 
   try {
     // Get the original price
-    let originalPrice = null
+    let originalPrice: number | null = null
 
     if (deal.value.originalPrice !== '') {
       originalPrice = Number(deal.value.originalPrice)
     }
 
     // Get the promotional price
-    let promotionalPrice = null
+    let promotionalPrice: number | null = null
 
     if (deal.value.promotionalPrice !== '') {
       promotionalPrice = Number(deal.value.promotionalPrice)
     }
 
     // Get the photo filename
-    let photoName = null
+    let photoName: string | null = null
 
     if (deal.value.photo !== null) {
       photoName = deal.value.photo.name
@@ -167,11 +178,11 @@ function saveDeal(status) {
       promotionalPrice: promotionalPrice,
       location: deal.value.location.trim(),
       status: status === 'draft' ? 'draft' : 'local-preview',
-      photo: photoName
+      photo: photoName,
     }
 
     // Copy the existing deals into a new array
-    const updatedDeals = []
+    const updatedDeals: unknown[] = []
 
     for (let i = 0; i < savedDeals.value.length; i++) {
       updatedDeals.push(savedDeals.value[i])
@@ -181,10 +192,7 @@ function saveDeal(status) {
     updatedDeals.push(newDeal)
 
     // Save the updated list in localStorage
-    localStorage.setItem(
-      'student_deals',
-      JSON.stringify(updatedDeals)
-    )
+    localStorage.setItem('student_deals', JSON.stringify(updatedDeals))
 
     // Update the reactive array
     savedDeals.value = updatedDeals
@@ -193,10 +201,8 @@ function saveDeal(status) {
     if (status === 'draft') {
       message.value = 'Local draft saved!'
     } else {
-      message.value =
-        'Local preview saved! This deal has not been submitted to the community.'
+      message.value = 'Local preview saved! This deal has not been submitted to the community.'
     }
-
   } catch (error) {
     console.error('Unable to save the deal:', error)
     message.value = 'Unable to save the deal locally.'
