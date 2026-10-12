@@ -11,6 +11,7 @@
     "generate": "prisma generate",
     "validate": "prisma validate",
     "push": "prisma db push",
+    "studio": "prisma studio --hostname 127.0.0.1",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
