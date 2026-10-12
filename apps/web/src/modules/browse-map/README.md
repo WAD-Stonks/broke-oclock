@@ -37,8 +37,6 @@ The browse screen follows the "Bubbly" direction: a light paper-coloured basemap
 
 Selecting a pin flies the map to that outlet and opens the panel: an outlet with one deal opens that deal; an outlet with several shows its deals to choose from. Selecting any list row opens that deal at that outlet. Back from a deal returns to its outlet when the outlet has other deals, otherwise to the list, which stays open. A filter change that drops the outlet clears the selection by itself.
 
-Local data: run `pnpm run db:local`, then `pnpm run db:seed` (see the root README) for synthetic deals to render.
-
 ## Still student-owned and unimplemented
 
 - Deal photos in the drawer: `GET /api/deals` does not return uploaded images yet, so `DealDetail` shows a placeholder.
