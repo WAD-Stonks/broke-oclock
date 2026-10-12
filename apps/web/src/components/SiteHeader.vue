@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import logoUrl from '@web/assets/logo.png'
 import { RouterLink } from 'vue-router'
 </script>
 
@@ -9,11 +10,12 @@ import { RouterLink } from 'vue-router'
       class="container navbar navbar-expand-sm px-3 py-3"
       data-testid="primary-nav"
     >
-      <RouterLink class="navbar-brand fw-semibold text-primary" to="/">
-        Broke O'Clock
+      <RouterLink class="navbar-brand py-0" to="/">
+        <img :src="logoUrl" alt="Lobangers" class="site-logo" />
       </RouterLink>
       <div class="navbar-nav ms-auto flex-row flex-wrap gap-3">
         <RouterLink class="nav-link px-0" to="/">Home</RouterLink>
+        <RouterLink class="nav-link px-0" to="/deals">Deals</RouterLink>
         <RouterLink class="nav-link px-0" to="/getting-started">Getting started</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin">Admin overview</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin/accounts">Platform admin</RouterLink>
@@ -22,3 +24,13 @@ import { RouterLink } from 'vue-router'
     </nav>
   </header>
 </template>
+
+<style scoped>
+.site-logo {
+  display: block;
+  height: 2rem;
+  aspect-ratio: 5.6;
+  object-fit: cover;
+  object-position: center 48%;
+}
+</style>
