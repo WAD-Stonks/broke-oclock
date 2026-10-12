@@ -35,6 +35,17 @@ pnpm exec playwright install chromium
 - esbuild's platform binary comes from its pinned optional dependency. Keep optional dependencies enabled. Clean-store tests verify its API executes with install scripts disabled, so no lifecycle activation is required. Do not set `ESBUILD_BINARY_PATH` to an unverified/global executable.
 - Checked-in hosting commands keep automatic deployments disabled. Live provider overrides were not changed and must be reconciled separately before any authorized deployment.
 
+## Consistent formatting across devices
+
+`pnpm run lint` and `pnpm run format` use the lockfile-pinned Biome **2.5.12** and explicitly select root `biome.json`. Do not use a global Biome, `pnpm dlx biome`, or an editor's bundled formatter to judge the repository gate. Check the local binary with `pnpm exec biome --version` and reinstall from the frozen lockfile if it differs.
+
+- `.gitattributes` keeps detected text files LF on checkout, including with `core.autocrlf=true`; binary assets remain unchanged. `.editorconfig` and Biome also specify LF. Existing CRLF working files need `pnpm run format` for Biome-supported languages before checking.
+- Biome's `files.includes` owns lint/format exclusions. Local `.git/info/exclude`, ignore files and Git settings cannot silently hide source failures. Generated output, dependencies, test reports, `.local`, `.vercel` and secret files remain excluded explicitly. Keep this list current when adding a generated directory; do not rely only on `.gitignore`.
+- Explicit `--config-path=biome.json` prevents an inherited `BIOME_CONFIG_PATH` from replacing the project rules. Both commands check the whole repository, including newly authored source, and retain `--error-on-warnings` for lint.
+- VS Code should use the recommended `biomejs.biome` extension with the workspace's installed binary and checked-in settings. After updating dependencies, restart the Biome extension. The CLI gate remains authoritative.
+
+If results differ, compare the exact commit and dirty source, then run `pnpm --version`, `node --version`, `pnpm exec biome --version` and `pnpm run lint` from the repository root on both devices. A different branch or edited file is not a device-dependent formatter result. Do not weaken lint rules to reconcile outputs.
+
 ## Verification
 
 ```sh
