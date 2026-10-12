@@ -1,3 +1,4 @@
+```vue
 <script setup>
 import { ref } from 'vue'
 
@@ -23,12 +24,30 @@ const errors = ref({})
 const saving = ref(false)
 const message = ref('')
 
-// Load previously saved deals from localStorage
-const savedDeals = ref(
-  JSON.parse(localStorage.getItem('student_deals')? localStorage.getItem('student_deals') : '[]')
-)
+// Load previously saved deals safely
+let savedDealsList = []
 
-// file handling
+try {
+  const storedDeals = localStorage.getItem('student_deals')
+
+  if (storedDeals) {
+    const parsedDeals = JSON.parse(storedDeals)
+
+    if (Array.isArray(parsedDeals)) {
+      savedDealsList = parsedDeals
+    } else {
+      localStorage.setItem('student_deals', '[]')
+      message.value = 'Saved deals were invalid. Starting with an empty list.'
+    }
+  }
+} catch (error) {
+  localStorage.setItem('student_deals', '[]')
+  message.value = 'Unable to load saved deals. Starting with an empty list.'
+}
+
+const savedDeals = ref(savedDealsList)
+
+// File handling
 function selectPhoto(event) {
   const file = event.target.files?.[0]
 
@@ -50,7 +69,7 @@ function selectPhoto(event) {
   delete errors.value.photo
 }
 
-// validating if form is filled up correctly
+// Validate form
 function validate() {
   errors.value = {}
 
@@ -81,10 +100,7 @@ function validate() {
     deal.value.promotionalPrice === '' ||
     !Number.isFinite(promotionalPrice) ||
     promotionalPrice < 0 ||
-    (
-      Number.isFinite(originalPrice) &&
-      promotionalPrice >= originalPrice
-    )
+    promotionalPrice >= originalPrice
   ) {
     errors.value.promotionalPrice =
       'Promo price must be below the original price.'
@@ -97,12 +113,11 @@ function validate() {
   return Object.keys(errors.value).length === 0
 }
 
+// Save draft or local preview
 function saveDeal(status) {
   message.value = ''
   errors.value = {}
 
-  // Only validate when submitting a deal.
-  // Drafts can be saved with incomplete information.
   if (status !== 'draft' && !validate()) {
     return
   }
@@ -110,54 +125,48 @@ function saveDeal(status) {
   saving.value = true
 
   try {
-    // Create a deal object from the form
     const newDeal = {
       merchantName: deal.value.merchantName.trim(),
       title: deal.value.title.trim(),
       description: deal.value.description.trim(),
       cuisine: deal.value.cuisine,
 
-      originalPrice:
-        deal.value.originalPrice === ''
-          ? null
-          : Number(deal.value.originalPrice),
+      originalPrice: deal.value.originalPrice === ''
+        ? null
+        : Number(deal.value.originalPrice),
 
-      promotionalPrice:
-        deal.value.promotionalPrice === ''
-          ? null
-          : Number(deal.value.promotionalPrice),
+      promotionalPrice: deal.value.promotionalPrice === ''
+        ? null
+        : Number(deal.value.promotionalPrice),
 
       location: deal.value.location.trim(),
-      status: status,
-      photo: deal.photo?.name ?? null
+
+      // These are local prototype statuses
+      status: status === 'draft' ? 'draft' : 'local-preview',
+
+      // Save the filename
+      photo: deal.value.photo?.name ?? null
     }
 
-    // Create an updated list of deals
     const updatedDeals = [
       ...savedDeals.value,
       newDeal
     ]
 
-    // Save the updated list in localStorage
     localStorage.setItem(
       'student_deals',
       JSON.stringify(updatedDeals)
     )
 
-    // Update the reactive array
     savedDeals.value = updatedDeals
 
-    // Display a success message
     message.value = status === 'draft'
-      ? 'Draft saved!'
-      : 'Deal submitted!'
-
-    console.log(savedDeals.value)
+      ? 'Local draft saved!'
+      : 'Local preview saved! This deal has not been submitted to the community.'
 
   } catch (error) {
     console.error('Unable to save the deal:', error)
-    message.value = 'Unable to save the deal.'
-
+    message.value = 'Unable to save the deal locally.'
   } finally {
     saving.value = false
   }
@@ -173,55 +182,66 @@ function saveDeal(status) {
       <p class="text-secondary">
         Share a promotion with the student community.
       </p>
+
+      <p class="text-warning">
+        Prototype only: deals are saved in this browser and are not submitted to a server.
+      </p>
     </div>
 
-    <div v-if="message" class="alert alert-info">
+    <div v-if="message" class="alert alert-info" role="status">
       {{ message }}
     </div>
 
     <form
       class="card border-0 shadow-sm p-4"
-      @submit.prevent="saveDeal('unverified')"
+      @submit.prevent="saveDeal('preview')"
     >
 
       <h2 class="h5 mb-3">Merchant information</h2>
 
       <!-- Merchant name -->
       <div class="mb-3">
-        <label class="form-label" for="name">Merchant name *</label>
+        <label class="form-label" for="merchantName">Merchant name *</label>
 
         <input
+          id="merchantName"
           v-model="deal.merchantName"
           class="form-control"
           :class="{ 'is-invalid': errors.merchantName }"
+          :aria-invalid="!!errors.merchantName"
+          :aria-describedby="errors.merchantName ? 'merchantNameError' : undefined"
         />
 
-        <div class="invalid-feedback">
+        <div v-if="errors.merchantName" id="merchantNameError" class="invalid-feedback">
           {{ errors.merchantName }}
         </div>
       </div>
 
       <!-- Deal title -->
       <div class="mb-3">
-        <label class="form-label" for="name">Deal title *</label>
+        <label class="form-label" for="dealTitle">Deal title *</label>
 
         <input
+          id="dealTitle"
           v-model="deal.title"
           class="form-control"
           :class="{ 'is-invalid': errors.title }"
+          :aria-invalid="!!errors.title"
+          :aria-describedby="errors.title ? 'titleError' : undefined"
           placeholder="e.g. Student lunch set"
         />
 
-        <div class="invalid-feedback">
+        <div v-if="errors.title" id="titleError" class="invalid-feedback">
           {{ errors.title }}
         </div>
       </div>
 
       <!-- Description -->
       <div class="mb-3">
-        <label class="form-label" for="name">Description</label>
+        <label class="form-label" for="description">Description</label>
 
         <textarea
+          id="description"
           v-model="deal.description"
           class="form-control"
           rows="3"
@@ -231,25 +251,24 @@ function saveDeal(status) {
 
       <!-- Cuisine -->
       <div class="mb-3">
-        <label class="form-label" for="name">Cuisine *</label>
+        <label class="form-label" for="cuisine">Cuisine *</label>
 
         <select
+          id="cuisine"
           v-model="deal.cuisine"
           class="form-select"
           :class="{ 'is-invalid': errors.cuisine }"
+          :aria-invalid="!!errors.cuisine"
+          :aria-describedby="errors.cuisine ? 'cuisineError' : undefined"
         >
           <option value="" disabled>Select cuisine</option>
 
-          <option
-            v-for="cuisine in cuisines"
-            :key="cuisine"
-            :value="cuisine"
-          >
+          <option v-for="cuisine in cuisines" :key="cuisine" :value="cuisine">
             {{ cuisine }}
           </option>
         </select>
 
-        <div class="invalid-feedback">
+        <div v-if="errors.cuisine" id="cuisineError" class="invalid-feedback">
           {{ errors.cuisine }}
         </div>
       </div>
@@ -258,55 +277,63 @@ function saveDeal(status) {
       <h2 class="h5 mt-3 mb-3">Promotional pricing</h2>
 
       <div class="row g-3">
-
         <div class="col-md-6">
-          <label class="form-label" for="name">Original price (S$) *</label>
+          <label class="form-label" for="originalPrice">Original price (S$) *</label>
 
           <input
+            id="originalPrice"
             v-model="deal.originalPrice"
             type="number"
             min="0.01"
             step="0.01"
             class="form-control"
             :class="{ 'is-invalid': errors.originalPrice }"
+            :aria-invalid="!!errors.originalPrice"
+            :aria-describedby="errors.originalPrice ? 'originalPriceError' : undefined"
           />
 
-          <div class="invalid-feedback">
+          <div v-if="errors.originalPrice" id="originalPriceError" class="invalid-feedback">
             {{ errors.originalPrice }}
           </div>
         </div>
 
         <div class="col-md-6">
-          <label class="form-label" for="name">Promo price (S$) *</label>
+          <label class="form-label" for="promotionalPrice">Promo price (S$) *</label>
 
           <input
+            id="promotionalPrice"
             v-model="deal.promotionalPrice"
             type="number"
             min="0"
             step="0.01"
             class="form-control"
             :class="{ 'is-invalid': errors.promotionalPrice }"
+            :aria-invalid="!!errors.promotionalPrice"
+            :aria-describedby="errors.promotionalPrice ? 'promoPriceError' : undefined"
           />
 
-          <div class="invalid-feedback">
+          <div v-if="errors.promotionalPrice" id="promoPriceError" class="invalid-feedback">
             {{ errors.promotionalPrice }}
           </div>
         </div>
-
       </div>
 
       <!-- Deal photo -->
       <div class="mt-4 mb-3">
-        <label class="form-label" for="name">Deal photo</label>
+        <label class="form-label" for="photo">Deal photo</label>
 
         <input
+          id="photo"
           type="file"
           accept="image/*"
           class="form-control"
+          :class="{ 'is-invalid': errors.photo }"
+          :aria-invalid="!!errors.photo"
+          :aria-describedby="errors.photo ? 'photoError' : undefined"
           @change="selectPhoto"
         />
 
-        <div class="text-danger small">
+        <div v-if="errors.photo" id="photoError" class="invalid-feedback">
           {{ errors.photo }}
         </div>
 
@@ -323,27 +350,29 @@ function saveDeal(status) {
       <h2 class="h5 mt-3 mb-3">Deal location</h2>
 
       <div class="mb-4">
-        <label class="form-label" for="name">Search or add location *</label>
+        <label class="form-label" for="location">Search or add location *</label>
 
         <input
+          id="location"
           v-model="deal.location"
           class="form-control"
           :class="{ 'is-invalid': errors.location }"
+          :aria-invalid="!!errors.location"
+          :aria-describedby="errors.location ? 'locationError' : 'locationHelp'"
           placeholder="Enter a building, street or postal code"
         />
 
-        <div class="form-text">
-          Choose a suggested OneMap result to confirm the location.
+        <div v-if="errors.location" id="locationError" class="invalid-feedback">
+          {{ errors.location }}
         </div>
 
-        <div class="text-danger small">
-          {{ errors.location }}
+        <div id="locationHelp" class="form-text">
+          OneMap suggestions are not connected yet.
         </div>
       </div>
 
       <!-- Action buttons -->
       <div class="d-flex flex-wrap gap-2 justify-content-end">
-
         <button
           type="button"
           class="btn btn-outline-secondary"
@@ -358,11 +387,11 @@ function saveDeal(status) {
           class="btn btn-primary"
           :disabled="saving"
         >
-          {{ saving ? 'Saving...' : 'Submit deal' }}
+          {{ saving ? 'Saving...' : 'Save local preview' }}
         </button>
-
       </div>
 
     </form>
   </main>
 </template>
+
