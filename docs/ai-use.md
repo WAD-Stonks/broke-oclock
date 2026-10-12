@@ -8,7 +8,7 @@ The original starter did not implement product workflows. Subsequent user-reques
 
 The user-requested package-manager migration was also AI-assisted tooling work: pnpm workspace/lockfile configuration, runtime separation, lifecycle and audit policy, direct dependency declarations, CI/hosting commands, regression tests and documentation. It does not add assessed product logic.
 
-The requested cross-device formatting correction is AI-assisted tooling and regression-test work: repository-controlled LF checkouts, explicit Biome configuration and artifact exclusions, plus reproducible Git/Biome fixtures. It does not modify student-owned feature behavior or relax lint rules.
+The requested cross-device formatting correction is AI-assisted configuration work: repository-controlled LF checkouts, explicit Biome configuration and artifact exclusions. It does not modify student-owned feature behavior or relax lint rules.
 
 Vercel assistance additionally supplies project settings, same-origin/SPA routing, an Express export and a self-contained Node ESM build with Prisma engine packaging and isolated runtime tests. The separately approved Node runtime migration replaces legacy execution/build tooling with pinned tsx/esbuild and Node child-process orchestration, removes the runtime bootstrap/lifecycle exception and adds clean-store, signal and standalone production-artifact regressions. No deployment or assessed feature workflow is supplied by that configuration.
 
