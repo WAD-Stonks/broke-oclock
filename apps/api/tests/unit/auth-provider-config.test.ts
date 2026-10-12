@@ -10,7 +10,7 @@ const providers = {
   GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
   GOOGLE_CLIENT_SECRET: 'test-only-google-secret',
   RESEND_API_KEY: 're_test_only_key',
-  EMAIL_FROM: 'Broke O Clock <auth@example.test>',
+  EMAIL_FROM: 'Lobangers <auth@example.test>',
 }
 
 describe('optional authentication provider configuration', () => {
