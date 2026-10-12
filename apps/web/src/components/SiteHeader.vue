@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SITE_MENU_ID, SITE_NAV_LINKS, SITE_TITLE } from '@web/components/site-nav-links'
+import { SITE_BRAND, SITE_MENU_ID, SITE_NAV_LINKS } from '@web/components/site-nav-links'
 import { useSiteMenu } from '@web/components/use-site-menu'
 import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -14,7 +14,9 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 <template>
   <header ref="root" class="site-header" :class="{ 'is-open': isOpen }">
     <nav aria-label="Primary navigation" class="site-pill" data-testid="primary-nav">
-      <RouterLink class="site-brand" to="/" @click="close">{{ SITE_TITLE }}</RouterLink>
+      <RouterLink class="site-brand" to="/" @click="close"
+        >{{ SITE_BRAND.lead }}<span class="site-brand__mark">{{ SITE_BRAND.mark }}</span></RouterLink
+      >
 
       <button
         ref="toggleButton"
@@ -56,20 +58,18 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 </template>
 
 <style scoped>
-/* Floating pill, Google-Maps style: fixed over the page, above Leaflet's controls (z 1000). */
+/* Floating white card, Google-Maps style: fixed over the page, above Leaflet's controls (z 1000). */
 .site-header {
-  padding: 0 var(--spacing-20);
-  --pill-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --pill-duration: 420ms;
+  --card-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --card-duration: 420ms;
   --menu-duration: 360ms;
   --stagger: 40ms;
   position: fixed;
-  top: var(--spacing-20);
+  top: var(--space-5);
+  left: var(--space-5);
   z-index: 1100;
-  width: min(calc(100% - 2 * var(--spacing-20)), 22rem);
-  font-family: var(--font-founders-grotesk);
-  letter-spacing: -0.02em;
-  font-feature-settings: "clig", "liga";
+  width: min(calc(100% - 2 * var(--space-5)), 22rem);
+  font-family: var(--font-sans);
 }
 
 .site-pill {
@@ -77,65 +77,78 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--spacing-14);
-  padding: var(--spacing-7) var(--spacing-7) var(--spacing-7) var(--spacing-29);
-  background: var(--color-cream);
-  border: 1.5px solid var(--color-ash);
-  border-radius: var(--radius-pills);
-  animation: pill-enter var(--pill-duration) var(--pill-ease) both;
-  transition: border-color 240ms var(--pill-ease);
-}
-
-.is-open .site-pill {
-  border-color: var(--color-voltage-blue);
+  gap: var(--space-4);
+  height: 4rem;
+  padding: 0 var(--space-3) 0 var(--space-6);
+  background: var(--paper-white);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  animation: card-enter var(--card-duration) var(--card-ease) both;
 }
 
 .site-brand {
-  font-size: var(--text-body);
-  font-weight: var(--font-weight-light);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
   line-height: 1;
-  color: var(--color-voltage-blue);
+  color: var(--ink);
   text-decoration: none;
   white-space: nowrap;
 }
 
-/* Hamburger: three hairline bars that fold into an X. */
+/* Sunny highlighter stroke behind the second half of the name. */
+.site-brand__mark {
+  padding: 0.1em 0.3em;
+  margin-left: 0.15em;
+  background: var(--sunny);
+  border-radius: var(--radius-pill);
+}
+
+.site-brand:hover .site-brand__mark,
+.site-brand:focus-visible .site-brand__mark {
+  background: var(--sunny-deep);
+}
+
+/* Hamburger: three ink bars that fold into an X. */
 .site-toggle {
   position: relative;
   flex: 0 0 auto;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   padding: 0;
   background: transparent;
-  border: 1.5px solid transparent;
-  border-radius: var(--radius-pills);
+  border: 0;
+  border-radius: var(--radius-control);
   cursor: pointer;
-  transition: border-color 240ms var(--pill-ease);
+  transition: background-color 200ms ease;
 }
 
-.site-toggle:hover {
-  border-color: var(--color-ash);
+.site-toggle:hover,
+.is-open .site-toggle {
+  background: var(--paper);
 }
 
 .site-toggle__bar {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 1.125rem;
-  height: 1.5px;
-  background: var(--color-voltage-blue);
+  width: 1.375rem;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 1px;
   transform: translate(-50%, -50%) translateY(var(--offset, 0));
   transition:
-    transform 320ms var(--pill-ease),
+    transform 320ms var(--card-ease),
     opacity 200ms ease;
 }
 
 .site-toggle__bar:nth-child(1) {
-  --offset: -0.375rem;
+  --offset: -0.4375rem;
 }
 
 .site-toggle__bar:nth-child(3) {
-  --offset: 0.375rem;
+  --offset: 0.4375rem;
 }
 
 .is-open .site-toggle__bar:nth-child(1) {
@@ -151,83 +164,82 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
   transform: translate(-50%, -50%) rotate(-45deg);
 }
 
-/* Flat panel beneath the pill: hairline ash rules, cream surface, no elevation.
-   Radius rule (DESIGN.md): interactive pills/buttons are 60px, card-like panels are 0. */
+/* Menu card beneath the header: same white surface and radius, rows separated by hairlines. */
 .site-menu {
   position: absolute;
-  top: calc(100% + var(--spacing-11));
+  top: calc(100% + var(--space-3));
   right: 0;
   left: 0;
   margin: 0;
-  padding: 0;
+  padding: var(--space-2);
   list-style: none;
-  background: var(--color-cream);
-  border: 1.5px solid var(--color-ash);
+  background: var(--paper-white);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   transform-origin: top center;
-}
-
-.site-menu__item + .site-menu__item {
-  border-top: 1.5px solid var(--color-ash);
 }
 
 .site-menu__link {
   position: relative;
   display: block;
-  padding: var(--spacing-14) var(--spacing-29);
-  font-size: var(--text-body-sm);
-  font-weight: var(--font-weight-regular);
-  line-height: var(--leading-body-sm);
-  text-transform: uppercase;
-  color: var(--color-voltage-blue);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+  font-size: var(--text-md);
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--ink);
   text-decoration: none;
+  border-radius: var(--radius-control);
   transition:
-    padding-left 240ms var(--pill-ease),
+    background-color 160ms ease,
     color 160ms ease;
 }
 
+/* Coral dot marks the current page. */
 .site-menu__link::before {
   content: "";
   position: absolute;
   top: 50%;
-  left: var(--spacing-14);
-  width: 0.375rem;
-  height: 0.375rem;
-  border-radius: var(--radius-pills);
-  background: var(--color-voltage-blue);
+  left: var(--space-3);
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--coral);
   transform: translateY(-50%) scale(0);
+  transition: transform 200ms var(--card-ease);
 }
 
 .site-menu__link:hover,
 .site-menu__link:focus-visible {
-  padding-left: var(--spacing-35);
+  background: var(--paper);
+}
+
+.site-menu__link[aria-current="page"] {
+  font-weight: 600;
+  color: var(--coral);
 }
 
 .site-menu__link[aria-current="page"]::before {
   transform: translateY(-50%) scale(1);
 }
 
-.site-menu__link[aria-current="page"] {
-  color: var(--color-ink);
-}
-
-/* Panel + staggered rows. */
+/* Card + staggered rows. */
 .site-menu-enter-active,
 .site-menu-leave-active {
   transition:
-    opacity var(--menu-duration) var(--pill-ease),
-    transform var(--menu-duration) var(--pill-ease);
+    opacity var(--menu-duration) var(--card-ease),
+    transform var(--menu-duration) var(--card-ease);
 }
 
 .site-menu-enter-from,
 .site-menu-leave-to {
   opacity: 0;
-  transform: translateY(-0.5rem) scaleY(0.96);
+  transform: translateY(-0.5rem) scale(0.97);
 }
 
 .site-menu-enter-active .site-menu__item {
   transition:
     opacity var(--menu-duration) ease,
-    transform var(--menu-duration) var(--pill-ease);
+    transform var(--menu-duration) var(--card-ease);
   transition-delay: calc(var(--i) * var(--stagger));
 }
 
@@ -240,7 +252,7 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
   --menu-duration: 200ms;
 }
 
-@keyframes pill-enter {
+@keyframes card-enter {
   from {
     opacity: 0;
     transform: translateY(-0.75rem);
@@ -254,7 +266,7 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 
 @media (prefers-reduced-motion: reduce) {
   .site-header {
-    --pill-duration: 0ms;
+    --card-duration: 0ms;
     --menu-duration: 0ms;
     --stagger: 0ms;
   }

@@ -90,7 +90,7 @@ The API config loader consumes these settings. A missing/placeholder token disab
 
 ## Pending choices / things not to add yet
 - **Normal-user verification and account security:** native OTP-based admin sign-in/recovery is locally integrated; full normal-user signup/verification/security screens and verified sender-domain setup remain separate work. Basic password sessions work without email; see the Resend section below.
-- **Web map:** Leaflet and browser geolocation need no Google Maps key. The browse map prefers CARTO Dark Matter tiles when `VITE_CARTO_API_KEY` is set and falls back to keyless OneMap tiles otherwise. The CARTO key is a publishable browser key, so restrict it to the site's domains in the CARTO dashboard and enter the production value in the Vercel web project. Do not duplicate private OneMap ingestion credentials into VITE_* variables.
+- **Web map:** Leaflet and browser geolocation need no Google Maps key. The browse map prefers CARTO Positron (light) tiles when `VITE_CARTO_API_KEY` is set and falls back to keyless OneMap Grey tiles otherwise. The CARTO key is a publishable browser key, so restrict it to the site's domains in the CARTO dashboard and enter the production value in the Vercel web project. Do not duplicate private OneMap ingestion credentials into VITE_* variables.
 - **Venue/feed/search, comments, bookmarks:** reuse the database/auth boundary; they do not each need another external-service key.
 
 ## Completeness and safety checks

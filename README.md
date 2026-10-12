@@ -100,7 +100,7 @@ pnpm is the only package manager. `pnpm-workspace.yaml` disables automatic insta
 
 ### Development seed data
 
-With `pnpm run db:local` running in one terminal, `pnpm run db:seed` loads about 55 synthetic deals placed at real Singapore outlets (approximate coordinates) into the local database only. It refuses any non-local `DATABASE_URL`. The data mixes current, expired, upcoming and open-ended validity, selected-outlet, all-outlet, online and no-fixed-location applicability, and approved, pending, rejected and hidden review states, so discovery queries must filter correctly. Rerunning replaces the seed deals and keeps seed merchants/venues in place. Every description is labelled synthetic; these are not real promotions and seed users cannot sign in.
+With `pnpm run db:local` running in one terminal, `pnpm run db:seed` loads about 55 synthetic deals placed at real Singapore outlets (approximate coordinates) into the local database only. It refuses any non-local `DATABASE_URL`. The data mixes current, expired, upcoming and open-ended validity, selected-outlet, all-outlet, online and no-fixed-location applicability, and approved, pending, rejected and hidden review states, so discovery queries must filter correctly. Rerunning replaces the seed deals and keeps seed merchants/venues in place. Every reviewed seed deal carries a synthetic-data marker in its staff-only review note, so public descriptions read like real listings; these are not real promotions and seed users cannot sign in.
 
 `setup` preserves an existing `.env`, otherwise creates an ignored local configuration with a random auth secret, and generates Prisma Client. It does not provision Atlas, promote an administrator, seed deals, activate imports or send email.
 

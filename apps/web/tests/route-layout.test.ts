@@ -11,8 +11,8 @@ describe('route layouts', () => {
     expect(routeLayout({ meta: { layout: 'canvas' } })).toBe('canvas')
   })
 
-  it('gives only the browse route the full-bleed canvas', () => {
+  it('gives only the browse landing route the full-bleed canvas', () => {
     const canvasRoutes = routes.filter((route) => route.meta?.layout === 'canvas')
-    expect(canvasRoutes.map((route) => route.path)).toEqual(['/browse'])
+    expect(canvasRoutes.map((route) => route.path)).toEqual(['/'])
   })
 })

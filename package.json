@@ -43,6 +43,7 @@
     "mongodb-memory-server": "11.2.0",
     "vitest": "4.1.11",
     "tsx": "4.23.15",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "prisma": "8.0.0-rc.22"
   }
 }

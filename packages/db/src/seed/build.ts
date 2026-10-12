@@ -92,7 +92,8 @@ const validityFields = (validity: SeedValidity, now: Date) =>
 const reviewFields = (deal: SeedDeal, createdAt: Date) => {
   const reviewedAt = new Date(createdAt.getTime() + DAY_MS)
   const reviewed = { reviewedVersion: 1, reviewedById: SEED_USERS.reviewer.id, reviewedAt }
-  const note = deal.reviewNote ?? null
+  // The synthetic-data marker lives in the staff-only review note, never in public text.
+  const note = deal.reviewNote ? `${deal.reviewNote} ${SEED_NOTE}` : SEED_NOTE
   switch (deal.review) {
     case 'APPROVED':
       return {
@@ -132,7 +133,7 @@ const buildDeal = (
   return {
     id: seedObjectId('deal', index),
     title: deal.title,
-    description: `${deal.description} ${SEED_NOTE}`,
+    description: deal.description,
     category: deal.category,
     offerType: deal.offerType,
     terms: deal.terms ?? null,
