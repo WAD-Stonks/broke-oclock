@@ -45,6 +45,7 @@ import {
   reviewMerchantRequestParamsSchema,
   revokeStallBodySchema,
 } from '@broke-oclock/contracts/platform-admin'
+import { venueDetailResponseSchema, venueParamsSchema } from '@broke-oclock/contracts/venues'
 import axios, { type AxiosResponse } from 'axios'
 
 export type ApiClientErrorCode = ApiErrorCode
@@ -248,6 +249,12 @@ export const createApiClient = (baseURL = '/api') => {
       audit: (input: QueryInput<typeof platformAuditQuerySchema> = {}) => {
         const query = validateInput(platformAuditQuerySchema, input)
         return request(http.get('/admin/audit', { params: query }), platformAuditResponseSchema)
+      },
+    },
+    venues: {
+      get: (venueId: string) => {
+        const { venueId: id } = validateInput(venueParamsSchema, { venueId })
+        return request(http.get(`/venues/${id}`), venueDetailResponseSchema)
       },
     },
   }
