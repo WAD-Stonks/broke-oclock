@@ -66,7 +66,12 @@ const routes: RouteRecordRaw[] = [
   },
   { path: '/reset-password', name: 'reset-password', component: ResetPasswordPage },
   { path: '/me/profile', name: 'profile', component: ProfilePage, meta: { requiresAuth: true } },
-  { path: '/submit-deal', name: 'submit-deal', component: SubmissionForm, meta: { requiresAuth: true }, }
+  {
+    path: '/submit-deal',
+    name: 'submit-deal',
+    component: SubmissionForm,
+    meta: { requiresAuth: true },
+  },
 ]
 
 export default routes
