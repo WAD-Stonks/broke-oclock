@@ -18,6 +18,7 @@ const validity = computed(() => validityLabel(props.deal))
     <div class="card-body d-flex flex-column gap-2">
       <span class="badge text-bg-light border align-self-start">{{ deal.category }}</span>
       <h3 class="h6 fw-semibold mb-0 venue-deal-title">{{ deal.title }}</h3>
+      <slot name="meta" />
       <p v-if="offer" class="fs-5 fw-bold text-primary mb-0">{{ offer }}</p>
       <p class="small text-secondary mb-0 mt-auto">{{ validity }}</p>
     </div>
