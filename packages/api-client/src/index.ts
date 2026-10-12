@@ -291,7 +291,10 @@ export const createApiClient = (baseURL = '/api') => {
         },
         venues: (input: QueryInput<typeof accountVenuesQuerySchema> = {}) => {
           const query = validateInput(accountVenuesQuerySchema, input)
-          return request(http.get('/account/venues', { params: query }), accountVenuesResponseSchema)
+          return request(
+            http.get('/account/venues', { params: query }),
+            accountVenuesResponseSchema,
+          )
         },
         requestMerchantAccess: (input: SchemaInput<typeof createMerchantRequestBodySchema>) => {
           const body = validateInput(createMerchantRequestBodySchema, input)
@@ -308,6 +311,6 @@ export const createApiClient = (baseURL = '/api') => {
           )
         },
       },
-    }
+    },
   }
 }
