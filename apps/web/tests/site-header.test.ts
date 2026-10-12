@@ -1,8 +1,14 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import App from '@web/App.vue'
 import routes from '@web/router/routes'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
+
+// Synthetic signed-out session: these tests cover the shell, not authentication.
+vi.mock('@web/lib/auth-client', () => ({
+  authClient: { useSession: () => ref({ data: null, isPending: false }), signOut: vi.fn() },
+}))
 
 const NAV = '[data-testid="primary-nav"]'
 const TOGGLE = '[data-testid="nav-toggle"]'
@@ -34,7 +40,7 @@ describe('site header pill', () => {
     wrapper.unmount()
   })
 
-  it('reveals every destination behind the hamburger', async () => {
+  it('reveals every destination and the sign-in links behind the hamburger', async () => {
     const { wrapper } = await mountAt('/')
 
     await wrapper.get(TOGGLE).trigger('click')
@@ -51,6 +57,8 @@ describe('site header pill', () => {
       '/admin',
       '/admin/accounts',
       '/admin/ingestion',
+      '/login',
+      '/register',
     ])
     expect(menu.get('a[href="/"]').attributes('aria-current')).toBe('page')
     wrapper.unmount()

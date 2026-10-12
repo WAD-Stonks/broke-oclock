@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AccountMenu from '@web/components/AccountMenu.vue'
 import { SITE_BRAND, SITE_MENU_ID, SITE_NAV_LINKS } from '@web/components/site-nav-links'
 import { useSiteMenu } from '@web/components/use-site-menu'
 import { ref } from 'vue'
@@ -50,6 +51,13 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
             <RouterLink class="site-menu__link" :to="link.to" @click="close">
               {{ link.label }}
             </RouterLink>
+          </li>
+          <li
+            class="site-menu__item site-menu__account"
+            :style="{ '--i': SITE_NAV_LINKS.length }"
+            data-testid="nav-account"
+          >
+            <AccountMenu />
           </li>
         </ul>
       </Transition>
@@ -179,7 +187,24 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
   transform-origin: top center;
 }
 
-.site-menu__link {
+/* Account rows come from the shared AccountMenu, so they are styled through its link class. */
+.site-menu__account {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--hairline);
+}
+
+.site-menu__account :deep(.nav-link) {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+
+.site-menu__link,
+.site-menu__account :deep(.nav-link) {
   position: relative;
   display: block;
   padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
@@ -195,7 +220,8 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 }
 
 /* Coral dot marks the current page. */
-.site-menu__link::before {
+.site-menu__link::before,
+.site-menu__account :deep(.nav-link)::before {
   content: "";
   position: absolute;
   top: 50%;
@@ -209,16 +235,20 @@ const { isOpen, close, toggle } = useSiteMenu({ root, toggle: toggleButton, pane
 }
 
 .site-menu__link:hover,
-.site-menu__link:focus-visible {
+.site-menu__link:focus-visible,
+.site-menu__account :deep(.nav-link:hover),
+.site-menu__account :deep(.nav-link:focus-visible) {
   background: var(--paper);
 }
 
-.site-menu__link[aria-current="page"] {
+.site-menu__link[aria-current="page"],
+.site-menu__account :deep(.nav-link[aria-current="page"]) {
   font-weight: 600;
   color: var(--coral);
 }
 
-.site-menu__link[aria-current="page"]::before {
+.site-menu__link[aria-current="page"]::before,
+.site-menu__account :deep(.nav-link[aria-current="page"])::before {
   transform: translateY(-50%) scale(1);
 }
 
