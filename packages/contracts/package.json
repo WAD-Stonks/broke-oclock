@@ -6,7 +6,8 @@
   "exports": {
     "./api": "./src/api.ts",
     "./ingestion": "./src/ingestion.ts",
-    "./platform-admin": "./src/platform-admin.ts"
+    "./platform-admin": "./src/platform-admin.ts",
+    "./account": "./src/account.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"

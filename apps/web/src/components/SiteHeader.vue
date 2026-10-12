@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AccountMenu from '@web/components/AccountMenu.vue'
 import { RouterLink } from 'vue-router'
 </script>
 
@@ -18,6 +19,7 @@ import { RouterLink } from 'vue-router'
         <RouterLink class="nav-link px-0" to="/admin">Admin overview</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin/accounts">Platform admin</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin/ingestion">Ingestion admin</RouterLink>
+        <AccountMenu />
       </div>
     </nav>
   </header>

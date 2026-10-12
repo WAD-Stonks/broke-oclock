@@ -259,7 +259,7 @@ test('connected password admin reaches counts and deep links then loses permissi
   await page.getByLabel('Password', { exact: true }).fill(passwordAdmin.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await overview(page)
-  expect(await identity(page)).toEqual({ id: passwordAdmin.id, role: 'ADMIN', verified: false })
+  expect(await identity(page)).toEqual({ id: passwordAdmin.id, role: 'ADMIN', verified: true })
   await page.locator('a[href="/admin/accounts?requestStatus=PENDING#merchant-requests"]').click()
   await expect(page.locator('#request-status')).toHaveValue('PENDING')
   await expect(page.locator('#merchant-requests')).toBeVisible()
