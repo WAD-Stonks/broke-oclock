@@ -217,6 +217,7 @@ export const listReports = (
         select: {
           id: true,
           dealId: true,
+          deal: { select: { id: true, title: true, description: true, deletedAt: true } },
           reason: true,
           details: true,
           status: true,
@@ -230,6 +231,16 @@ export const listReports = (
         select: {
           id: true,
           commentId: true,
+          comment: {
+            select: {
+              id: true,
+              body: true,
+              deletedAt: true,
+              hiddenAt: true,
+              author: { select: { name: true } },
+              deal: { select: { id: true, title: true, description: true, deletedAt: true } },
+            },
+          },
           reason: true,
           details: true,
           status: true,
@@ -242,11 +253,20 @@ export const listReports = (
         ...report,
         targetType: 'DEAL' as const,
         targetId: report.dealId,
+        contextComment: null,
       })),
       ...comments.map((report) => ({
         ...report,
         targetType: 'COMMENT' as const,
         targetId: report.commentId,
+        deal: report.comment.deal,
+        contextComment: {
+          id: report.comment.id,
+          body: report.comment.body,
+          authorName: report.comment.author.name,
+          deletedAt: report.comment.deletedAt?.toISOString() ?? null,
+          hiddenAt: report.comment.hiddenAt?.toISOString() ?? null,
+        },
       })),
     ].sort((a, b) => b.id.localeCompare(a.id))
     const page = combined.slice(0, query.limit)
@@ -262,6 +282,11 @@ export const listReports = (
           id: report.id,
           targetType: report.targetType,
           targetId: report.targetId,
+          deal: {
+            ...report.deal,
+            deletedAt: report.deal.deletedAt?.toISOString() ?? null,
+          },
+          comment: report.contextComment,
           reason: report.reason,
           details: report.details,
           status: report.status,
@@ -278,36 +303,39 @@ export const moderateReport = (
   actorId: string,
   kind: 'DEAL' | 'COMMENT',
   reportId: string,
-  input: { status: 'RESOLVED' | 'DISMISSED'; note: string; hide: boolean },
+  input: { status: 'RESOLVED' | 'DISMISSED'; note: string; delete: boolean },
 ) =>
   db.$transaction(async (tx) => {
     await requireStaff(tx, actorId)
-    if (input.hide && input.status === 'DISMISSED')
-      throw new DomainError('BAD_REQUEST', 'Dismissed reports cannot hide content')
+    if (input.delete && input.status === 'DISMISSED')
+      throw new DomainError('BAD_REQUEST', 'Dismissed reports cannot delete content')
     if (kind === 'DEAL') {
       const report = await tx.dealReport.findUnique({ where: { id: reportId } })
       if (!report) throw new DomainError('NOT_FOUND', 'Report not found')
       if (report.status !== 'OPEN') throw new DomainError('CONFLICT', 'Report already reviewed')
-      if (input.hide) {
+      if (input.delete) {
         const deal = await tx.deal.findUnique({ where: { id: report.dealId } })
         if (!deal) throw new DomainError('NOT_FOUND', 'Deal not found')
-        await tx.deal.update({ where: { id: deal.id }, data: { reviewStatus: 'HIDDEN' } })
+        await tx.deal.update({ where: { id: deal.id }, data: { deletedAt: new Date() } })
       }
-      await tx.dealReport.update({
-        where: { id: report.id },
-        data: {
-          status: input.status,
-          resolution: input.note,
-          resolvedAt: new Date(),
-          resolvedById: actorId,
-        },
-      })
+      const resolution = {
+        status: input.status,
+        resolution: input.note,
+        resolvedAt: new Date(),
+        resolvedById: actorId,
+      }
+      if (input.delete)
+        await tx.dealReport.updateMany({
+          where: { dealId: report.dealId, status: 'OPEN' },
+          data: resolution,
+        })
+      else await tx.dealReport.update({ where: { id: report.id }, data: resolution })
       await tx.communityModerationAudit.create({
         data: {
           actorId,
           targetType: kind,
           targetId: report.dealId,
-          action: input.hide ? 'HIDE_AND_REVIEW' : 'REVIEW',
+          action: input.delete ? 'DELETE_AND_REVIEW' : 'REVIEW',
           note: input.note,
         },
       })
@@ -315,23 +343,29 @@ export const moderateReport = (
       const report = await tx.commentReport.findUnique({ where: { id: reportId } })
       if (!report) throw new DomainError('NOT_FOUND', 'Report not found')
       if (report.status !== 'OPEN') throw new DomainError('CONFLICT', 'Report already reviewed')
-      if (input.hide)
-        await tx.comment.update({ where: { id: report.commentId }, data: { hiddenAt: new Date() } })
-      await tx.commentReport.update({
-        where: { id: report.id },
-        data: {
-          status: input.status,
-          resolution: input.note,
-          resolvedAt: new Date(),
-          resolvedById: actorId,
-        },
-      })
+      if (input.delete)
+        await tx.comment.update({
+          where: { id: report.commentId },
+          data: { deletedAt: new Date() },
+        })
+      const resolution = {
+        status: input.status,
+        resolution: input.note,
+        resolvedAt: new Date(),
+        resolvedById: actorId,
+      }
+      if (input.delete)
+        await tx.commentReport.updateMany({
+          where: { commentId: report.commentId, status: 'OPEN' },
+          data: resolution,
+        })
+      else await tx.commentReport.update({ where: { id: report.id }, data: resolution })
       await tx.communityModerationAudit.create({
         data: {
           actorId,
           targetType: kind,
           targetId: report.commentId,
-          action: input.hide ? 'HIDE_AND_REVIEW' : 'REVIEW',
+          action: input.delete ? 'DELETE_AND_REVIEW' : 'REVIEW',
           note: input.note,
         },
       })

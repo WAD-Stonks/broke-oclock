@@ -1,7 +1,14 @@
 <script setup lang="ts">
+import { authClient } from '@web/lib/auth-client'
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const development = import.meta.env.MODE === 'development'
+const session = authClient.useSession()
+const canReviewReports = computed(() => {
+  const { data, isPending, error } = session.value
+  return !isPending && !error && (data?.user.role === 'ADMIN' || data?.user.role === 'MODERATOR')
+})
 </script>
 
 <template>
@@ -20,6 +27,7 @@ const development = import.meta.env.MODE === 'development'
         <RouterLink v-if="development" class="nav-link px-0" to="/community-demo">Voting demo</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin/accounts">Platform admin</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin/ingestion">Ingestion admin</RouterLink>
+        <RouterLink v-if="canReviewReports" class="nav-link px-0" to="/admin/community">Community reports</RouterLink>
       </div>
     </nav>
   </header>

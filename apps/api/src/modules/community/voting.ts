@@ -256,7 +256,7 @@ export const setVote = async (
   venueId?: string,
   policy: CommunityPolicy = DEFAULT_POLICY,
 ) => {
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
     try {
       return await db.$transaction(async (tx) => {
         await fencePlatformAccess(tx)
@@ -363,8 +363,12 @@ export const setVote = async (
         )
       )
         throw error
-      if (attempt === 4)
+      if (attempt === 7)
         throw new DomainError('CONFLICT', 'Concurrent update. Refresh and try again.')
+      // Give the competing transaction time to release the shared access fence.
+      await new Promise((resolve) =>
+        setTimeout(resolve, 5 * 2 ** attempt + Math.floor(Math.random() * 10)),
+      )
     }
   }
   throw new DomainError('CONFLICT')

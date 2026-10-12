@@ -116,6 +116,21 @@ export const moderationItemSchema = z.strictObject({
   id: communityDealParamsSchema.shape.dealId,
   targetType: z.enum(['DEAL', 'COMMENT']),
   targetId: communityDealParamsSchema.shape.dealId,
+  deal: z.strictObject({
+    id: communityDealParamsSchema.shape.dealId,
+    title: z.string(),
+    description: z.string(),
+    deletedAt: z.iso.datetime().nullable(),
+  }),
+  comment: z
+    .strictObject({
+      id: communityDealParamsSchema.shape.dealId,
+      body: z.string(),
+      authorName: z.string(),
+      deletedAt: z.iso.datetime().nullable(),
+      hiddenAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
   reason: reportReasonSchema,
   details: z.string().nullable(),
   status: z.enum(['OPEN', 'RESOLVED', 'DISMISSED']),
@@ -130,7 +145,7 @@ export const moderationResponseSchema = z.strictObject({
 export const moderateBodySchema = z.strictObject({
   status: z.enum(['RESOLVED', 'DISMISSED']),
   note: z.string().trim().min(1).max(500),
-  hide: z.boolean().default(false),
+  delete: z.boolean().default(false),
 })
 export type VoteValue = z.infer<typeof voteValueSchema>
 export type CommunityResponse = z.infer<typeof communityResponseSchema>

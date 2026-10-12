@@ -121,7 +121,7 @@ test.afterAll(async () => {
   await mongo?.stop()
 })
 
-test('two users change persisted votes and reload through real auth/API/database', async ({
+test('two users persist community interactions and staff review source deal context', async ({
   page,
 }) => {
   await page.route('**/api/**', async (route) => {
@@ -136,6 +136,7 @@ test('two users change persisted votes and reload through real auth/API/database
   page.on('pageerror', (error) => errors.push(error.message))
   await page.setViewportSize({ width: 390, height: 850 })
   await page.goto('/community-demo')
+  await expect(page.getByRole('link', { name: 'Community reports', exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Synthetic browser voting deal' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Still available', exact: true })).toBeDisabled()
   await page.getByLabel('Email', { exact: true }).fill(emails[0])
@@ -193,5 +194,42 @@ test('two users change persisted votes and reload through real auth/API/database
     await page.setViewportSize({ width, height: 850 })
     expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false)
   }
+  const dealReport = page.getByRole('form', { name: 'Report deal', exact: true })
+  await dealReport.getByLabel('Details (optional)').fill('Synthetic outlet deal content report')
+  await dealReport.getByRole('button', { name: 'Send report' }).click()
+  await expect(dealReport.getByText('Report sent for review.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Community reports', exact: true })).toHaveCount(0)
+  await db?.user.update({ where: { email: emails[1] }, data: { role: 'MODERATOR' } })
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await page.getByLabel('Email', { exact: true }).fill(emails[1])
+  await page.getByLabel('Password', { exact: true }).fill(password)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Community reports', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Community reports', exact: true }).click()
+  await expect(page).toHaveURL(/\/admin\/community$/)
+  const commentCard = page
+    .locator('article')
+    .filter({ hasText: 'Reported comment by Browser voter 1' })
+  await expect(
+    commentCard.getByText('Deal: Synthetic browser voting deal', { exact: true }),
+  ).toBeVisible()
+  await expect(commentCard.getByText(`Deal ID: ${dealId}`, { exact: true })).toBeVisible()
+  await expect(commentCard.getByText('Synthetic browser comment', { exact: true })).toBeVisible()
+  await expect(commentCard.getByText('This comment is no longer publicly visible.')).toBeVisible()
+  const dealCard = page
+    .locator('article')
+    .filter({ hasText: 'Synthetic outlet deal content report' })
+  await expect(
+    dealCard.getByText('Deal: Synthetic browser outlet deal', { exact: true }),
+  ).toBeVisible()
+  await expect(dealCard.getByText(`Deal ID: ${outletDealId}`, { exact: true })).toBeVisible()
+  await commentCard.getByLabel('Review note').fill('Delete reported synthetic comment')
+  await commentCard.getByRole('button', { name: 'Delete content', exact: true }).click()
+  await commentCard.getByRole('button', { name: 'Confirm delete', exact: true }).click()
+  await expect(commentCard).toHaveCount(0)
+  await dealCard.getByLabel('Review note').fill('Dismiss synthetic report')
+  await dealCard.getByRole('button', { name: 'Dismiss', exact: true }).click()
+  await expect(page.getByText('No open reports.')).toBeVisible()
+  expect(await db?.commentReport.count({ where: { status: 'RESOLVED' } })).toBe(1)
   expect(errors).toEqual([])
 })

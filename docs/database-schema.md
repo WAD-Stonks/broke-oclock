@@ -28,7 +28,7 @@ The canonical schema stays at `packages/db/prisma/schema.prisma`. Auth mapping i
 - **DealVote:** one current ALIVE/DEAD vote per user/deal with revision and observation time. Legacy rows without a trustworthy revision never qualify. No cached vote totals.
 - **OutletEvidence:** one current ALIVE/DEAD record per user/deal/outlet, with revision and observation time. Outlet status cannot change whole-deal status.
 - **Comment / Bookmark:** deal comments have optional outlet context, idempotency request keys and soft deletion; bookmarks remain unique per user/deal.
-- **CommunityModerationAudit:** records explicit staff review/hide actions without exposing reporter identities publicly.
+- **CommunityModerationAudit:** records explicit staff review/deletion actions without exposing reporter identities publicly.
 - **DealReport / CommentReport:** separate typed report targets with one report per reporter/target. Resolution metadata is independent of deal expiry or public visibility. Separate models avoid nullable polymorphic unique-index traps in MongoDB.
 - **UploadedFile:** unique UploadThing file key, URL, MIME type, size, uploader and optional attached deal. Unattached uploads can be tracked without a fake deal; provider callbacks/ownership checks and cleanup are not implemented by this schema.
 - **ImportSource:** unique provider/external source identity, original URL, disabled-by-default setting, optional cursor and lease metadata for a future scheduler.

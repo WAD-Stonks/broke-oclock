@@ -370,6 +370,9 @@ describe('community votes through real Axios, Better Auth and disposable MongoDB
     const report = await clientFor(first.cookie).community.reportComment(deal.id, comment.id, {
       reason: 'INAPPROPRIATE',
     })
+    await clientFor(second.cookie).community.reportComment(deal.id, comment.id, {
+      reason: 'SPAM',
+    })
     expect(
       (
         await clientFor(first.cookie).community.reportComment(deal.id, comment.id, {
@@ -379,6 +382,19 @@ describe('community votes through real Axios, Better Auth and disposable MongoDB
     ).toBe(report.id)
     await expect(clientFor(first.cookie).community.reports()).rejects.toMatchObject({ status: 403 })
     await db.user.update({ where: { id: owner.id }, data: { role: 'MODERATOR' } })
+    await clientFor(owner.cookie).community.deleteComment(deal.id, comment.id)
+    const reportedComment = (await clientFor(owner.cookie).community.reports()).items.find(
+      (item) => item.id === report.id,
+    )
+    expect(reportedComment).toMatchObject({
+      deal: { id: deal.id, title: deal.title, description: deal.description },
+      comment: {
+        id: comment.id,
+        body: 'Synthetic discussion',
+        authorName: 'Deal owner',
+        deletedAt: expect.any(String),
+      },
+    })
     expect(
       (await clientFor(owner.cookie).community.reports()).items.some(
         (item) => item.id === report.id,
@@ -387,15 +403,21 @@ describe('community votes through real Axios, Better Auth and disposable MongoDB
     await clientFor(owner.cookie).community.reviewReport('COMMENT', report.id, {
       status: 'RESOLVED',
       note: 'Reviewed synthetic report',
-      hide: true,
+      delete: true,
     })
     expect((await clientFor().community.comments(deal.id)).items).toHaveLength(0)
+    expect(await db.comment.findUnique({ where: { id: comment.id } })).toMatchObject({
+      deletedAt: expect.any(Date),
+    })
+    expect(await db.commentReport.count({ where: { commentId: comment.id, status: 'OPEN' } })).toBe(
+      0,
+    )
     expect(await db.communityModerationAudit.count({ where: { targetId: comment.id } })).toBe(1)
     await expect(
       clientFor(owner.cookie).community.reviewReport('COMMENT', report.id, {
         status: 'DISMISSED',
         note: 'Retry',
-        hide: false,
+        delete: false,
       }),
     ).rejects.toMatchObject({ status: 409 })
   })
@@ -416,23 +438,31 @@ describe('community votes through real Axios, Better Auth and disposable MongoDB
     expect(new Set(reports.map((report) => report.id)).size).toBe(1)
     expect(await db.dealReport.count({ where: { dealId: deal.id } })).toBe(1)
   })
-  it('keeps report dismissal separate from an explicit deal hide', async () => {
+  it('keeps report dismissal separate from explicit soft deletion', async () => {
     const deal = await createDeal()
     await db.user.update({ where: { id: owner.id }, data: { role: 'MODERATOR' } })
     const firstReport = await clientFor(first.cookie).community.reportDeal(deal.id, {
       reason: 'MISLEADING',
     })
+    expect(
+      (await clientFor(owner.cookie).community.reports()).items.find(
+        (item) => item.id === firstReport.id,
+      ),
+    ).toMatchObject({
+      deal: { id: deal.id, title: deal.title, description: deal.description },
+      comment: null,
+    })
     await expect(
       clientFor(owner.cookie).community.reviewReport('DEAL', firstReport.id, {
         status: 'DISMISSED',
         note: 'Invalid report',
-        hide: true,
+        delete: true,
       }),
     ).rejects.toMatchObject({ status: 400 })
     await clientFor(owner.cookie).community.reviewReport('DEAL', firstReport.id, {
       status: 'DISMISSED',
       note: 'Invalid report',
-      hide: false,
+      delete: false,
     })
     expect(await clientFor().community.get(deal.id)).toMatchObject({ dealId: deal.id })
     const secondReport = await clientFor(second.cookie).community.reportDeal(deal.id, {
@@ -440,10 +470,14 @@ describe('community votes through real Axios, Better Auth and disposable MongoDB
     })
     await clientFor(owner.cookie).community.reviewReport('DEAL', secondReport.id, {
       status: 'RESOLVED',
-      note: 'Hide synthetic deal',
-      hide: true,
+      note: 'Delete synthetic deal',
+      delete: true,
     })
     await expect(clientFor().community.get(deal.id)).rejects.toMatchObject({ status: 404 })
+    expect(await db.deal.findUnique({ where: { id: deal.id } })).toMatchObject({
+      deletedAt: expect.any(Date),
+      reviewStatus: 'APPROVED',
+    })
     expect(await db.communityModerationAudit.count({ where: { targetId: deal.id } })).toBe(2)
   })
   it('persists independent identities and replaces votes without inflating counts or refreshing repeats', async () => {

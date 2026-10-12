@@ -52,7 +52,15 @@ vi.mock('@web/lib/api-client', () => ({
     },
   },
 }))
-vi.mock('@web/lib/auth-client', () => ({ authClient: { signIn: { email: rest.signIn } } }))
+vi.mock('@web/lib/auth-client', async () => {
+  const { ref } = await import('vue')
+  return {
+    authClient: {
+      signIn: { email: rest.signIn },
+      useSession: () => ref({ data: null, isPending: false, error: null }),
+    },
+  }
+})
 const account = {
   id: 'user-a',
   name: '<img src=x> Alice',

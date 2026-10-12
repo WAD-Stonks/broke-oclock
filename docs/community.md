@@ -13,6 +13,12 @@ pnpm run seed:community-demo
 
 Open `/community-demo` in development. The seed creates deal `da0000000000000000000001` and a two-outlet deal `da0000000000000000000002` only when absent; it never resets existing votes, dates or deal data. Both were submitted by `tester1`, so `tester1` can comment and report but cannot verify them. `tester2` can vote. Select **Load synthetic two-outlet deal** to try outlet controls. Every fixture is labelled synthetic and represents no real promotion. The demo route is excluded from production builds. `/admin/community` is the staff report queue and relies on server-side role checks.
 
+## Moderator access and report context
+
+Sign in with a `MODERATOR` or `ADMIN` account using the existing auth flow (the development demo provides a sign-in form), then select **Community reports** in the header to open `/admin/community`. The header link appears only after the existing Better Auth session identifies an admin or moderator, and disappears on sign-out. The API independently enforces the current staff role for every read and write. Use **Refresh reports** to load newly submitted reports.
+
+Every staff report includes its source deal ID, title and description. Comment reports additionally include the reported comment text, author display name and deletion/visibility timestamps, so staff can review comments even after their author has deleted them. This context is returned only by the staff queue, including for deals that are no longer publicly visible.
+
 ## Public and authenticated API
 
 All writes require an existing Better Auth session and trusted Origin. The server derives the actor from the session. Responses containing personalised state use `private, no-store`.
@@ -29,13 +35,13 @@ All writes require an existing Better Auth session and trusted Origin. The serve
 | POST | `/api/deals/:dealId/reports` | Report deal content. |
 | POST | `/api/deals/:dealId/comments/:commentId/reports` | Report a visible comment. |
 | GET | `/api/admin/community/reports` | Staff-only open report queue. |
-| POST | `/api/admin/community/reports/:kind/:reportId/review` | Staff-only resolve/dismiss, with optional explicit hide. |
+| POST | `/api/admin/community/reports/:kind/:reportId/review` | Staff-only resolve/dismiss or explicit soft deletion. |
 
 Shared schemas and types are exported from `@broke-oclock/contracts/community`; browser requests use `api.community.*` in `@broke-oclock/api-client`. No frontend request may select its own author or reporter ID.
 
 `aliveCount` and `deadCount` in a community summary are **qualifying evidence** for the current revision, current scope and freshness window from independent users. `recordedAliveCount` and `recordedDeadCount` are all persisted whole-deal votes, including old revisions; they are diagnostics and must not be used for badges or sorting. `status` is one of `UNVERIFIED`, `CONFIRMED`, `REPORTED_ENDED` or `DISPUTED`. Scheduled validity is a separate field. Outlet statuses do not change the whole-deal status.
 
-Default policy values are 72 hours, 3 independent ALIVE confirmations, 2 independent DEAD reports, 24 hours before explicit same-value reconfirmation, and 3 distinct open content reports for queue priority. The API config reads `COMMUNITY_EVIDENCE_WINDOW_HOURS`, `DEAL_CONFIRM_THRESHOLD`, `DEAL_DEAD_REPORT_THRESHOLD`, `COMMUNITY_RECONFIRM_HOURS` and `CONTENT_REPORT_THRESHOLD`. Every value must be a positive integer up to 1000. `UNCONFIGURED` uses the documented default. Report priority never automatically hides content.
+Default policy values are 72 hours, 3 independent ALIVE confirmations, 2 independent DEAD reports, 24 hours before explicit same-value reconfirmation, and 3 distinct open content reports for queue priority. The API config reads `COMMUNITY_EVIDENCE_WINDOW_HOURS`, `DEAL_CONFIRM_THRESHOLD`, `DEAL_DEAD_REPORT_THRESHOLD`, `COMMUNITY_RECONFIRM_HOURS` and `CONTENT_REPORT_THRESHOLD`. Every value must be a positive integer up to 1000. `UNCONFIGURED` uses the documented default. Report priority never automatically deletes content.
 
 Evidence stores the server's `observedAt` and the reviewed deal's `contentVersion`. Legacy votes with no proven revision/observation do not qualify. Same-value repeats leave the timestamp unchanged; an explicit reconfirmation before the configured interval returns 409. Changed values and new revisions update one current record per user/scope. A stale `expectedVersion` returns 409. The deal row is written in the evidence transaction so a concurrent editor writing that row conflicts; future deal-edit endpoints must increment `contentVersion`, invalidate approval and write the deal row in their own transaction.
 
@@ -43,7 +49,7 @@ The submitter cannot contribute to any scope. Active `StallGrant` holders cannot
 
 Outlet evidence is valid only for current participating outlets: `DealVenue` for `SELECTED_OUTLETS`, or current merchant venues for `ALL_MERCHANT_OUTLETS`. `ONLINE` and `NO_FIXED_LOCATION` deals have no outlet evidence. Deal reports address content quality; availability feedback uses evidence endpoints.
 
-Comments are flat text, 1–1000 trimmed characters, with optional outlet context. The browser renders text without HTML. Soft-deleted or hidden comments disappear from public lists. A `requestKey` makes repeated creation requests return the same comment; a key reused with different content returns 409. Each account can report a deal or comment once. Duplicate reports return the existing record without reopening closed cases. Report details and reporter IDs are visible only in staff routes. Moderation requires a fresh `MODERATOR` or `ADMIN` role, records an audit row, and hides content only when the staff member explicitly selects hide.
+Comments are flat text, 1–1000 trimmed characters, with optional outlet context. The browser renders text without HTML. Soft-deleted or previously hidden comments disappear from public lists. A `requestKey` makes repeated creation requests return the same comment; a key reused with different content returns 409. Each account can report a deal or comment once. Duplicate reports return the existing record without reopening closed cases. Report details and reporter IDs are visible only in staff routes. Moderation requires a fresh `MODERATOR` or `ADMIN` role. Staff can resolve or dismiss a report without removing content, or explicitly delete the reported content after confirmation. Deletion sets `deletedAt`, resolves all open reports for that content and records an audit row; the content and report records remain available in the database for review.
 
 ## Teammate integration
 
