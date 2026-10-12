@@ -40,10 +40,10 @@ try {
       message.value = 'Saved deals were invalid. Starting with an empty list.'
     }
   }
-} catch (error) {
+} catch {
   try {
     localStorage.setItem('student_deals', '[]')
-  } catch (storageError) {
+  } catch {
     console.log('Unable to reset localStorage.')
   }
 
