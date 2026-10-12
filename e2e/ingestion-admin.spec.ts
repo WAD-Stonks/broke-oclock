@@ -231,6 +231,7 @@ test('admin navigation reaches anonymous sign-in rather than fabricated data', a
   const fixture = await installSyntheticBoundary(page)
   fixture.access = 'UNAUTHORIZED'
   await page.goto('/')
+  await page.getByTestId('nav-toggle').click()
   await page.getByRole('link', { name: 'Ingestion admin', exact: true }).click()
   await expect(page).toHaveURL('/admin/ingestion')
   await expect(page.getByRole('heading', { name: 'Sign in to review ingestion' })).toBeVisible()

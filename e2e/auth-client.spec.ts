@@ -9,12 +9,13 @@ test('shared auth client reads the same-origin session endpoint', async ({ page 
     expect(new URL(route.request().url()).origin).toBe(new URL(page.url()).origin)
     await route.fulfill({ status: 200, contentType: 'application/json', body: 'null' })
   })
-  // Loading any page also makes the account menu fetch the session once. Wait for that to
-  // finish first, so the explicit call below can be counted on its own.
+  // Opening the site menu renders the account menu, which fetches the session once. Wait for
+  // that to finish first, so the explicit call below can be counted on its own.
   const menuFetch = page.waitForResponse((response) =>
     response.url().includes('/api/auth/get-session'),
   )
   await page.goto('/')
+  await page.getByTestId('nav-toggle').click()
   await menuFetch
   await page.waitForLoadState('networkidle')
   const requestsAfterPageLoad = requests
