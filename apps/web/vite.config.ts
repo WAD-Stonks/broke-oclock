@@ -1,8 +1,12 @@
+import { fileURLToPath } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [vue()],
+  // Read VITE_* values from the repository-root .env (the same file the API and scripts use).
+  // Only VITE_-prefixed keys are exposed to the browser bundle.
+  envDir: fileURLToPath(new URL('../..', import.meta.url)),
   // Scan browser SDK entries before serving; lazy smoke imports otherwise trigger
   // re-optimization and stale Vue chunk URLs during concurrent navigation.
   optimizeDeps: { entries: ['index.html', 'src/lib/*.ts'] },

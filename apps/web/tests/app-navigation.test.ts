@@ -33,7 +33,8 @@ describe('starter navigation', () => {
   it('navigates to the developer setup page from the header', async () => {
     const { router, wrapper } = await mountAt('/')
 
-    await wrapper.get('[data-testid="primary-nav"] a[href="/getting-started"]').trigger('click')
+    await wrapper.get('[data-testid="nav-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="nav-menu"] a[href="/getting-started"]').trigger('click')
     await flushPromises()
 
     expect(router.currentRoute.value.path).toBe('/getting-started')

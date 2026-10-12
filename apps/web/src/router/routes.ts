@@ -1,3 +1,4 @@
+import BrowsePage from '@web/pages/BrowsePage.vue'
 import GettingStartedPage from '@web/pages/GettingStartedPage.vue'
 import HomePage from '@web/pages/HomePage.vue'
 import IngestionAdminPage from '@web/pages/IngestionAdminPage.vue'
@@ -10,6 +11,12 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'home',
     component: HomePage,
+  },
+  {
+    path: '/browse',
+    name: 'browse',
+    component: BrowsePage,
+    meta: { layout: 'canvas' },
   },
   {
     path: '/getting-started',

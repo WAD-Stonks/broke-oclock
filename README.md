@@ -98,6 +98,10 @@ pnpm run setup
 
 pnpm is the only package manager. `pnpm-workspace.yaml` disables automatic install scripts and hoisting; Prisma generation is an explicit setup step. Users migrating an existing checkout must remove only the root/workspace `node_modules` directories, then reinstall from the frozen pnpm lockfile. Preserve `.env` and `.local/mongodb`. See [package-manager policy](docs/package-manager.md) and the Node runtime/build guidance.
 
+### Development seed data
+
+With `pnpm run db:local` running in one terminal, `pnpm run db:seed` loads about 55 synthetic deals placed at real Singapore outlets (approximate coordinates) into the local database only. It refuses any non-local `DATABASE_URL`. The data mixes current, expired, upcoming and open-ended validity, selected-outlet, all-outlet, online and no-fixed-location applicability, and approved, pending, rejected and hidden review states, so discovery queries must filter correctly. Rerunning replaces the seed deals and keeps seed merchants/venues in place. Every description is labelled synthetic; these are not real promotions and seed users cannot sign in.
+
 `setup` preserves an existing `.env`, otherwise creates an ignored local configuration with a random auth secret, and generates Prisma Client. It does not provision Atlas, promote an administrator, seed deals, activate imports or send email.
 
 Start the local database in terminal 1:
