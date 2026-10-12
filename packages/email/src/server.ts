@@ -8,6 +8,7 @@ import {
 import {
   buildPasswordResetEmail,
   buildVerificationEmail,
+  createEmailOTPEmail,
   createPasswordResetEmail,
   createVerificationEmail,
   escapeHtml,
@@ -15,6 +16,7 @@ import {
 import type {
   CreateEmailClientOptions,
   EmailClient,
+  EmailOTPEmailOptions,
   EmailTemplate,
   PasswordResetEmailOptions,
   SendEmailInput,
@@ -187,6 +189,7 @@ export const createEmailClient = (options: CreateEmailClientOptions = {}): Email
 export type {
   CreateEmailClientOptions,
   EmailClient,
+  EmailOTPEmailOptions,
   EmailTemplate,
   PasswordResetEmailOptions,
   SendEmailInput,
@@ -196,6 +199,7 @@ export type {
 export {
   buildPasswordResetEmail,
   buildVerificationEmail,
+  createEmailOTPEmail,
   createPasswordResetEmail,
   createVerificationEmail,
   EmailConfigurationError,

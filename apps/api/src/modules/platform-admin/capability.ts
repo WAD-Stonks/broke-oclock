@@ -1,10 +1,10 @@
+import { DomainError } from '@api/modules/domain-error'
 import {
   type AccessTransaction,
   currentUser,
   fencePlatformAccess,
 } from '@api/modules/platform-admin/transaction'
 import { activeVenue } from '@api/modules/platform-admin/venues'
-import { TRPCError } from '@trpc/server'
 
 // Call INSIDE the same interactive transaction as the merchant's eventual write.
 // This is not a read/query helper: it fences against revocation and role changes.
@@ -16,9 +16,9 @@ export const requireMerchantStall = async (
 ) => {
   await fencePlatformAccess(tx)
   const user = await currentUser(tx, userId)
-  if (user.role !== 'MERCHANT') throw new TRPCError({ code: 'FORBIDDEN' })
+  if (user.role !== 'MERCHANT') throw new DomainError('FORBIDDEN')
   const grant = await tx.stallGrant.findUnique({ where: { userId_venueId: { userId, venueId } } })
-  if (!grant || grant.revokedAt) throw new TRPCError({ code: 'FORBIDDEN' })
+  if (!grant || grant.revokedAt) throw new DomainError('FORBIDDEN')
   await activeVenue(tx, venueId)
   await tx.user.update({
     where: { id: user.id },

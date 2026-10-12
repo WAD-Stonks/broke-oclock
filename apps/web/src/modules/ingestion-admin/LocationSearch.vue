@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import type { IngestionLocationsResponse } from '@broke-oclock/contracts/ingestion'
 import { BButton } from '@broke-oclock/ui'
-import { api, type RouterOutputs } from '@web/lib/api-client'
+import { api } from '@web/lib/api-client'
 import { errorCode } from '@web/modules/ingestion-admin/errors'
 import { ref } from 'vue'
 
@@ -8,7 +9,7 @@ const props = defineProps<{ configured: boolean }>()
 const emit = defineEmits<{ denied: [code: string] }>()
 const query = ref('')
 const searchedQuery = ref('')
-const items = ref<RouterOutputs['ingestion']['searchLocations']['items'] | null>(null)
+const items = ref<IngestionLocationsResponse['items'] | null>(null)
 const pending = ref(false)
 const error = ref('')
 const search = async () => {
@@ -18,7 +19,7 @@ const search = async () => {
   items.value = null
   searchedQuery.value = query.value.trim()
   try {
-    const result = await api.ingestion.searchLocations.query({ query: searchedQuery.value })
+    const result = await api.ingestion.searchLocations({ query: searchedQuery.value })
     items.value = result.items
   } catch (failure) {
     const code = errorCode(failure)

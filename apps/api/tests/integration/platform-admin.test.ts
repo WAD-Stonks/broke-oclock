@@ -4,8 +4,21 @@ import { createServer, type Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { parseConfig } from '@api/config'
-import type { AppRouter } from '@api/trpc/root'
-import { createTRPCClient, httpBatchLink } from '@trpc/client'
+import { createApiClient } from '@broke-oclock/api-client'
+import type { IngestionAccountsResponse } from '@broke-oclock/contracts/ingestion'
+import type {
+  ChangePlatformRoleBody,
+  GrantStallBody,
+  MerchantRequest,
+  PlatformAccountResponse,
+  PlatformAccountSummary,
+  PlatformAuditEntry,
+  PlatformMutationResponse,
+  PlatformVenue,
+  ReviewMerchantRequestBody,
+  RevokeStallBody,
+} from '@broke-oclock/contracts/platform-admin'
+import axios from 'axios'
 import { MongoMemoryReplSet } from 'mongodb-memory-server'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -20,19 +33,80 @@ let admin: { id: string; cookie: string }
 let member: { id: string; cookie: string }
 let moderator: { id: string; cookie: string }
 const clientFor = (cookie = '', requestOrigin = origin) =>
-  createTRPCClient<AppRouter>({
-    links: [
-      httpBatchLink({
-        url: `${baseURL}/api/trpc`,
-        fetch: (input, init) => {
-          const headers = new Headers(init?.headers)
-          headers.set('Origin', requestOrigin)
-          if (cookie) headers.set('Cookie', cookie)
-          return fetch(input, { ...init, headers })
-        },
-      }),
-    ],
-  })
+  (() => {
+    const http = axios.create({
+      baseURL: `${baseURL}/api`,
+      timeout: 5_000,
+      withCredentials: true,
+      headers: { Origin: requestOrigin, ...(cookie ? { Cookie: cookie } : {}) },
+    })
+    const data = async <T>(request: Promise<{ data: T }>): Promise<T> => {
+      try {
+        return (await request).data
+      } catch (error) {
+        if (axios.isAxiosError<{ error?: { code?: string; message?: string } }>(error)) {
+          const apiError = error.response?.data?.error
+          if (apiError?.code)
+            throw Object.assign(new Error(apiError.message ?? 'Request failed'), {
+              data: { code: apiError.code, message: apiError.message },
+              response: error.response,
+            })
+        }
+        throw error
+      }
+    }
+    type Page<T> = { items: T[]; nextCursor: string | null }
+    return {
+      platformAdmin: {
+        accounts: (params: Record<string, unknown> = {}) =>
+          data<Page<PlatformAccountSummary>>(http.get('/admin/accounts', { params })),
+        account: ({ userId }: { userId: string }) =>
+          data<PlatformAccountResponse>(http.get(`/admin/accounts/${userId}`)),
+        venues: (params: Record<string, unknown> = {}) =>
+          data<Page<PlatformVenue>>(http.get('/admin/venues', { params })),
+        requests: (params: Record<string, unknown> = {}) =>
+          data<Page<MerchantRequest>>(http.get('/admin/merchant-requests', { params })),
+        audit: (params: Record<string, unknown> = {}) =>
+          data<Page<PlatformAuditEntry>>(http.get('/admin/audit', { params })),
+        changeRole: (input: ChangePlatformRoleBody & { userId: string }) =>
+          (() => {
+            const { userId, ...body } = input
+            return data<PlatformMutationResponse>(
+              http.patch(`/admin/accounts/${userId}/role`, body),
+            )
+          })(),
+        grantStall: (input: GrantStallBody) =>
+          data<PlatformMutationResponse>(http.post('/admin/stall-grants', input)),
+        revokeStall: (input: RevokeStallBody & { grantId: string }) =>
+          data<PlatformMutationResponse>(
+            http.delete(`/admin/stall-grants/${input.grantId}`, {
+              data: { expectedVersion: input.expectedVersion, note: input.note },
+            }),
+          ),
+        reviewRequest: (input: ReviewMerchantRequestBody & { requestId: string }) =>
+          data<PlatformMutationResponse>(
+            http.post(`/admin/merchant-requests/${input.requestId}/review`, {
+              expectedVersion: input.expectedVersion,
+              decision: input.decision,
+              note: input.note,
+            }),
+          ),
+      },
+      ingestion: {
+        accounts: (params: Record<string, unknown> = {}) =>
+          data<IngestionAccountsResponse>(http.get('/ingestion/accounts', { params })),
+      },
+    }
+  })()
+const browserClientFor = (cookie = '', requestOrigin = origin) => {
+  const client = createApiClient(`${baseURL}/api`)
+  client.http.defaults.headers.common = {
+    ...client.http.defaults.headers.common,
+    Origin: requestOrigin,
+    ...(cookie ? { Cookie: cookie } : {}),
+  }
+  return client
+}
 const signUp = async (name: string, hostileFields: Record<string, unknown> = {}) => {
   const response = await fetch(`${baseURL}/api/auth/sign-up/email`, {
     method: 'POST',
@@ -230,9 +304,124 @@ const outcome = <T>(promise: Promise<T>) =>
   )
 
 describe('platform administration: real HTTP/cookies/disposable replica', () => {
+  it('accepts numeric pagination through the exported browser Axios client', async () => {
+    const page = await browserClientFor(admin.cookie).platformAdmin.accounts({ limit: 25 })
+
+    expect(page.items.length).toBeLessThanOrEqual(25)
+    expect(page.items.some((account) => account.id === admin.id)).toBe(true)
+  })
+
+  it('preserves protected-domain unauthenticated messages through the real typed HTTP client', async () => {
+    await expect(browserClientFor().platformAdmin.accounts()).rejects.toMatchObject({
+      code: 'UNAUTHORIZED',
+      status: 401,
+      message: 'UNAUTHORIZED',
+    })
+  })
+
+  it('preserves platform permission denial messages through the real typed HTTP client', async () => {
+    await expect(browserClientFor(member.cookie).platformAdmin.accounts()).rejects.toMatchObject({
+      code: 'FORBIDDEN',
+      status: 403,
+      message: 'FORBIDDEN',
+    })
+  })
+
+  it('uses the exported browser client for origin-checked versioned writes and one-shot conflicts', async () => {
+    const target = await syntheticUser()
+    const auditCount = () => db.platformAudit.count({ where: { targetUserId: target.id } })
+    const wrongOriginClient = browserClientFor(admin.cookie, 'https://untrusted.example')
+    let wrongOriginCalls = 0
+    wrongOriginClient.http.interceptors.request.use((request) => {
+      wrongOriginCalls += 1
+      return request
+    })
+
+    await expect(
+      wrongOriginClient.platformAdmin.changeRole(target.id, {
+        expectedVersion: 0,
+        role: 'MERCHANT',
+        note: 'Trusted origin required',
+      }),
+    ).rejects.toMatchObject({ code: 'FORBIDDEN', status: 403 })
+    expect(wrongOriginCalls).toBe(1)
+    expect(await auditCount()).toBe(0)
+
+    const client = browserClientFor(admin.cookie)
+    let calls = 0
+    client.http.interceptors.request.use((request) => {
+      calls += 1
+      return request
+    })
+    await expect(
+      client.platformAdmin.changeRole(target.id, {
+        expectedVersion: 0,
+        role: 'MERCHANT',
+        note: 'Typed client REST write',
+      }),
+    ).resolves.toEqual({ id: target.id, version: 1 })
+    expect(await db.user.findUniqueOrThrow({ where: { id: target.id } })).toMatchObject({
+      role: 'MERCHANT',
+      platformVersion: 1,
+    })
+    expect(await auditCount()).toBe(1)
+
+    await expect(
+      client.platformAdmin.changeRole(target.id, {
+        expectedVersion: 0,
+        role: 'USER',
+        note: 'Stale typed client write',
+      }),
+    ).rejects.toMatchObject({ code: 'CONFLICT', status: 409 })
+    expect(calls).toBe(2)
+    expect(await db.user.findUniqueOrThrow({ where: { id: target.id } })).toMatchObject({
+      role: 'MERCHANT',
+      platformVersion: 1,
+    })
+    expect(await auditCount()).toBe(1)
+  })
+
+  it('lists accounts through the conventional REST endpoint with a request-local admin session', async () => {
+    const response = await axios.get(`${baseURL}/api/admin/accounts`, {
+      headers: { Cookie: admin.cookie, Origin: origin },
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.data.items).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: admin.id, role: 'ADMIN' })]),
+    )
+  })
+
+  it('rejects duplicate, array, decimal, and scientific pagination query values', async () => {
+    for (const query of ['limit=1&limit=2', 'limit[]=1', 'limit=1.5', 'limit=1e2']) {
+      await expect(
+        axios.get(`${baseURL}/api/admin/accounts?${query}`, {
+          headers: { Cookie: admin.cookie, Origin: origin },
+        }),
+      ).rejects.toMatchObject({
+        response: { status: 400, data: { error: { code: 'BAD_REQUEST' } } },
+      })
+    }
+  })
+
+  it('changes an account role through a versioned conventional REST write', async () => {
+    const target = await syntheticUser()
+    const response = await axios.patch(
+      `${baseURL}/api/admin/accounts/${target.id}/role`,
+      { expectedVersion: 0, role: 'MERCHANT', note: 'Transport migration regression' },
+      { headers: { Cookie: admin.cookie, Origin: origin } },
+    )
+    expect(response.status).toBe(200)
+    expect(response.data).toEqual({ id: target.id, version: 1 })
+    expect(await db.user.findUniqueOrThrow({ where: { id: target.id } })).toMatchObject({
+      role: 'MERCHANT',
+      platformVersion: 1,
+    })
+  })
+
   it('submits internally then atomically approves only the named stall and promotes USER without an implicit staff downgrade', async () => {
     const client = clientFor(admin.cookie).platformAdmin
-    expect((await client.requests.query({ status: 'PENDING' })).items).toEqual([])
+    expect((await client.requests({ status: 'PENDING' })).items).toEqual([])
     const { submitMerchantAccessRequest } = await import('@api/modules/platform-admin/requests')
     const target = await syntheticUser()
     const venue = await syntheticVenue()
@@ -241,7 +430,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       message: 'Synthetic operator proof',
     })
     expect(request).toMatchObject({ version: 1, status: 'PENDING' })
-    const list = await client.requests.query({ status: 'PENDING' })
+    const list = await client.requests({ status: 'PENDING' })
     expect(list.items).toMatchObject([
       {
         id: request.id,
@@ -260,16 +449,16 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       submitMerchantAccessRequest(db, target.id, { venueId: venue.id, message: 'Duplicate' }),
     ).rejects.toMatchObject({ code: 'CONFLICT' })
     expect(
-      await client.reviewRequest.mutate({
+      await client.reviewRequest({
         requestId: request.id,
         expectedVersion: 1,
         decision: 'APPROVE',
         note: 'Verified operator',
       }),
     ).toEqual({ id: request.id, version: 2 })
-    const account = await client.account.query({ userId: target.id })
+    const account = await client.account({ userId: target.id })
     expect(account).toMatchObject({ role: 'MERCHANT', version: 1, grants: [{ venueId: venue.id }] })
-    const history = await client.audit.query({ userId: target.id })
+    const history = await client.audit({ userId: target.id })
     expect(history.items[0]).toMatchObject({
       action: 'REQUEST_APPROVED',
       roleBefore: 'USER',
@@ -277,30 +466,30 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       note: 'Verified operator',
     })
     await expect(
-      client.reviewRequest.mutate({
+      client.reviewRequest({
         requestId: request.id,
         expectedVersion: 2,
         decision: 'APPROVE',
         note: 'Repeat',
       }),
     ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
-    expect((await client.requests.query({ status: 'APPROVED' })).items).toMatchObject([
+    expect((await client.requests({ status: 'APPROVED' })).items).toMatchObject([
       { id: request.id, reviewNote: 'Verified operator', status: 'APPROVED', version: 2 },
     ])
-    expect(await client.audit.query({ userId: target.id })).toEqual(history)
+    expect(await client.audit({ userId: target.id })).toEqual(history)
     const secondVenue = await syntheticVenue()
     const rejected = await submitMerchantAccessRequest(db, target.id, {
       venueId: secondVenue.id,
       message: 'Other outlet',
     })
-    await client.reviewRequest.mutate({
+    await client.reviewRequest({
       requestId: rejected.id,
       expectedVersion: 1,
       decision: 'REJECT',
       note: 'No proof for this outlet',
     })
-    expect((await client.account.query({ userId: target.id })).grants).toHaveLength(1)
-    expect((await client.audit.query({ userId: target.id })).items[0]).toMatchObject({
+    expect((await client.account({ userId: target.id })).grants).toHaveLength(1)
+    expect((await client.audit({ userId: target.id })).items[0]).toMatchObject({
       action: 'REQUEST_REJECTED',
       roleBefore: null,
       roleAfter: null,
@@ -315,45 +504,45 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const venue = await syntheticVenue()
     const client = clientFor(admin.cookie).platformAdmin
     const { requireMerchantStall } = await import('@api/modules/platform-admin/capability')
-    const grant = await client.grantStall.mutate({
+    const grant = await client.grantStall({
       userId: target.id,
       venueId: venue.id,
       expectedUserVersion: 0,
       note: 'Grant',
     })
     await expect(
-      client.revokeStall.mutate({ grantId: grant.id, expectedVersion: 0, note: 'Stale revoke' }),
+      client.revokeStall({ grantId: grant.id, expectedVersion: 0, note: 'Stale revoke' }),
     ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
     expect(
-      await client.revokeStall.mutate({ grantId: grant.id, expectedVersion: 1, note: 'Revoke' }),
+      await client.revokeStall({ grantId: grant.id, expectedVersion: 1, note: 'Revoke' }),
     ).toEqual({ id: grant.id, version: 2 })
     await expect(
       db.$transaction((tx) => requireMerchantStall(tx, target.id, venue.id)),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' })
-    expect((await client.account.query({ userId: target.id })).grants).toEqual([])
+    expect((await client.account({ userId: target.id })).grants).toEqual([])
     await expect(
-      client.revokeStall.mutate({ grantId: grant.id, expectedVersion: 2, note: 'Repeat' }),
+      client.revokeStall({ grantId: grant.id, expectedVersion: 2, note: 'Repeat' }),
     ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
     expect(
-      await client.grantStall.mutate({
+      await client.grantStall({
         userId: target.id,
         venueId: venue.id,
         expectedUserVersion: 2,
         note: 'Regrant',
       }),
     ).toEqual({ id: grant.id, version: 3 })
-    await client.changeRole.mutate({
+    await client.changeRole({
       userId: target.id,
       expectedVersion: 3,
       role: 'USER',
       note: 'Remove merchant authority',
     })
     expect((await db.stallGrant.findUniqueOrThrow({ where: { id: grant.id } })).version).toBe(4)
-    expect((await client.account.query({ userId: target.id })).grants).toEqual([])
+    expect((await client.account({ userId: target.id })).grants).toEqual([])
     await expect(
       db.$transaction((tx) => requireMerchantStall(tx, target.id, venue.id)),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' })
-    await client.changeRole.mutate({
+    await client.changeRole({
       userId: target.id,
       expectedVersion: 4,
       role: 'MERCHANT',
@@ -363,7 +552,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       db.$transaction((tx) => requireMerchantStall(tx, target.id, venue.id)),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' })
     expect(await db.stallGrant.count({ where: { userId: target.id } })).toBe(1)
-    expect((await client.audit.query({ userId: target.id })).items.map((x) => x.action)).toEqual([
+    expect((await client.audit({ userId: target.id })).items.map((x) => x.action)).toEqual([
       'ROLE_CHANGED',
       'ROLE_CHANGED',
       'STALL_REVOKED',
@@ -386,13 +575,13 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       },
     })
     const c = clientFor(admin.cookie).platformAdmin
-    const firstGrant = await c.grantStall.mutate({
+    const firstGrant = await c.grantStall({
       userId: target.id,
       venueId: firstVenue.id,
       expectedUserVersion: 0,
       note: 'First sibling access',
     })
-    const secondGrant = await c.grantStall.mutate({
+    const secondGrant = await c.grantStall({
       userId: target.id,
       venueId: secondVenue.id,
       expectedUserVersion: 1,
@@ -419,15 +608,15 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     })
     const firstBefore = await db.stallGrant.findUniqueOrThrow({ where: { id: firstGrant.id } })
     const secondBefore = await db.stallGrant.findUniqueOrThrow({ where: { id: secondGrant.id } })
-    const historyBefore = await c.audit.query({ userId: target.id })
-    const accountBefore = await c.account.query({ userId: target.id })
+    const historyBefore = await c.audit({ userId: target.id })
+    const accountBefore = await c.account({ userId: target.id })
     expect(accountBefore).toMatchObject({ role: 'MERCHANT', version: 2 })
     expect(accountBefore.grants).toHaveLength(2)
     expect(firstBefore.revokedAt).toBeNull()
     expect(secondBefore.revokedAt).toBeNull()
 
     expect(
-      await c.revokeStall.mutate({
+      await c.revokeStall({
         grantId: secondGrant.id,
         expectedVersion: secondGrant.version,
         note: 'Revoke only second sibling',
@@ -449,7 +638,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       updatedAt: expect.any(Date),
     })
     expect(await db.stallGrant.count({ where: { userId: target.id } })).toBe(2)
-    const accountAfter = await c.account.query({ userId: target.id })
+    const accountAfter = await c.account({ userId: target.id })
     expect(accountAfter).toMatchObject({ id: target.id, role: 'MERCHANT', version: 3 })
     expect(accountAfter.grants).toEqual(
       accountBefore.grants.filter((grant) => grant.id === firstGrant.id),
@@ -458,7 +647,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       role: 'MERCHANT',
       platformVersion: 3,
     })
-    const historyAfter = await c.audit.query({ userId: target.id })
+    const historyAfter = await c.audit({ userId: target.id })
     expect(historyAfter.items).toHaveLength(3)
     expect(historyAfter.items.slice(1)).toEqual(historyBefore.items)
     expect(historyAfter.items[0]).toMatchObject({
@@ -480,14 +669,14 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       venueId: venue.id,
       message: 'Before role change',
     })
-    await client.changeRole.mutate({
+    await client.changeRole({
       userId: target.id,
       expectedVersion: 0,
       role: 'MERCHANT',
       note: 'Reviewed separately',
     })
     await expect(
-      client.reviewRequest.mutate({
+      client.reviewRequest({
         requestId: pending.id,
         expectedVersion: 1,
         decision: 'APPROVE',
@@ -501,28 +690,28 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       venueId: venue.id,
       message: 'Fresh request',
     })
-    const grant = await client.grantStall.mutate({
+    const grant = await client.grantStall({
       userId: target.id,
       venueId: venue.id,
       expectedUserVersion: 1,
       note: 'Direct grant',
     })
-    await client.revokeStall.mutate({
+    await client.revokeStall({
       grantId: grant.id,
       expectedVersion: 1,
       note: 'Revoke invalidates pending request',
     })
     await expect(
-      client.reviewRequest.mutate({
+      client.reviewRequest({
         requestId: fresh.id,
         expectedVersion: 1,
         decision: 'APPROVE',
         note: 'Must not undo revocation',
       }),
     ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
-    expect((await client.account.query({ userId: target.id })).grants).toEqual([])
+    expect((await client.account({ userId: target.id })).grants).toEqual([])
     expect(
-      (await client.audit.query({ userId: target.id })).items.filter(
+      (await client.audit({ userId: target.id })).items.filter(
         (x) => x.action === 'REQUEST_REJECTED',
       ),
     ).toHaveLength(2)
@@ -532,7 +721,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const client = clientFor(admin.cookie).platformAdmin
     const barrier = pauseUserRead(admin.id)
     const mutation = outcome(
-      client.changeRole.mutate({
+      client.changeRole({
         userId: target.id,
         expectedVersion: 0,
         role: 'MERCHANT',
@@ -561,23 +750,21 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       await db.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } })
     }
   })
-  it('denies every procedure to anonymous, USER, MERCHANT and MODERATOR callers', async () => {
+  it('denies every protected route to anonymous, USER, MERCHANT and MODERATOR callers', async () => {
     const id = '000000000000000000000001'
     const calls = (cookie: string) => {
       const c = clientFor(cookie).platformAdmin
       return [
-        () => c.accounts.query({}),
-        () => c.account.query({ userId: id }),
-        () => c.requests.query({}),
-        () => c.venues.query({}),
-        () => c.audit.query({}),
+        () => c.accounts({}),
+        () => c.account({ userId: id }),
+        () => c.requests({}),
+        () => c.venues({}),
+        () => c.audit({}),
+        () => c.changeRole({ userId: id, expectedVersion: 0, role: 'ADMIN', note: 'Denied' }),
+        () => c.grantStall({ userId: id, venueId: id, expectedUserVersion: 0, note: 'Denied' }),
+        () => c.revokeStall({ grantId: id, expectedVersion: 0, note: 'Denied' }),
         () =>
-          c.changeRole.mutate({ userId: id, expectedVersion: 0, role: 'ADMIN', note: 'Denied' }),
-        () =>
-          c.grantStall.mutate({ userId: id, venueId: id, expectedUserVersion: 0, note: 'Denied' }),
-        () => c.revokeStall.mutate({ grantId: id, expectedVersion: 0, note: 'Denied' }),
-        () =>
-          c.reviewRequest.mutate({
+          c.reviewRequest({
             requestId: id,
             expectedVersion: 0,
             decision: 'APPROVE',
@@ -603,20 +790,20 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     for (const origin of ['', 'https://untrusted.example', 'http://localhost:5173.evil.test']) {
       const c = clientFor(admin.cookie, origin).platformAdmin
       const actions = [
-        c.changeRole.mutate({
+        c.changeRole({
           userId: target.id,
           expectedVersion: 0,
           role: 'USER',
           note: 'Denied',
         }),
-        c.grantStall.mutate({
+        c.grantStall({
           userId: target.id,
           venueId: venue.id,
           expectedUserVersion: 0,
           note: 'Denied',
         }),
-        c.revokeStall.mutate({ grantId: venue.id, expectedVersion: 0, note: 'Denied' }),
-        c.reviewRequest.mutate({
+        c.revokeStall({ grantId: venue.id, expectedVersion: 0, note: 'Denied' }),
+        c.reviewRequest({
           requestId: venue.id,
           expectedVersion: 0,
           decision: 'REJECT',
@@ -632,10 +819,10 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const c = clientFor(admin.cookie).platformAdmin
     for (const note of ['', '   ', 'x'.repeat(501)])
       await expect(
-        c.changeRole.mutate({ userId: target.id, expectedVersion: 0, role: 'USER', note }),
+        c.changeRole({ userId: target.id, expectedVersion: 0, role: 'USER', note }),
       ).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } })
     await expect(
-      c.changeRole.mutate({
+      c.changeRole({
         userId: target.id,
         expectedVersion: -1,
         role: 'USER',
@@ -643,7 +830,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       }),
     ).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } })
     await expect(
-      c.changeRole.mutate({
+      c.changeRole({
         userId: 'not-an-id',
         expectedVersion: 0,
         role: 'USER',
@@ -658,7 +845,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       actorId: target.id,
       roleBefore: 'ADMIN',
     }
-    await expect(c.changeRole.mutate(forged)).rejects.toMatchObject({
+    await expect(c.changeRole(forged)).rejects.toMatchObject({
       data: { code: 'BAD_REQUEST' },
     })
     for (const input of [
@@ -667,7 +854,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       { search: 'x'.repeat(101) },
       { cursor: 'bad' },
     ])
-      await expect(c.accounts.query(input)).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } })
+      await expect(c.accounts(input)).rejects.toMatchObject({ data: { code: 'BAD_REQUEST' } })
     expect(await db.user.findUniqueOrThrow({ where: { id: target.id } })).toEqual(target)
     expect(await db.platformAudit.count({ where: { targetUserId: target.id } })).toBe(0)
   })
@@ -721,7 +908,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     })
     const approvals = await Promise.allSettled(
       [1, 2].map(() =>
-        clientFor(admin.cookie).platformAdmin.reviewRequest.mutate({
+        clientFor(admin.cookie).platformAdmin.reviewRequest({
           requestId: request.id,
           expectedVersion: 1,
           decision: 'APPROVE',
@@ -746,7 +933,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const c = clientFor(admin.cookie).platformAdmin
     const grants = await Promise.allSettled(
       [1, 2].map(() =>
-        c.grantStall.mutate({
+        c.grantStall({
           userId: target.id,
           venueId: venue.id,
           expectedUserVersion: 0,
@@ -761,7 +948,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const grant = await db.stallGrant.findFirstOrThrow({ where: { userId: target.id } })
     const revocations = await Promise.allSettled(
       [1, 2].map(() =>
-        c.revokeStall.mutate({ grantId: grant.id, expectedVersion: 1, note: 'Concurrent revoke' }),
+        c.revokeStall({ grantId: grant.id, expectedVersion: 1, note: 'Concurrent revoke' }),
       ),
     )
     expect(revocations.filter((x) => x.status === 'fulfilled')).toHaveLength(1)
@@ -781,13 +968,13 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const b = await db.user.findUniqueOrThrow({ where: { id: moderator.id } })
     try {
       const results = await Promise.allSettled([
-        clientFor(admin.cookie).platformAdmin.changeRole.mutate({
+        clientFor(admin.cookie).platformAdmin.changeRole({
           userId: b.id,
           expectedVersion: b.platformVersion ?? 0,
           role: 'USER',
           note: 'Demote B',
         }),
-        clientFor(moderator.cookie).platformAdmin.changeRole.mutate({
+        clientFor(moderator.cookie).platformAdmin.changeRole({
           userId: a.id,
           expectedVersion: a.platformVersion ?? 0,
           role: 'USER',
@@ -803,7 +990,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       const remaining = await db.user.findFirstOrThrow({ where: { role: 'ADMIN' } })
       const cookie = remaining.id === a.id ? admin.cookie : moderator.cookie
       await expect(
-        clientFor(cookie).platformAdmin.changeRole.mutate({
+        clientFor(cookie).platformAdmin.changeRole({
           userId: remaining.id,
           expectedVersion: remaining.platformVersion ?? 0,
           role: 'USER',
@@ -822,19 +1009,31 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       })
     }
   })
+  it('preserves the missing-account default through the actual typed Axios HTTP client', async () => {
+    const client = createApiClient(`${baseURL}/api`)
+    client.http.defaults.adapter = 'http'
+    client.http.defaults.headers.common.Cookie = admin.cookie
+    await expect(client.platformAdmin.account('000000000000000000000001')).rejects.toMatchObject({
+      name: 'ApiClientError',
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'NOT_FOUND',
+    })
+  })
+
   it('fails closed for missing, inactive and privileged grant/review targets without partial writes', async () => {
     const { submitMerchantAccessRequest } = await import('@api/modules/platform-admin/requests')
     const c = clientFor(admin.cookie).platformAdmin
     const venue = await syntheticVenue()
     const missing = '000000000000000000000001'
-    await expect(c.account.query({ userId: missing })).rejects.toMatchObject({
+    await expect(c.account({ userId: missing })).rejects.toMatchObject({
       data: { code: 'NOT_FOUND' },
     })
     await expect(
-      c.changeRole.mutate({ userId: missing, expectedVersion: 0, role: 'USER', note: 'Missing' }),
+      c.changeRole({ userId: missing, expectedVersion: 0, role: 'USER', note: 'Missing' }),
     ).rejects.toMatchObject({ data: { code: 'NOT_FOUND' } })
     await expect(
-      c.grantStall.mutate({
+      c.grantStall({
         userId: admin.id,
         venueId: venue.id,
         expectedUserVersion: 0,
@@ -844,7 +1043,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     for (const role of ['USER', 'MODERATOR', 'ADMIN'] as const) {
       const target = await syntheticUser(role)
       await expect(
-        c.grantStall.mutate({
+        c.grantStall({
           userId: target.id,
           venueId: venue.id,
           expectedUserVersion: 0,
@@ -862,7 +1061,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     })
     await db.user.update({ where: { id: user.id }, data: { role: 'MODERATOR' } })
     await expect(
-      c.reviewRequest.mutate({
+      c.reviewRequest({
         requestId: request.id,
         expectedVersion: 1,
         decision: 'APPROVE',
@@ -874,7 +1073,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     expect(
       (await db.merchantAccessRequest.findUniqueOrThrow({ where: { id: request.id } })).status,
     ).toBe('PENDING')
-    await c.reviewRequest.mutate({
+    await c.reviewRequest({
       requestId: request.id,
       expectedVersion: 1,
       decision: 'REJECT',
@@ -882,7 +1081,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     })
     const target = await syntheticUser('MERCHANT')
     await expect(
-      c.grantStall.mutate({
+      c.grantStall({
         userId: target.id,
         venueId: missing,
         expectedUserVersion: 0,
@@ -891,7 +1090,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     ).rejects.toMatchObject({ data: { code: 'PRECONDITION_FAILED' } })
     await db.venue.update({ where: { id: venue.id }, data: { deletedAt: new Date() } })
     await expect(
-      c.grantStall.mutate({
+      c.grantStall({
         userId: target.id,
         venueId: venue.id,
         expectedUserVersion: 0,
@@ -901,7 +1100,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     await db.venue.update({ where: { id: venue.id }, data: { deletedAt: null } })
     await db.merchant.update({ where: { id: venue.merchantId }, data: { deletedAt: new Date() } })
     await expect(
-      c.grantStall.mutate({
+      c.grantStall({
         userId: target.id,
         venueId: venue.id,
         expectedUserVersion: 0,
@@ -961,13 +1160,13 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       const barrier = pauseActiveRecordRead(model, model === 'venue' ? venue.id : venue.merchantId)
       const mutation = outcome(
         action === 'grant'
-          ? c.grantStall.mutate({
+          ? c.grantStall({
               userId: target.id,
               venueId: venue.id,
               expectedUserVersion: 0,
               note: 'Grant racing soft delete',
             })
-          : c.reviewRequest.mutate({
+          : c.reviewRequest({
               requestId: request.id,
               expectedVersion: request.version,
               decision: 'APPROVE',
@@ -1004,7 +1203,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
         // Only the independent deletion survives: request, grant, audit, identity,
         // activity timestamps on the other record and shared fence all roll back.
         expect(await snapshot()).toEqual({ ...before, [model]: deleted })
-        const account = await c.account.query({ userId: target.id })
+        const account = await c.account({ userId: target.id })
         expect(account).toMatchObject({ role: target.role, version: 0, grants: [] })
       } finally {
         barrier.resume()
@@ -1025,38 +1224,38 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       where: { id: venue.merchantId },
       data: { deletedAt: { unset: true } },
     })
-    expect(
-      (await c.venues.query({ search: 'Legacy synthetic stall' })).items.map((v) => v.id),
-    ).toContain(venue.id)
-    const grant = await c.grantStall.mutate({
+    expect((await c.venues({ search: 'Legacy synthetic stall' })).items.map((v) => v.id)).toContain(
+      venue.id,
+    )
+    const grant = await c.grantStall({
       userId: target.id,
       venueId: venue.id,
       expectedUserVersion: 0,
       note: 'Legacy missing fields',
     })
     await db.stallGrant.update({ where: { id: grant.id }, data: { revokedAt: { unset: true } } })
-    expect((await c.account.query({ userId: target.id })).grants).toHaveLength(1)
+    expect((await c.account({ userId: target.id })).grants).toHaveLength(1)
     await expect(
       db.$transaction((tx) => requireMerchantStall(tx, target.id, venue.id)),
     ).resolves.toMatchObject({ grantId: grant.id })
     await db.venue.update({ where: { id: venue.id }, data: { deletedAt: new Date() } })
-    expect((await c.venues.query({ search: 'Legacy synthetic stall' })).items).toEqual([])
+    expect((await c.venues({ search: 'Legacy synthetic stall' })).items).toEqual([])
     await expect(
       db.$transaction((tx) => requireMerchantStall(tx, target.id, venue.id)),
     ).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' })
     await db.venue.update({ where: { id: venue.id }, data: { deletedAt: null } })
     await db.merchant.update({ where: { id: venue.merchantId }, data: { deletedAt: new Date() } })
-    expect((await c.venues.query({ search: 'Legacy synthetic stall' })).items).toEqual([])
+    expect((await c.venues({ search: 'Legacy synthetic stall' })).items).toEqual([])
     await expect(
       db.$transaction((tx) => requireMerchantStall(tx, target.id, venue.id)),
     ).rejects.toMatchObject({ code: 'PRECONDITION_FAILED' })
     await db.merchant.update({ where: { id: venue.merchantId }, data: { deletedAt: null } })
-    expect((await c.venues.query({ search: 'Legacy synthetic stall' })).items).toHaveLength(1)
+    expect((await c.venues({ search: 'Legacy synthetic stall' })).items).toHaveLength(1)
     await expect(
       db.stallGrant.create({ data: { userId: target.id, venueId: venue.id } }),
     ).rejects.toMatchObject({ code: 'P2002' })
-    await c.revokeStall.mutate({ grantId: grant.id, expectedVersion: 1, note: 'Legacy revoke' })
-    expect((await c.account.query({ userId: target.id })).grants).toEqual([])
+    await c.revokeStall({ grantId: grant.id, expectedVersion: 1, note: 'Legacy revoke' })
+    expect((await c.account({ userId: target.id })).grants).toEqual([])
   })
   it('rejects forged internal submission fields and never exposes an unrelated public submission endpoint', async () => {
     const { submitMerchantAccessRequest } = await import('@api/modules/platform-admin/requests')
@@ -1101,7 +1300,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       const c = clientFor(admin.cookie).platformAdmin
       const grant =
         action === 'revoke'
-          ? await c.grantStall.mutate({
+          ? await c.grantStall({
               userId: target.id,
               venueId: venue.id,
               expectedUserVersion: 0,
@@ -1156,27 +1355,27 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       try {
         const mutation =
           action === 'role'
-            ? c.changeRole.mutate({
+            ? c.changeRole({
                 userId: target.id,
                 expectedVersion: 0,
                 role: 'MERCHANT',
                 note: 'Rollback',
               })
             : action === 'grant'
-              ? c.grantStall.mutate({
+              ? c.grantStall({
                   userId: target.id,
                   venueId: venue.id,
                   expectedUserVersion: 0,
                   note: 'Rollback',
                 })
               : action === 'revoke' && grant
-                ? c.revokeStall.mutate({
+                ? c.revokeStall({
                     grantId: grant.id,
                     expectedVersion: grant.version,
                     note: 'Rollback',
                   })
                 : (action === 'approve' || action === 'reject') && request
-                  ? c.reviewRequest.mutate({
+                  ? c.reviewRequest({
                       requestId: request.id,
                       expectedVersion: 1,
                       decision: action === 'approve' ? 'APPROVE' : 'REJECT',
@@ -1217,14 +1416,14 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       const barrier = pauseUserRead(target.id)
       const first = outcome(
         action === 'grant'
-          ? c.grantStall.mutate({
+          ? c.grantStall({
               userId: target.id,
               venueId: venue.id,
               expectedUserVersion: 0,
               note: 'Concurrent grant',
             })
           : action === 'approve' && request
-            ? c.reviewRequest.mutate({
+            ? c.reviewRequest({
                 requestId: request.id,
                 expectedVersion: 1,
                 decision: 'APPROVE',
@@ -1243,7 +1442,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
           }),
         ])
         await expect(
-          c.changeRole.mutate({
+          c.changeRole({
             userId: target.id,
             expectedVersion: 0,
             role: 'MODERATOR',
@@ -1257,14 +1456,14 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
         await first
         barrier.restore()
       }
-      const detail = await c.account.query({ userId: target.id })
-      await c.changeRole.mutate({
+      const detail = await c.account({ userId: target.id })
+      await c.changeRole({
         userId: target.id,
         expectedVersion: detail.version,
         role: 'MODERATOR',
         note: 'Fresh deliberate role change',
       })
-      expect((await c.account.query({ userId: target.id })).grants).toEqual([])
+      expect((await c.account({ userId: target.id })).grants).toEqual([])
       expect(
         await db.merchantAccessRequest.count({ where: { userId: target.id, status: 'PENDING' } }),
       ).toBe(0)
@@ -1275,7 +1474,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const target = await syntheticUser('MERCHANT')
     const venue = await syntheticVenue()
     const c = clientFor(admin.cookie).platformAdmin
-    const grant = await c.grantStall.mutate({
+    const grant = await c.grantStall({
       userId: target.id,
       venueId: venue.id,
       expectedUserVersion: 0,
@@ -1299,7 +1498,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
         }),
       ])
       await expect(
-        c.revokeStall.mutate({
+        c.revokeStall({
           grantId: grant.id,
           expectedVersion: 1,
           note: 'Competing revocation',
@@ -1315,7 +1514,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       await write
       barrier.restore()
     }
-    await c.revokeStall.mutate({
+    await c.revokeStall({
       grantId: grant.id,
       expectedVersion: 1,
       note: 'Revocation after committed write',
@@ -1345,9 +1544,9 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
         venueId: venue.id,
         message: 'Synthetic bounded request',
       })
-    const venuePage = await c.venues.query({ search: prefix, limit: 2 })
+    const venuePage = await c.venues({ search: prefix, limit: 2 })
     expect(venuePage.items).toHaveLength(2)
-    const lastVenues = await c.venues.query({
+    const lastVenues = await c.venues({
       search: prefix,
       limit: 2,
       cursor: venuePage.nextCursor ?? undefined,
@@ -1355,37 +1554,37 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     expect(lastVenues.items).toHaveLength(1)
     expect(lastVenues.nextCursor).toBeNull()
     expect(new Set([...venuePage.items, ...lastVenues.items].map((v) => v.id)).size).toBe(3)
-    const requestPage = await c.requests.query({ status: 'PENDING', limit: 1 })
-    const nextRequests = await c.requests.query({
+    const requestPage = await c.requests({ status: 'PENDING', limit: 1 })
+    const nextRequests = await c.requests({
       status: 'PENDING',
       limit: 1,
       cursor: requestPage.nextCursor ?? undefined,
     })
     expect(requestPage.items[0]?.id).not.toBe(nextRequests.items[0]?.id)
-    await c.changeRole.mutate({
+    await c.changeRole({
       userId: target.id,
       expectedVersion: 0,
       role: 'MERCHANT',
       note: 'Immutable before/after',
     })
-    const snapshot = await c.audit.query({ userId: target.id, limit: 100 })
+    const snapshot = await c.audit({ userId: target.id, limit: 100 })
     await db.user.update({ where: { id: target.id }, data: { name: 'Renamed synthetic target' } })
     await db.user.update({ where: { id: admin.id }, data: { name: 'Renamed synthetic admin' } })
-    expect(await c.audit.query({ userId: target.id, limit: 100 })).toEqual(snapshot)
-    const firstAudit = await c.audit.query({ userId: target.id, limit: 2 })
-    const nextAudit = await c.audit.query({
+    expect(await c.audit({ userId: target.id, limit: 100 })).toEqual(snapshot)
+    const firstAudit = await c.audit({ userId: target.id, limit: 2 })
+    const nextAudit = await c.audit({
       userId: target.id,
       limit: 100,
       cursor: firstAudit.nextCursor ?? undefined,
     })
     expect([...firstAudit.items, ...nextAudit.items]).toEqual(snapshot.items)
-    const merchantAccounts = await c.accounts.query({ role: 'MERCHANT', search: target.email })
+    const merchantAccounts = await c.accounts({ role: 'MERCHANT', search: target.email })
     expect(merchantAccounts.items.map((x) => x.id)).toEqual([target.id])
     await db.user.update({ where: { id: admin.id }, data: { name: 'Synthetic admin' } })
   })
   it('preserves ingestion account DTOs when MERCHANT accounts exist', async () => {
     const merchant = await syntheticUser('MERCHANT')
-    const rows = await clientFor(admin.cookie).ingestion.accounts.query({ limit: 50 })
+    const rows = await clientFor(admin.cookie).ingestion.accounts({ limit: 50 })
     expect(rows.items.find((row) => row.id === merchant.id)?.role).toBe('MERCHANT')
   })
   it('grants exactly one active stall to a MERCHANT and isolates all other stalls', async () => {
@@ -1401,20 +1600,20 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       },
     })
     const client = clientFor(admin.cookie).platformAdmin
-    const venues = await client.venues.query({ search: 'Synthetic stall' })
+    const venues = await client.venues({ search: 'Synthetic stall' })
     expect(venues.items.map((v) => v.id)).toContain(venue.id)
     expect(venues.items[0]).toMatchObject({
       merchantName: 'Synthetic merchant',
       address: 'Synthetic address',
     })
-    const grant = await client.grantStall.mutate({
+    const grant = await client.grantStall({
       userId: target.id,
       venueId: venue.id,
       expectedUserVersion: 0,
       note: 'Verified outlet authority',
     })
     expect(grant.version).toBe(1)
-    const detail = await client.account.query({ userId: target.id })
+    const detail = await client.account({ userId: target.id })
     expect(detail).toMatchObject({
       id: target.id,
       role: 'MERCHANT',
@@ -1422,7 +1621,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       grants: [{ id: grant.id, venueId: venue.id, version: 1 }],
     })
     await expect(
-      client.grantStall.mutate({
+      client.grantStall({
         userId: target.id,
         venueId: venue.id,
         expectedUserVersion: 1,
@@ -1436,7 +1635,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     await expect(
       db.$transaction((tx) => requireMerchantStall(tx, target.id, other.id)),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' })
-    expect((await client.audit.query({ userId: target.id })).items).toMatchObject([
+    expect((await client.audit({ userId: target.id })).items).toMatchObject([
       { action: 'STALL_GRANTED', roleBefore: null, roleAfter: null },
     ])
   })
@@ -1444,14 +1643,14 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     const target = await syntheticUser()
     const client = clientFor(admin.cookie).platformAdmin
     await expect(
-      clientFor(admin.cookie, 'https://untrusted.example').platformAdmin.changeRole.mutate({
+      clientFor(admin.cookie, 'https://untrusted.example').platformAdmin.changeRole({
         userId: target.id,
         expectedVersion: 0,
         role: 'MERCHANT',
         note: 'Verified synthetic business',
       }),
     ).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } })
-    const changed = await client.changeRole.mutate({
+    const changed = await client.changeRole({
       userId: target.id,
       expectedVersion: 0,
       role: 'MERCHANT',
@@ -1459,7 +1658,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     })
     expect(changed).toEqual({ id: target.id, version: 1 })
     expect((await db.user.findUniqueOrThrow({ where: { id: target.id } })).role).toBe('MERCHANT')
-    const history = await client.audit.query({ userId: target.id })
+    const history = await client.audit({ userId: target.id })
     expect(history.items).toHaveLength(1)
     expect(history.items[0]).toMatchObject({
       actorId: admin.id,
@@ -1483,7 +1682,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       'venueId',
     ])
     await expect(
-      client.changeRole.mutate({
+      client.changeRole({
         userId: target.id,
         expectedVersion: 0,
         role: 'ADMIN',
@@ -1491,7 +1690,7 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       }),
     ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
     await expect(
-      client.changeRole.mutate({
+      client.changeRole({
         userId: target.id,
         expectedVersion: 1,
         role: 'MERCHANT',
@@ -1499,26 +1698,26 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
       }),
     ).rejects.toMatchObject({ data: { code: 'CONFLICT' } })
     await expect(
-      client.changeRole.mutate({
+      client.changeRole({
         userId: admin.id,
         expectedVersion: 0,
         role: 'USER',
         note: 'Self',
       }),
     ).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } })
-    expect(await client.audit.query({ userId: target.id })).toEqual(history)
+    expect(await client.audit({ userId: target.id })).toEqual(history)
   })
   it('exposes allowlisted versioned accounts only to fresh ADMIN identities', async () => {
     const client = clientFor(admin.cookie)
-    await expect(clientFor().platformAdmin.accounts.query({})).rejects.toMatchObject({
+    await expect(clientFor().platformAdmin.accounts({})).rejects.toMatchObject({
       data: { code: 'UNAUTHORIZED' },
     })
     for (const account of [member, moderator]) {
-      await expect(
-        clientFor(account.cookie).platformAdmin.accounts.query({}),
-      ).rejects.toMatchObject({ data: { code: 'FORBIDDEN' } })
+      await expect(clientFor(account.cookie).platformAdmin.accounts({})).rejects.toMatchObject({
+        data: { code: 'FORBIDDEN' },
+      })
     }
-    const page = await client.platformAdmin.accounts.query({ search: 'Synthetic', limit: 1 })
+    const page = await client.platformAdmin.accounts({ search: 'Synthetic', limit: 1 })
     expect(page.items).toHaveLength(1)
     expect(Object.keys(page.items[0] ?? {}).sort()).toEqual([
       'createdAt',
@@ -1530,14 +1729,14 @@ describe('platform administration: real HTTP/cookies/disposable replica', () => 
     ])
     expect(page.items[0]?.version).toBe(0)
     expect(page.nextCursor).toMatch(/^[a-f0-9]{24}$/)
-    const next = await client.platformAdmin.accounts.query({
+    const next = await client.platformAdmin.accounts({
       search: 'Synthetic',
       cursor: page.nextCursor ?? undefined,
       limit: 1,
     })
     expect(next.items[0]?.id).not.toBe(page.items[0]?.id)
     await db.user.update({ where: { id: admin.id }, data: { role: 'USER' } })
-    await expect(client.platformAdmin.accounts.query({})).rejects.toMatchObject({
+    await expect(client.platformAdmin.accounts({})).rejects.toMatchObject({
       data: { code: 'FORBIDDEN' },
     })
     await db.user.update({ where: { id: admin.id }, data: { role: 'ADMIN' } })

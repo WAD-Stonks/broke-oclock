@@ -1,12 +1,17 @@
+import type { IngestionDashboardResponse, IngestionDraft } from '@broke-oclock/contracts/ingestion'
 import { flushPromises, mount } from '@vue/test-utils'
-import type { RouterOutputs } from '@web/lib/api-client'
+import { ApiClientError } from '@web/lib/api-client'
 import DraftQueue from '@web/modules/ingestion-admin/DraftQueue.vue'
 import IngestionAdminPage from '@web/pages/IngestionAdminPage.vue'
 import { beforeEach, expect, it, vi } from 'vitest'
 
-const rpc = vi.hoisted(() => ({
+// Synthetic REST boundary only: these component tests preserve UI races but do not prove backend policy.
+const rest = vi.hoisted(() => ({
   dashboard: vi.fn(),
   signIn: vi.fn(),
+  session: vi.fn(),
+  signOut: vi.fn(),
+  authMethods: vi.fn(),
   runs: vi.fn(),
   run: vi.fn(),
   queue: vi.fn(),
@@ -15,20 +20,38 @@ const rpc = vi.hoisted(() => ({
   accounts: vi.fn(),
 }))
 vi.mock('@web/lib/api-client', () => ({
+  ApiClientError: class ApiClientError extends Error {
+    constructor(
+      readonly code: string,
+      readonly status: number,
+      message: string,
+    ) {
+      super(message)
+    }
+  },
   api: {
+    infrastructure: { authMethods: rest.authMethods },
     ingestion: {
-      dashboard: { query: rpc.dashboard },
-      runs: { query: rpc.runs },
-      run: { mutate: rpc.run },
-      queue: { query: rpc.queue },
-      review: { mutate: rpc.review },
-      searchLocations: { query: rpc.locations },
-      accounts: { query: rpc.accounts },
+      dashboard: rest.dashboard,
+      runs: rest.runs,
+      run: rest.run,
+      drafts: rest.queue,
+      reviewDraft: rest.review,
+      searchLocations: rest.locations,
+      accounts: rest.accounts,
     },
   },
 }))
 
-vi.mock('@web/lib/auth-client', () => ({ authClient: { signIn: { email: rpc.signIn } } }))
+// Native identity is synthetic here, not real authentication proof.
+vi.mock('@web/lib/auth-client', () => ({
+  authClient: {
+    useSession: () => ({ value: { refetch: async () => {}, error: null } }),
+    getSession: rest.session,
+    signOut: rest.signOut,
+    signIn: { email: rest.signIn },
+  },
+}))
 
 const dashboard = {
   source: {
@@ -38,18 +61,36 @@ const dashboard = {
     onemapConfigured: false,
   },
   counts: { pending: 3, approved: 4, rejected: 2, failed: 1 },
-} satisfies RouterOutputs['ingestion']['dashboard']
+} satisfies IngestionDashboardResponse
 beforeEach(() => {
   vi.resetAllMocks()
-  rpc.dashboard.mockResolvedValue(dashboard)
-  rpc.runs.mockResolvedValue({ items: [] })
-  rpc.queue.mockResolvedValue({ items: [], nextCursor: null })
-  rpc.accounts.mockResolvedValue({ items: [], nextCursor: null })
-  rpc.locations.mockResolvedValue({ items: [] })
+  rest.session.mockResolvedValue({
+    data: {
+      user: {
+        id: 'synthetic-admin',
+        name: 'Synthetic admin',
+        email: 'admin@example.test',
+        role: 'USER',
+      },
+    },
+    error: null,
+  })
+  rest.signOut.mockResolvedValue({ data: { success: true }, error: null })
+  rest.authMethods.mockResolvedValue({
+    password: true,
+    google: false,
+    emailOtp: false,
+    passwordRecovery: false,
+  })
+  rest.dashboard.mockResolvedValue(dashboard)
+  rest.runs.mockResolvedValue({ items: [] })
+  rest.queue.mockResolvedValue({ items: [], nextCursor: null })
+  rest.accounts.mockResolvedValue({ items: [], nextCursor: null })
+  rest.locations.mockResolvedValue({ items: [] })
 })
 
 it('shows a sign-in form when the server denies anonymous access', async () => {
-  rpc.dashboard.mockRejectedValue({ data: { code: 'UNAUTHORIZED' } })
+  rest.dashboard.mockRejectedValue(new ApiClientError('UNAUTHORIZED', 401, 'Sign in required'))
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   expect(wrapper.text()).toContain('Sign in to review ingestion')
@@ -64,18 +105,20 @@ it('renders server counts and explains both disabled-source gates', async () => 
   expect(wrapper.get('[aria-label="Ingestion counts"]').text()).toContain('3pending')
   expect(wrapper.text()).toContain('Synthetic fixture source')
   expect(wrapper.text()).toContain('Ingestion is disabled')
-  expect(wrapper.text()).toContain('Content reuse is not approved')
+  expect(wrapper.text()).toContain('Operator reuse attestation is not recorded')
   expect(wrapper.get('[data-testid="run-ingestion"]').attributes('disabled')).toBeDefined()
 })
 
 it('shows forbidden distinctly and recovers from a dashboard error', async () => {
-  rpc.dashboard.mockRejectedValueOnce({ data: { code: 'FORBIDDEN' } })
+  rest.dashboard.mockRejectedValueOnce(new ApiClientError('FORBIDDEN', 403, 'Forbidden'))
   const denied = mount(IngestionAdminPage)
   await flushPromises()
   expect(denied.text()).toContain('You do not have permission')
   expect(denied.find('input[type="password"]').exists()).toBe(false)
   denied.unmount()
-  rpc.dashboard.mockRejectedValueOnce(new Error('private implementation detail'))
+  rest.dashboard.mockRejectedValueOnce(
+    new ApiClientError('INTERNAL_SERVER_ERROR', 500, 'API request failed'),
+  )
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   expect(wrapper.text()).toContain('Unable to load ingestion')
@@ -86,28 +129,28 @@ it('shows forbidden distinctly and recovers from a dashboard error', async () =>
 })
 
 it('uses shared Better Auth, clears the password, and retries authorized reads', async () => {
-  rpc.dashboard.mockRejectedValueOnce({ data: { code: 'UNAUTHORIZED' } })
-  rpc.signIn.mockResolvedValue({ error: null })
+  rest.dashboard.mockRejectedValueOnce(new ApiClientError('UNAUTHORIZED', 401, 'Sign in required'))
+  rest.signIn.mockResolvedValue({ error: null })
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   await wrapper.get('#admin-email').setValue('synthetic@example.test')
   await wrapper.get('#admin-password').setValue('synthetic-not-a-real-password')
   await wrapper.get('form').trigger('submit')
   await flushPromises()
-  expect(rpc.signIn).toHaveBeenCalledWith({
+  expect(rest.signIn).toHaveBeenCalledWith({
     email: 'synthetic@example.test',
     password: 'synthetic-not-a-real-password',
   })
-  expect(rpc.dashboard).toHaveBeenCalledTimes(2)
+  expect(rest.dashboard).toHaveBeenCalledTimes(2)
   expect(wrapper.text()).toContain('Synthetic fixture source')
 })
 
 it('runs once while pending and refreshes actual dashboard and run reads', async () => {
-  rpc.dashboard.mockResolvedValue({
+  rest.dashboard.mockResolvedValue({
     ...dashboard,
     source: { ...dashboard.source, enabled: true, reuseApproved: true },
   })
-  rpc.runs.mockResolvedValue({
+  rest.runs.mockResolvedValue({
     items: [
       {
         id: 'run-1',
@@ -124,7 +167,7 @@ it('runs once while pending and refreshes actual dashboard and run reads', async
     ],
   })
   let complete: ((value: unknown) => void) | undefined
-  rpc.run.mockImplementation(
+  rest.run.mockImplementation(
     () =>
       new Promise((resolve) => {
         complete = resolve
@@ -133,10 +176,10 @@ it('runs once while pending and refreshes actual dashboard and run reads', async
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   expect(wrapper.text()).toContain('SOURCE_UNAVAILABLE')
-  expect(rpc.runs).toHaveBeenCalledWith({ limit: 20 })
+  expect(rest.runs).toHaveBeenCalledWith({ limit: 20 })
   await wrapper.get('[data-testid="run-ingestion"]').trigger('click')
   await wrapper.get('[data-testid="run-ingestion"]').trigger('click')
-  expect(rpc.run).toHaveBeenCalledTimes(1)
+  expect(rest.run).toHaveBeenCalledTimes(1)
   expect(wrapper.get('[data-testid="run-ingestion"]').attributes('disabled')).toBeDefined()
   complete?.({
     runId: 'run-2',
@@ -147,17 +190,17 @@ it('runs once while pending and refreshes actual dashboard and run reads', async
     failedCount: 0,
   })
   await flushPromises()
-  expect(rpc.dashboard).toHaveBeenCalledTimes(2)
-  expect(rpc.runs).toHaveBeenCalledTimes(2)
+  expect(rest.dashboard).toHaveBeenCalledTimes(2)
+  expect(rest.runs).toHaveBeenCalledTimes(2)
   expect(wrapper.text()).toContain('Run run-2: COMPLETED')
 })
 
 it('restores the run button after an API error without inventing success', async () => {
-  rpc.dashboard.mockResolvedValue({
+  rest.dashboard.mockResolvedValue({
     ...dashboard,
     source: { ...dashboard.source, enabled: true, reuseApproved: true },
   })
-  rpc.run.mockRejectedValue(new Error('private provider response'))
+  rest.run.mockRejectedValue(new Error('private provider response'))
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   await wrapper.get('[data-testid="run-ingestion"]').trigger('click')
@@ -167,7 +210,7 @@ it('restores the run button after an API error without inventing success', async
   expect(wrapper.get('[data-testid="run-ingestion"]').attributes('disabled')).toBeUndefined()
 })
 
-const draft: RouterOutputs['ingestion']['queue']['items'][number] = {
+const draft: IngestionDraft = {
   id: 'draft-1',
   title: '<img src=x onerror=alert(1)> Synthetic deal',
   description: '<script>unsafe()</script>',
@@ -178,6 +221,8 @@ const draft: RouterOutputs['ingestion']['queue']['items'][number] = {
   validUntil: null,
   rawValidityText: 'While stocks last',
   applicability: 'NO_FIXED_LOCATION',
+  merchantId: null,
+  outlet: null,
   reviewStatus: 'PENDING',
   contentVersion: 7,
   sourceUrl: 'https://example.test/post/1',
@@ -187,11 +232,11 @@ const draft: RouterOutputs['ingestion']['queue']['items'][number] = {
 }
 
 it('renders escaped attributed draft details and rejects with a required note and current version', async () => {
-  rpc.queue.mockResolvedValueOnce({ items: [draft], nextCursor: null })
-  rpc.review.mockResolvedValue({ id: draft.id, reviewStatus: 'REJECTED' })
+  rest.queue.mockResolvedValueOnce({ items: [draft], nextCursor: null })
+  rest.review.mockResolvedValue({ id: draft.id, reviewStatus: 'REJECTED' })
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
-  expect(rpc.queue).toHaveBeenCalledWith({ limit: 20, status: 'PENDING' })
+  expect(rest.queue).toHaveBeenCalledWith({ limit: 20, status: 'PENDING' })
   await wrapper.get('[data-testid="view-draft-1"]').trigger('click')
   expect(wrapper.text()).toContain(draft.description)
   expect(wrapper.find('script').exists()).toBe(false)
@@ -202,20 +247,19 @@ it('renders escaped attributed draft details and rejects with a required note an
   await wrapper.get('#review-note').setValue('Not enough confirmed validity information')
   await wrapper.get('[data-testid="reject-draft"]').trigger('click')
   await flushPromises()
-  expect(rpc.review).toHaveBeenCalledWith({
-    dealId: draft.id,
+  expect(rest.review).toHaveBeenCalledWith(draft.id, {
     expectedContentVersion: 7,
     decision: 'REJECT',
     note: 'Not enough confirmed validity information',
   })
-  expect(rpc.queue).toHaveBeenCalledTimes(2)
-  expect(rpc.dashboard).toHaveBeenCalledTimes(2)
+  expect(rest.queue).toHaveBeenCalledTimes(2)
+  expect(rest.dashboard).toHaveBeenCalledTimes(2)
   expect(wrapper.text()).toContain('Draft rejected')
   expect(wrapper.text()).toContain('No drafts match this status')
 })
 
 it('disables approval for unknown or expired validity, and never links unsafe URLs', async () => {
-  rpc.queue.mockResolvedValue({
+  rest.queue.mockResolvedValue({
     items: [{ ...draft, sourceUrl: 'javascript:alert(1)' }],
     nextCursor: null,
   })
@@ -227,17 +271,17 @@ it('disables approval for unknown or expired validity, and never links unsafe UR
   expect(wrapper.text()).toContain('Approval requires known validity dates')
   expect(wrapper.find('[data-testid="draft-source"]').exists()).toBe(false)
   await wrapper.get('[data-testid="approve-draft"]').trigger('click')
-  expect(rpc.review).not.toHaveBeenCalled()
+  expect(rest.review).not.toHaveBeenCalled()
 })
 
 it('filters the queue using server status and preserves review notes on failure', async () => {
-  rpc.queue.mockResolvedValue({ items: [draft], nextCursor: null })
-  rpc.review.mockRejectedValue(new Error('private DB error'))
+  rest.queue.mockResolvedValue({ items: [draft], nextCursor: null })
+  rest.review.mockRejectedValue(new Error('private DB error'))
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   await wrapper.get('#queue-status').setValue('REJECTED')
   await flushPromises()
-  expect(rpc.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'REJECTED' })
+  expect(rest.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'REJECTED' })
   await wrapper.get('#queue-status').setValue('PENDING')
   await flushPromises()
   await wrapper.get('[data-testid="view-draft-1"]').trigger('click')
@@ -255,7 +299,7 @@ it.each([
   ['2099-12-01T00:00:00Z', '2099-01-01T00:00:00Z', 'Validity dates are invalid'],
   ['2099-01-01T00:00:00Z', '2099-01-01T00:00:00Z', 'Validity dates are invalid'],
 ])('blocks unsafe validity %s → %s', async (validFrom, validUntil, reason) => {
-  rpc.queue.mockResolvedValue({ items: [{ ...draft, validFrom, validUntil }], nextCursor: null })
+  rest.queue.mockResolvedValue({ items: [{ ...draft, validFrom, validUntil }], nextCursor: null })
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   await wrapper.get('[data-testid="view-draft-1"]').trigger('click')
@@ -265,12 +309,12 @@ it.each([
 })
 
 it('approves known validity once and displays a stale-content conflict with a reload action', async () => {
-  rpc.queue.mockResolvedValue({
+  rest.queue.mockResolvedValue({
     items: [{ ...draft, validFrom: '2099-01-01T00:00:00Z', validUntil: '2099-12-01T00:00:00Z' }],
     nextCursor: null,
   })
-  rpc.review
-    .mockRejectedValueOnce({ data: { code: 'CONFLICT' } })
+  rest.review
+    .mockRejectedValueOnce(new ApiClientError('CONFLICT', 409, 'Conflict'))
     .mockResolvedValue({ id: draft.id, reviewStatus: 'APPROVED' })
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
@@ -281,7 +325,7 @@ it('approves known validity once and displays a stale-content conflict with a re
   expect(wrapper.text()).toContain('Content changed. Reload the draft before reviewing again')
   expect(wrapper.get('[data-testid="view-draft-1"]').attributes('disabled')).toBeDefined()
   expect(wrapper.get('[data-testid="approve-draft"]').attributes('disabled')).toBeDefined()
-  rpc.queue.mockResolvedValueOnce({
+  rest.queue.mockResolvedValueOnce({
     items: [
       {
         ...draft,
@@ -296,7 +340,7 @@ it('approves known validity once and displays a stale-content conflict with a re
   await flushPromises()
   await wrapper.get('#review-note').setValue('Verified dated source')
   let complete: ((value: unknown) => void) | undefined
-  rpc.review.mockImplementationOnce(
+  rest.review.mockImplementationOnce(
     () =>
       new Promise((resolve) => {
         complete = resolve
@@ -304,9 +348,8 @@ it('approves known validity once and displays a stale-content conflict with a re
   )
   await wrapper.get('article form').trigger('submit')
   await wrapper.get('article form').trigger('submit')
-  expect(rpc.review).toHaveBeenCalledTimes(2)
-  expect(rpc.review).toHaveBeenLastCalledWith({
-    dealId: draft.id,
+  expect(rest.review).toHaveBeenCalledTimes(2)
+  expect(rest.review).toHaveBeenLastCalledWith(draft.id, {
     expectedContentVersion: 8,
     decision: 'APPROVE',
     note: 'Verified dated source',
@@ -322,7 +365,7 @@ it('preserves a selected stale draft conflict through pagination until an explic
     validFrom: '2099-01-01T00:00:00Z',
     validUntil: '2099-12-01T00:00:00Z',
   }
-  rpc.queue
+  rest.queue
     .mockResolvedValueOnce({ items: [datedDraft], nextCursor: 'next-draft' })
     .mockResolvedValueOnce({
       items: [{ ...datedDraft, id: 'draft-2', title: 'Second synthetic draft' }],
@@ -332,8 +375,8 @@ it('preserves a selected stale draft conflict through pagination until an explic
       items: [{ ...datedDraft, contentVersion: 8, description: 'Current synthetic content' }],
       nextCursor: null,
     })
-  rpc.review
-    .mockRejectedValueOnce({ data: { code: 'CONFLICT' } })
+  rest.review
+    .mockRejectedValueOnce(new ApiClientError('CONFLICT', 409, 'Conflict'))
     .mockResolvedValue({ id: draft.id, reviewStatus: 'APPROVED' })
   const wrapper = mount(DraftQueue, { props: { revision: 0 } })
   await flushPromises()
@@ -346,7 +389,11 @@ it('preserves a selected stale draft conflict through pagination until an explic
 
   await wrapper.get('[data-testid="more-drafts"]').trigger('click')
   await flushPromises()
-  expect(rpc.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'PENDING', cursor: 'next-draft' })
+  expect(rest.queue).toHaveBeenLastCalledWith({
+    limit: 20,
+    status: 'PENDING',
+    cursor: 'next-draft',
+  })
   expect(wrapper.text()).toContain('Second synthetic draft')
   expect(wrapper.text()).toContain('Version 7')
   expect(wrapper.get('#review-note').element).toHaveProperty('value', 'Review of version seven')
@@ -357,11 +404,11 @@ it('preserves a selected stale draft conflict through pagination until an explic
   expect(wrapper.get('[data-testid="reject-draft"]').attributes('disabled')).toBeDefined()
   await wrapper.get('article form').trigger('submit')
   await wrapper.get('[data-testid="reject-draft"]').trigger('click')
-  expect(rpc.review).toHaveBeenCalledTimes(1)
+  expect(rest.review).toHaveBeenCalledTimes(1)
 
   await wrapper.get('[data-testid="reload-draft"]').trigger('click')
   await flushPromises()
-  expect(rpc.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'PENDING' })
+  expect(rest.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'PENDING' })
   expect(wrapper.text()).toContain('Current synthetic content')
   expect(wrapper.text()).toContain('Version 8')
   expect(wrapper.find('[data-testid="reload-draft"]').exists()).toBe(false)
@@ -376,9 +423,8 @@ it('preserves a selected stale draft conflict through pagination until an explic
   expect(wrapper.get('[data-testid="reject-draft"]').attributes('disabled')).toBeUndefined()
   await wrapper.get('article form').trigger('submit')
   await flushPromises()
-  expect(rpc.review).toHaveBeenCalledTimes(2)
-  expect(rpc.review).toHaveBeenLastCalledWith({
-    dealId: draft.id,
+  expect(rest.review).toHaveBeenCalledTimes(2)
+  expect(rest.review).toHaveBeenLastCalledWith(draft.id, {
     expectedContentVersion: 8,
     decision: 'APPROVE',
     note: 'Review of current version eight',
@@ -391,11 +437,11 @@ it('keeps a conflicted draft blocked after switching away and back to cached evi
     validFrom: '2099-01-01T00:00:00Z',
     validUntil: '2099-12-01T00:00:00Z',
   }
-  rpc.queue.mockResolvedValue({
+  rest.queue.mockResolvedValue({
     items: [datedDraft, { ...datedDraft, id: 'draft-2', title: 'Other draft' }],
     nextCursor: null,
   })
-  rpc.review.mockRejectedValueOnce({ data: { code: 'CONFLICT' } })
+  rest.review.mockRejectedValueOnce(new ApiClientError('CONFLICT', 409, 'Conflict'))
   const wrapper = mount(DraftQueue, { props: { revision: 0 } })
   await flushPromises()
   await wrapper.get('[data-testid="view-draft-1"]').trigger('click')
@@ -413,8 +459,8 @@ it('keeps a conflicted draft blocked after switching away and back to cached evi
   expect(wrapper.get('[data-testid="reject-draft"]').attributes('disabled')).toBeDefined()
   await wrapper.get('article form').trigger('submit')
   await wrapper.get('[data-testid="reject-draft"]').trigger('click')
-  expect(rpc.queue).toHaveBeenCalledTimes(1)
-  expect(rpc.review).toHaveBeenCalledTimes(1)
+  expect(rest.queue).toHaveBeenCalledTimes(1)
+  expect(rest.review).toHaveBeenCalledTimes(1)
 })
 
 it.each(['draft-1', 'replacement-draft'])(
@@ -440,14 +486,14 @@ it.each(['draft-1', 'replacement-draft'])(
       reviewStatus: 'REJECTED',
       reviewNote: 'Superseded by source revision',
     }
-    rpc.queue
+    rest.queue
       .mockResolvedValueOnce({ items: [other], nextCursor: 'page-two' })
       .mockResolvedValueOnce({ items: [datedDraft], nextCursor: null })
       .mockResolvedValueOnce({ items: [other], nextCursor: 'page-two' })
       .mockResolvedValueOnce({ items: [current], nextCursor: null })
       .mockResolvedValueOnce({ items: [superseded], nextCursor: null })
-    rpc.review
-      .mockRejectedValueOnce({ data: { code: 'CONFLICT' } })
+    rest.review
+      .mockRejectedValueOnce(new ApiClientError('CONFLICT', 409, 'Conflict'))
       .mockResolvedValue({ id: currentId, reviewStatus: 'APPROVED' })
     const wrapper = mount(DraftQueue, { props: { revision: 0 } })
     await flushPromises()
@@ -464,20 +510,19 @@ it.each(['draft-1', 'replacement-draft'])(
     await wrapper.get('[data-testid="more-drafts"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('article').exists()).toBe(false)
-    expect(rpc.review).toHaveBeenCalledTimes(1)
+    expect(rest.review).toHaveBeenCalledTimes(1)
     await wrapper.get(`[data-testid="view-${currentId}"]`).trigger('click')
     expect(wrapper.get('#review-note').element).toHaveProperty('value', '')
     expect(wrapper.text()).toContain('Current source evidence')
     expect(wrapper.find('[data-testid="reload-draft"]').exists()).toBe(false)
     await wrapper.get('article form').trigger('submit')
     await wrapper.get('[data-testid="reject-draft"]').trigger('click')
-    expect(rpc.review).toHaveBeenCalledTimes(1)
+    expect(rest.review).toHaveBeenCalledTimes(1)
     await wrapper.get('#review-note').setValue('Review of current source revision')
     await wrapper.get('article form').trigger('submit')
     await flushPromises()
-    expect(rpc.review).toHaveBeenCalledTimes(2)
-    expect(rpc.review).toHaveBeenLastCalledWith({
-      dealId: currentId,
+    expect(rest.review).toHaveBeenCalledTimes(2)
+    expect(rest.review).toHaveBeenLastCalledWith(currentId, {
       expectedContentVersion: 8,
       decision: 'APPROVE',
       note: 'Review of current source revision',
@@ -501,7 +546,7 @@ it('requires deliberate selection of a different-ID source replacement returned 
     contentVersion: 8,
     description: 'Replacement source evidence',
   }
-  rpc.queue
+  rest.queue
     .mockResolvedValueOnce({ items: [old], nextCursor: null })
     .mockResolvedValueOnce({ items: [replacement], nextCursor: null })
     .mockResolvedValueOnce({
@@ -516,8 +561,8 @@ it('requires deliberate selection of a different-ID source replacement returned 
       nextCursor: null,
     })
     .mockResolvedValueOnce({ items: [replacement], nextCursor: null })
-  rpc.review
-    .mockRejectedValueOnce({ data: { code: 'CONFLICT' } })
+  rest.review
+    .mockRejectedValueOnce(new ApiClientError('CONFLICT', 409, 'Conflict'))
     .mockResolvedValue({ id: replacement.id, reviewStatus: 'APPROVED' })
   const wrapper = mount(DraftQueue, { props: { revision: 0 } })
   await flushPromises()
@@ -543,13 +588,12 @@ it('requires deliberate selection of a different-ID source replacement returned 
   expect(wrapper.get('#review-note').element).toHaveProperty('value', '')
   await wrapper.get('article form').trigger('submit')
   await wrapper.get('[data-testid="reject-draft"]').trigger('click')
-  expect(rpc.review).toHaveBeenCalledTimes(1)
+  expect(rest.review).toHaveBeenCalledTimes(1)
   await wrapper.get('#review-note').setValue('Reviewed replacement evidence')
   await wrapper.get('article form').trigger('submit')
   await flushPromises()
-  expect(rpc.review).toHaveBeenCalledTimes(2)
-  expect(rpc.review).toHaveBeenLastCalledWith({
-    dealId: replacement.id,
+  expect(rest.review).toHaveBeenCalledTimes(2)
+  expect(rest.review).toHaveBeenLastCalledWith(replacement.id, {
     expectedContentVersion: 8,
     decision: 'APPROVE',
     note: 'Reviewed replacement evidence',
@@ -557,8 +601,8 @@ it('requires deliberate selection of a different-ID source replacement returned 
 })
 
 it('requires a fresh review note when conflicted evidence is fetched even at the same version', async () => {
-  rpc.queue.mockResolvedValue({ items: [draft], nextCursor: null })
-  rpc.review.mockRejectedValueOnce({ data: { code: 'CONFLICT' } })
+  rest.queue.mockResolvedValue({ items: [draft], nextCursor: null })
+  rest.review.mockRejectedValueOnce(new ApiClientError('CONFLICT', 409, 'Conflict'))
   const wrapper = mount(DraftQueue, { props: { revision: 0 } })
   await flushPromises()
   await wrapper.get('[data-testid="view-draft-1"]').trigger('click')
@@ -572,11 +616,11 @@ it('requires a fresh review note when conflicted evidence is fetched even at the
   expect(wrapper.get('[data-testid="reject-draft"]').attributes('disabled')).toBeDefined()
   await wrapper.get('article form').trigger('submit')
   await wrapper.get('[data-testid="reject-draft"]').trigger('click')
-  expect(rpc.review).toHaveBeenCalledTimes(1)
+  expect(rest.review).toHaveBeenCalledTimes(1)
 })
 
 it('paginates drafts with the server cursor, deduplicates IDs, and resets pagination on filters', async () => {
-  rpc.queue
+  rest.queue
     .mockResolvedValueOnce({ items: [draft], nextCursor: 'next-draft' })
     .mockResolvedValueOnce({
       items: [draft, { ...draft, id: 'draft-2', title: 'Second synthetic draft' }],
@@ -586,13 +630,17 @@ it('paginates drafts with the server cursor, deduplicates IDs, and resets pagina
   await flushPromises()
   await wrapper.get('[data-testid="more-drafts"]').trigger('click')
   await flushPromises()
-  expect(rpc.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'PENDING', cursor: 'next-draft' })
+  expect(rest.queue).toHaveBeenLastCalledWith({
+    limit: 20,
+    status: 'PENDING',
+    cursor: 'next-draft',
+  })
   expect(wrapper.findAll('[data-testid="view-draft-1"]')).toHaveLength(1)
   expect(wrapper.text()).toContain('Second synthetic draft')
   expect(wrapper.find('[data-testid="more-drafts"]').exists()).toBe(false)
   await wrapper.get('#queue-status').setValue('APPROVED')
   await flushPromises()
-  expect(rpc.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'APPROVED' })
+  expect(rest.queue).toHaveBeenLastCalledWith({ limit: 20, status: 'APPROVED' })
 })
 
 it('acknowledges OneMap as the data source with the documented Singapore Open Data Licence', async () => {
@@ -606,11 +654,11 @@ it('acknowledges OneMap as the data source with the documented Singapore Open Da
 })
 
 it('shows OneMap address/coordinate candidates without claiming merchant verification or attaching them', async () => {
-  rpc.dashboard.mockResolvedValue({
+  rest.dashboard.mockResolvedValue({
     ...dashboard,
     source: { ...dashboard.source, onemapConfigured: true },
   })
-  rpc.locations.mockResolvedValue({
+  rest.locations.mockResolvedValue({
     items: [
       {
         searchValue: 'Synthetic plaza',
@@ -626,11 +674,11 @@ it('shows OneMap address/coordinate candidates without claiming merchant verific
   await wrapper.get('#location-query').setValue('  fixture plaza  ')
   await wrapper.get('[data-testid="location-search"]').trigger('submit')
   await flushPromises()
-  expect(rpc.locations).toHaveBeenCalledWith({ query: 'fixture plaza' })
+  expect(rest.locations).toHaveBeenCalledWith({ query: 'fixture plaza' })
   expect(wrapper.text()).toContain('123 FIXTURE ROAD')
   expect(wrapper.text()).toContain('1.3, 103.8')
   expect(wrapper.text()).toContain('Candidates are not verified merchants or outlets')
-  expect(rpc.review).not.toHaveBeenCalled()
+  expect(rest.review).not.toHaveBeenCalled()
 })
 
 it('disables unconfigured OneMap and recovers search errors without stale candidates', async () => {
@@ -638,11 +686,11 @@ it('disables unconfigured OneMap and recovers search errors without stale candid
   await flushPromises()
   expect(disabled.get('[data-testid="search-locations"]').attributes('disabled')).toBeDefined()
   disabled.unmount()
-  rpc.dashboard.mockResolvedValue({
+  rest.dashboard.mockResolvedValue({
     ...dashboard,
     source: { ...dashboard.source, onemapConfigured: true },
   })
-  rpc.locations.mockRejectedValueOnce(new Error('private OneMap token'))
+  rest.locations.mockRejectedValueOnce(new Error('private OneMap token'))
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   await wrapper.get('#location-query').setValue('fixture plaza')
@@ -656,7 +704,7 @@ it('disables unconfigured OneMap and recovers search errors without stale candid
 })
 
 it('reads accounts only on request and provides no deletion or role-edit controls', async () => {
-  rpc.accounts.mockResolvedValue({
+  rest.accounts.mockResolvedValue({
     items: [
       {
         id: 'fixture-user',
@@ -670,10 +718,10 @@ it('reads accounts only on request and provides no deletion or role-edit control
   })
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
-  expect(rpc.accounts).not.toHaveBeenCalled()
+  expect(rest.accounts).not.toHaveBeenCalled()
   await wrapper.get('[data-testid="load-accounts"]').trigger('click')
   await flushPromises()
-  expect(rpc.accounts).toHaveBeenCalledWith({ limit: 20 })
+  expect(rest.accounts).toHaveBeenCalledWith({ limit: 20 })
   const panel = wrapper.get('[aria-labelledby="accounts-title"]')
   expect(panel.text()).toContain('synthetic@example.test')
   expect(panel.text()).toContain('ADMIN')
@@ -684,7 +732,7 @@ it('reads accounts only on request and provides no deletion or role-edit control
 })
 
 it('reports the account server gate without hiding the review dashboard', async () => {
-  rpc.accounts.mockRejectedValue({ data: { code: 'FORBIDDEN' } })
+  rest.accounts.mockRejectedValue(new ApiClientError('FORBIDDEN', 403, 'Forbidden'))
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   await wrapper.get('[data-testid="load-accounts"]').trigger('click')
@@ -701,7 +749,7 @@ it('paginates read-only accounts without duplicates and recovers failed account 
     role: 'ADMIN',
     createdAt: '2026-01-01T00:00:00Z',
   }
-  rpc.accounts
+  rest.accounts
     .mockRejectedValueOnce(new Error('private DB response'))
     .mockResolvedValueOnce({ items: [account], nextCursor: 'next-account' })
     .mockResolvedValueOnce({
@@ -717,32 +765,32 @@ it('paginates read-only accounts without duplicates and recovers failed account 
   await flushPromises()
   await wrapper.get('[data-testid="more-accounts"]').trigger('click')
   await flushPromises()
-  expect(rpc.accounts).toHaveBeenLastCalledWith({ limit: 20, cursor: 'next-account' })
+  expect(rest.accounts).toHaveBeenLastCalledWith({ limit: 20, cursor: 'next-account' })
   expect(wrapper.get('[aria-labelledby="accounts-title"]').findAll('li')).toHaveLength(2)
   expect(wrapper.text()).toContain('Second synthetic user')
 })
 
-it('bounds review notes and OneMap queries to the procedure limits', async () => {
-  rpc.dashboard.mockResolvedValue({
+it('bounds review notes and OneMap queries to their request limits', async () => {
+  rest.dashboard.mockResolvedValue({
     ...dashboard,
     source: { ...dashboard.source, onemapConfigured: true },
   })
-  rpc.queue.mockResolvedValue({ items: [draft], nextCursor: null })
+  rest.queue.mockResolvedValue({ items: [draft], nextCursor: null })
   const wrapper = mount(IngestionAdminPage)
   await flushPromises()
   await wrapper.get('[data-testid="view-draft-1"]').trigger('click')
   expect(wrapper.get('#review-note').attributes('maxlength')).toBe('1000')
   await wrapper.get('#review-note').setValue('x'.repeat(1001))
   await wrapper.get('[data-testid="reject-draft"]').trigger('click')
-  expect(rpc.review).not.toHaveBeenCalled()
+  expect(rest.review).not.toHaveBeenCalled()
   expect(wrapper.get('#location-query').attributes('maxlength')).toBe('120')
   await wrapper.get('#location-query').setValue('x'.repeat(121))
   await wrapper.get('[data-testid="location-search"]').trigger('submit')
-  expect(rpc.locations).not.toHaveBeenCalled()
+  expect(rest.locations).not.toHaveBeenCalled()
 })
 
 it('honors an explicit server review-readiness veto in addition to frontend date checks', async () => {
-  rpc.queue.mockResolvedValue({
+  rest.queue.mockResolvedValue({
     items: [
       {
         ...draft,
@@ -763,7 +811,7 @@ it('honors an explicit server review-readiness veto in addition to frontend date
 })
 
 it('requires a new note when an automatic refresh changes the selected content version', async () => {
-  rpc.queue.mockResolvedValueOnce({ items: [draft], nextCursor: null }).mockResolvedValueOnce({
+  rest.queue.mockResolvedValueOnce({ items: [draft], nextCursor: null }).mockResolvedValueOnce({
     items: [{ ...draft, contentVersion: 8, description: 'Changed synthetic text' }],
     nextCursor: null,
   })
@@ -787,7 +835,7 @@ it.each([
 ])(
   'keeps the run trigger disabled for enabled=%s reuseApproved=%s',
   async (enabled, reuseApproved) => {
-    rpc.dashboard.mockResolvedValue({
+    rest.dashboard.mockResolvedValue({
       ...dashboard,
       source: { ...dashboard.source, enabled, reuseApproved },
     })
@@ -795,13 +843,13 @@ it.each([
     await flushPromises()
     await wrapper.get('[data-testid="run-ingestion"]').trigger('click')
     expect(wrapper.get('[data-testid="run-ingestion"]').attributes('disabled')).toBeDefined()
-    expect(rpc.run).not.toHaveBeenCalled()
+    expect(rest.run).not.toHaveBeenCalled()
   },
 )
 
 it('recovers separate run and queue read errors without inventing records', async () => {
-  rpc.runs.mockRejectedValueOnce(new Error('private runs error'))
-  rpc.queue.mockRejectedValueOnce(new Error('private queue error'))
+  rest.runs.mockRejectedValueOnce(new Error('private runs error'))
+  rest.queue.mockRejectedValueOnce(new Error('private queue error'))
   const wrapper = mount(IngestionAdminPage)
   expect(wrapper.text()).toContain('Loading ingestion')
   await flushPromises()
@@ -817,9 +865,9 @@ it('recovers separate run and queue read errors without inventing records', asyn
 })
 
 it('blocks duplicate sign-ins and clears the password after rejected authentication', async () => {
-  rpc.dashboard.mockRejectedValue({ data: { code: 'UNAUTHORIZED' } })
+  rest.dashboard.mockRejectedValue(new ApiClientError('UNAUTHORIZED', 401, 'Sign in required'))
   let complete: ((value: unknown) => void) | undefined
-  rpc.signIn.mockImplementation(
+  rest.signIn.mockImplementation(
     () =>
       new Promise((resolve) => {
         complete = resolve
@@ -831,10 +879,112 @@ it('blocks duplicate sign-ins and clears the password after rejected authenticat
   await wrapper.get('#admin-password').setValue('synthetic-not-a-real-password')
   await wrapper.get('form').trigger('submit')
   await wrapper.get('form').trigger('submit')
-  expect(rpc.signIn).toHaveBeenCalledTimes(1)
+  expect(rest.signIn).toHaveBeenCalledTimes(1)
   complete?.({ error: { message: 'private auth detail' } })
   await flushPromises()
   expect(wrapper.text()).toContain('Sign-in failed')
   expect(wrapper.text()).not.toContain('private auth detail')
   expect(wrapper.get('#admin-password').element).toHaveProperty('value', '')
+})
+
+it('closes all ingestion evidence before logout and ignores a late dashboard success', async () => {
+  let release!: (value: IngestionDashboardResponse) => void
+  rest.dashboard.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  release(dashboard)
+  await flushPromises()
+  expect(w.find('[aria-label="Ingestion counts"]').exists()).toBe(false)
+  expect(w.text()).toContain('Sign in to review ingestion')
+  w.unmount()
+})
+
+it('does not refresh or publish an old run result after logout', async () => {
+  rest.dashboard.mockResolvedValue({
+    ...dashboard,
+    source: { ...dashboard.source, enabled: true, reuseApproved: true },
+  })
+  let release!: (value: unknown) => void
+  rest.run.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  await w.get('[data-testid="run-ingestion"]').trigger('click')
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  release({
+    runId: 'old-run',
+    status: 'COMPLETED',
+    fetchedCount: 1,
+    createdCount: 1,
+    updatedCount: 0,
+    failedCount: 0,
+  })
+  await flushPromises()
+  expect(rest.dashboard).toHaveBeenCalledTimes(1)
+  expect(w.text()).not.toContain('old-run')
+  w.unmount()
+})
+
+it('ignores an old location denial after logout and a freshly authorized sign-in', async () => {
+  rest.dashboard.mockResolvedValue({
+    ...dashboard,
+    source: { ...dashboard.source, onemapConfigured: true },
+  })
+  let reject!: (error: unknown) => void
+  rest.locations.mockImplementationOnce(
+    () =>
+      new Promise((_, no) => {
+        reject = no
+      }),
+  )
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  await w.get('#location-query').setValue('Synthetic plaza')
+  await w.get('[data-testid="location-search"]').trigger('submit')
+  await w.get('[data-testid="admin-sign-out"]').trigger('click')
+  await flushPromises()
+  rest.signIn.mockResolvedValue({ error: null })
+  await w.get('#admin-email').setValue('synthetic@example.test')
+  await w.get('#admin-password').setValue('synthetic-not-a-real-password')
+  await w.get('form').trigger('submit')
+  await flushPromises()
+  reject(new ApiClientError('FORBIDDEN', 403, 'Old denial'))
+  await flushPromises()
+  expect(w.find('[aria-label="Ingestion counts"]').exists()).toBe(true)
+  expect(w.text()).not.toContain('You do not have permission')
+  w.unmount()
+})
+
+it('does not restore ingestion after a newer child permission denial closes a pending dashboard refresh', async () => {
+  const w = mount(IngestionAdminPage)
+  await flushPromises()
+  let release!: (value: IngestionDashboardResponse) => void
+  rest.dashboard.mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        release = resolve
+      }),
+  )
+  // Exercise the D3 public changed/denied protocol without editing its owned component.
+  w.getComponent(DraftQueue).vm.$emit('changed')
+  await flushPromises()
+  w.getComponent(DraftQueue).vm.$emit('denied', 'FORBIDDEN')
+  await flushPromises()
+  release(dashboard)
+  await flushPromises()
+  expect(w.text()).toContain('You do not have permission')
+  expect(w.find('[aria-label="Ingestion counts"]').exists()).toBe(false)
+  w.unmount()
 })

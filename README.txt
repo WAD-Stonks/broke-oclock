@@ -55,7 +55,7 @@ and configuration; scheduled imports and confirmed outlet association remain
 separate work. The team must reconcile the final source plan before activation.
 
 STACK
-Vue 3/TypeScript/Vue Router/Vite/Bootstrap 5/BootstrapVueNext; Express 5/tRPC/Zod;
+Vue 3/TypeScript/Vue Router/Vite/Bootstrap 5/BootstrapVueNext; Express 5/REST/Axios/Zod;
 Better Auth; Prisma 6.19/MongoDB replica set; pnpm workspaces; UploadThing;
 OneMap; Resend transport; planned Leaflet/OpenStreetMap/Browser Geolocation;
 Vercel hosting target; Biome/Vitest/Playwright/GitHub Actions.

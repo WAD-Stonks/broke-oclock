@@ -75,6 +75,12 @@ it('runs the isolated production artifact with plain Node and real auth/Prisma',
     }
     expect((await fetch(`${base}/api/ready`)).status).toBe(200)
     expect((await fetch(`${base}/api/me`)).status).toBe(401)
+    const admin = await fetch(`${base}/api/admin/accounts`)
+    expect(admin.status).toBe(401)
+    expect(await admin.json()).toEqual({ error: { code: 'UNAUTHORIZED', message: 'UNAUTHORIZED' } })
+    const legacy = await fetch(`${base}/api/trpc/platformAdmin.changeRole`, { method: 'POST' })
+    expect(legacy.status).toBe(404)
+    expect(await legacy.json()).toEqual({ error: { code: 'NOT_FOUND', message: 'Not found' } })
     const registered = await fetch(`${base}/api/auth/sign-up/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:5173' },

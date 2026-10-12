@@ -1,6 +1,6 @@
 # Platform administration
 
-Owner: Noah. The dedicated UI is `/admin/accounts`, separate from `/admin/ingestion`. The API namespace is `platformAdmin`, assembled from one procedure per file under `apps/api/src/trpc/routers/platform-admin`. The app-local services are in `apps/api/src/modules/platform-admin`.
+Owner: Noah. The dedicated UI is `/admin/accounts`, separate from `/admin/ingestion`. Its API uses explicit same-origin REST resources and named Axios client functions; app-local services are in `apps/api/src/modules/platform-admin`.
 
 ## Scope
 
@@ -39,7 +39,7 @@ The public API has no audit update/delete operations. This is application-level 
 
 The internal server function `submitMerchantAccessRequest(db, authenticatedUserId, { venueId, message })` in `requests.ts` creates a versioned request with an audit event. Message length is 1 to 1000 trimmed characters. It rejects unknown input keys, staff requests, duplicate pending requests, already-active grants and inactive/missing venues or merchants.
 
-A future protected, trusted-origin procedure must derive `authenticatedUserId` from the verified session, never from the request body. Request status and role are server-owned. Add a separately authorized own-request status query and the user-facing screens in Kang En's module. Do not bypass the service with unchecked Prisma request inserts.
+A future protected, trusted-origin REST handler must derive `authenticatedUserId` from the verified cookie session, never from the request body. Request status and role are server-owned. Add a separately authorized own-request status resource and the user-facing screens in Kang En's module. Do not bypass the service with unchecked Prisma request inserts.
 
 ## Handoff to Isaac
 
@@ -62,8 +62,8 @@ git diff --check
 For a fresh worktree without `.env`, schema validation can use the deliberately non-connecting `DATABASE_URL=mongodb://127.0.0.1:1/platform_admin_validation_only`. Integration suites replace it with their own disposable replica-set URI before applying the schema. Never point these checks or a blind `db:push` at Atlas or an existing application database.
 
 - API integration tests use real HTTP, Better Auth cookies, Prisma and disposable MongoDB. They exercise authorization, client role escalation, current roles, stale versions, concurrency, atomic rollback and grant capabilities.
-- Vue tests use explicitly synthetic RPC responses. Playwright runs the real SPA and client transport against synthetic API interceptions, including 320/390/1280px layouts. These are not claims of live merchant accounts or an end-to-end browser-to-database journey.
-- Existing ingestion, authentication, upload, tRPC and isolated Vercel-packaging tests remain in the full gate.
+- Vue tests use explicitly synthetic REST response fixtures. Playwright runs the real SPA and Axios transport against synthetic API interceptions, including 320/390/1280px layouts. These are not claims of live merchant accounts or an end-to-end browser-to-database journey.
+- Existing ingestion, authentication, upload, REST and isolated Vercel-packaging tests remain in the full gate.
 
 No real account is automatically promoted and no demonstration records are inserted into a configured database. Arrange an explicitly approved isolated demo setup before a live walkthrough. Tests contain synthetic fixtures for review.
 
