@@ -1,4 +1,5 @@
 import AdminOverviewPage from '@web/pages/AdminOverviewPage.vue'
+import DealsPage from '@web/pages/DealsPage.vue'
 import ForgotPasswordPage from '@web/pages/ForgotPasswordPage.vue'
 import GettingStartedPage from '@web/pages/GettingStartedPage.vue'
 import HomePage from '@web/pages/HomePage.vue'
@@ -13,6 +14,7 @@ import RegisterPage from '@web/pages/RegisterPage.vue'
 import ResetPasswordPage from '@web/pages/ResetPasswordPage.vue'
 import SavedDealsPage from '@web/pages/SavedDealsPage.vue'
 import SubmissionForm from '@web/pages/SubmissionForm.vue'
+import VenuePage from '@web/pages/VenuePage.vue'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
@@ -33,6 +35,8 @@ const routes: RouteRecordRaw[] = [
     component: IngestionAdminPage,
   },
   { path: '/admin/accounts', name: 'platform-admin', component: PlatformAdminPage },
+  { path: '/deals', name: 'deals', component: DealsPage },
+  { path: '/venues/:venueId', name: 'venue', component: VenuePage },
   {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
