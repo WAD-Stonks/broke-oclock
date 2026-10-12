@@ -188,7 +188,7 @@ function saveDeal(status) {
 
       <!-- Merchant name -->
       <div class="mb-3">
-        <label class="form-label">Merchant name *</label>
+        <label class="form-label" for="name">Merchant name *</label>
 
         <input
           v-model="deal.merchantName"
@@ -203,7 +203,7 @@ function saveDeal(status) {
 
       <!-- Deal title -->
       <div class="mb-3">
-        <label class="form-label">Deal title *</label>
+        <label class="form-label" for="name">Deal title *</label>
 
         <input
           v-model="deal.title"
@@ -219,7 +219,7 @@ function saveDeal(status) {
 
       <!-- Description -->
       <div class="mb-3">
-        <label class="form-label">Description</label>
+        <label class="form-label" for="name">Description</label>
 
         <textarea
           v-model="deal.description"
@@ -231,7 +231,7 @@ function saveDeal(status) {
 
       <!-- Cuisine -->
       <div class="mb-3">
-        <label class="form-label">Cuisine *</label>
+        <label class="form-label" for="name">Cuisine *</label>
 
         <select
           v-model="deal.cuisine"
@@ -260,7 +260,7 @@ function saveDeal(status) {
       <div class="row g-3">
 
         <div class="col-md-6">
-          <label class="form-label">Original price (S$) *</label>
+          <label class="form-label" for="name">Original price (S$) *</label>
 
           <input
             v-model="deal.originalPrice"
@@ -277,7 +277,7 @@ function saveDeal(status) {
         </div>
 
         <div class="col-md-6">
-          <label class="form-label">Promo price (S$) *</label>
+          <label class="form-label" for="name">Promo price (S$) *</label>
 
           <input
             v-model="deal.promotionalPrice"
@@ -297,7 +297,7 @@ function saveDeal(status) {
 
       <!-- Deal photo -->
       <div class="mt-4 mb-3">
-        <label class="form-label">Deal photo</label>
+        <label class="form-label" for="name">Deal photo</label>
 
         <input
           type="file"
@@ -323,7 +323,7 @@ function saveDeal(status) {
       <h2 class="h5 mt-3 mb-3">Deal location</h2>
 
       <div class="mb-4">
-        <label class="form-label">Search or add location *</label>
+        <label class="form-label" for="name">Search or add location *</label>
 
         <input
           v-model="deal.location"
