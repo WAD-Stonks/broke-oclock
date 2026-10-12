@@ -90,13 +90,14 @@ The API config loader consumes these settings. A missing/placeholder token disab
 
 ## Pending choices / things not to add yet
 - **Normal-user verification and account security:** native OTP-based admin sign-in/recovery is locally integrated; full normal-user signup/verification/security screens and verified sender-domain setup remain separate work. Basic password sessions work without email; see the Resend section below.
-- **Web map:** Leaflet/public OSM tiles and browser geolocation do not need a Google Maps API key. Tile URL/attribution may stay in reviewed frontend configuration. Do not duplicate private OneMap credentials into VITE_* variables.
+- **Web map:** Leaflet and browser geolocation need no Google Maps key. The browse map prefers CARTO Positron (light) tiles when `VITE_CARTO_API_KEY` is set and falls back to keyless OneMap Grey tiles otherwise. The CARTO key is a publishable browser key, so restrict it to the site's domains in the CARTO dashboard and enter the production value in the Vercel web project. Do not duplicate private OneMap ingestion credentials into VITE_* variables.
 - **Venue/feed/search, comments, bookmarks:** reuse the database/auth boundary; they do not each need another external-service key.
 
 ## Completeness and safety checks
 
 The inventory in `.env.example` includes current runtime, planned deployment and reserved feature keys. GitHub production contains those names except local-only PORT. Empty/UNSET secret examples and UNCONFIGURED decision markers are intentionally invalid, not working defaults. Do not enable planned features until their consumers validate real configuration.
 
+The frontend requires **no VITE_* variable**; the only optional one is the publishable `VITE_CARTO_API_KEY` above. It uses same-origin `/api/auth`, `/api/uploadthing` and JSON REST clients under `/api`. Vercel's ordinary Git integration cannot read GitHub Actions secrets automatically. Enter current server credentials directly in the Vercel API project's Production environment; do not copy deployment credentials into either application. GitHub-to-Vercel synchronization is not a remaining setup step.
 The frontend currently requires **no VITE_* variable** and uses same-origin `/api/auth`, `/api/uploadthing` and JSON REST clients under `/api`. Vercel's ordinary Git integration cannot read GitHub Actions secrets automatically. Enter current server credentials directly in the Vercel API project's Production environment; do not copy deployment credentials into either application. GitHub-to-Vercel synchronization is not a remaining setup step.
 
 ## Resend email package

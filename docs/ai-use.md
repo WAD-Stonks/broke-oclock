@@ -8,6 +8,8 @@ The original starter did not implement product workflows. Subsequent user-reques
 
 The user-requested package-manager migration was also AI-assisted tooling work: pnpm workspace/lockfile configuration, runtime separation, lifecycle and audit policy, direct dependency declarations, CI/hosting commands, regression tests and documentation. It does not add assessed product logic.
 
+The requested cross-device formatting correction is AI-assisted tooling and regression-test work: repository-controlled LF checkouts, explicit Biome configuration and artifact exclusions, plus reproducible Git/Biome fixtures. It does not modify student-owned feature behavior or relax lint rules.
+
 Vercel assistance additionally supplies project settings, same-origin/SPA routing, an Express export and a self-contained Node ESM build with Prisma engine packaging and isolated runtime tests. The separately approved Node runtime migration replaces legacy execution/build tooling with pinned tsx/esbuild and Node child-process orchestration, removes the runtime bootstrap/lifecycle exception and adds clean-store, signal and standalone production-artifact regressions. No deployment or assessed feature workflow is supplied by that configuration.
 
 The requested API transport migration from tRPC to explicit Express REST resources and a typed Axios client is AI-assisted transport infrastructure work. It preserves existing service behavior, authorization, transactions and concurrency checks; it does not add assessed deal or community workflows. Review the changed request/response contracts and tests, and disclose this transport work alongside other AI assistance when reporting contributions.
@@ -20,6 +22,12 @@ The 11 October 2026 authentication correction is also AI-assisted: native Reques
 
 The 11 October 2026 venue-image request adds AI-assisted optional `Venue.imageUrl` persistence and disposable-database regression tests. It leaves existing deal-image ownership and UploadThing integration unchanged and does not implement a venue-image endpoint, UI, fetching or upload attachment workflow. Real-deal seeding is a separate operation, with no demo records or fabricated image references supplied by this schema change.
 
-The requested cross-device formatting correction is AI-assisted tooling and regression-test work: repository-controlled LF checkouts, explicit Biome configuration and artifact exclusions, plus reproducible Git/Biome fixtures. It does not modify student-owned feature behavior or relax lint rules.
+On 12 October 2026 the public deals list (`GET /api/deals`: contract, eligibility module, handler, , typed client function, and the integration and web tests) was written from AI-provided code, reviewed and adapted humanly.
+AI also helped debug the resulting TypeScript errors.
+
+Later on 12 October 2026, AI assistance extended that list with the deal detail fields, ISO end date and read-only vote/comment tallies, fixed the eligibility filter so unset MongoDB dates match (`isSet: false` alongside `null`, as elsewhere in the API), and added the browse drawer's deal detail, photo placeholder and review summary components with their tests. No vote, comment or photo endpoint was added; the review summary only displays counts. Allison reviews and owns this browse-map work.
+
+Also on 12 October 2026, at Allison's request, AI assistance restyled the browse screen to the "Bubbly" direction (category-tinted icon pins with price badges, sunny-yellow primary pills, Fredoka display font, floating list card, highlighted brand mark) and regrouped the map so each outlet is one pin carrying all of its deals, with an outlet view, "more at this outlet" rows and the matching web tests. This is presentation and client-side grouping over the existing deals list; no API behaviour changed.
+
 
 Do not remove this disclosure when adding student code. Record what AI supplied and what students authored/reviewed, and include the required disclosure in the final README.txt. Ask the instructor where a borderline use is unclear.
