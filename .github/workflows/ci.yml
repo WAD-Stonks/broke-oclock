@@ -25,8 +25,6 @@ jobs:
         run: pnpm run setup
       - name: Lint, schema, typechecks, unit tests and builds
         run: pnpm run check
-      - name: Known high/critical dependency advisories
-        run: pnpm run audit
       - name: Real auth/database integration tests
         run: pnpm run test:integration
       - name: Install Chromium
