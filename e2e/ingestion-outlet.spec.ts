@@ -190,7 +190,7 @@ const reviewForm = (page: Page) =>
 async function open(page: Page) {
   await page.goto('/admin/ingestion')
   await expect(page).toHaveURL('/admin/ingestion')
-  await expect(page).toHaveTitle("Broke O'Clock")
+  await expect(page).toHaveTitle('Lobangers')
   await expect(page.getByRole('heading', { name: 'Ingestion admin', exact: true })).toBeVisible()
   const details = page.getByRole('button', { name: `View details: ${draft.title}`, exact: true })
   await details.focus()
