@@ -18,6 +18,7 @@ import { RouterLink } from 'vue-router'
         <RouterLink class="nav-link px-0" to="/admin">Admin overview</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin/accounts">Platform admin</RouterLink>
         <RouterLink class="nav-link px-0" to="/admin/ingestion">Ingestion admin</RouterLink>
+        <RouterLink class="nav-link px-0" to="/submissionform">Submission Form</RouterLink>
       </div>
     </nav>
   </header>

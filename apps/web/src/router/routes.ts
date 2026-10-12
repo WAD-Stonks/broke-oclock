@@ -4,6 +4,7 @@ import HomePage from '@web/pages/HomePage.vue'
 import IngestionAdminPage from '@web/pages/IngestionAdminPage.vue'
 import NotFoundPage from '@web/pages/NotFoundPage.vue'
 import PlatformAdminPage from '@web/pages/PlatformAdminPage.vue'
+import SubmissionFormPage from '@web/pages/SubmissionForm.vue'
 import type { RouteRecordRaw } from 'vue-router'
 
 const routes: RouteRecordRaw[] = [
@@ -28,7 +29,11 @@ const routes: RouteRecordRaw[] = [
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: NotFoundPage,
-  },
+  },{
+    path: '/submissionForm',
+    name: 'submission-form',
+    component: SubmissionFormPage,
+  }
 ]
 
 export default routes
