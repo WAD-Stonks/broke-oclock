@@ -7,7 +7,8 @@
     "./api": "./src/api.ts",
     "./ingestion": "./src/ingestion.ts",
     "./platform-admin": "./src/platform-admin.ts",
-    "./venues": "./src/venues.ts"
+    "./venues": "./src/venues.ts",
+    "./account": "./src/account.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json"
