@@ -1,5 +1,5 @@
-```vue
-<script setup>
+<!-- @ts-nocheck -->
+<script setup lang="ts">
 import { ref } from 'vue'
 
 const cuisines = [
@@ -475,4 +475,4 @@ function saveDeal(status) {
     </form>
   </main>
 </template>
-```
+
