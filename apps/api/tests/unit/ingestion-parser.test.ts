@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { parseMoneyDigestPost } from '@api/modules/ingestion/parser'
 import { isReviewReady } from '@api/modules/ingestion/review-policy'
 import { describe, expect, it, vi } from 'vitest'
@@ -16,6 +17,18 @@ const post = (
 
 const validity = 'Valid from 1 October 2026 until 31 December 2026.'
 const withValidity = (offer: string) => post(`${offer}. ${validity}`)
+const evidenceHash = (input: ReturnType<typeof parseMoneyDigestPost>['post']) =>
+  createHash('sha256').update(JSON.stringify(input)).digest('hex')
+const expectIgnoredWithOriginalEvidence = (input: ReturnType<typeof post>, scenario: string) => {
+  const original = JSON.stringify(input)
+  const originalHash = evidenceHash(input)
+  const parsed = parseMoneyDigestPost(input)
+  expect(JSON.stringify(input), scenario).toBe(original)
+  expect(parsed.post, scenario).toEqual(input)
+  expect(evidenceHash(parsed.post), scenario).toBe(originalHash)
+  expect(parsed, scenario).toMatchObject({ status: 'IGNORED', draft: null })
+  expect(readyAtReviewTime(parsed), scenario).toBe(false)
+}
 const readyAtReviewTime = (parsed: ReturnType<typeof parseMoneyDigestPost>) =>
   parsed.draft
     ? isReviewReady(
@@ -31,10 +44,442 @@ const readyAtReviewTime = (parsed: ReturnType<typeof parseMoneyDigestPost>) =>
         new Date('2026-10-03T00:00:00Z'),
       )
     : false
+const expectNoOfferRescue = (mutation: string, titlePaddingRepeats = 90) => {
+  expectIgnoredWithOriginalEvidence(withValidity(`Singapore pizza ${mutation}`), 'standalone')
+  for (const base of [
+    'Singapore pizza 50% off',
+    'Singapore pizza promotion S$5.50',
+    'Singapore pizza 1-for-1',
+    'Singapore pizza buy one get one free',
+  ]) {
+    expect(readyAtReviewTime(parseMoneyDigestPost(withValidity(base))), base).toBe(true)
+    for (const field of ['title', 'content', 'excerpt'] as const) {
+      for (const padding of [
+        '',
+        'Synthetic text. '.repeat(field === 'title' ? titlePaddingRepeats : 140),
+      ]) {
+        for (const placement of ['before', 'after'] as const) {
+          const input = withValidity(base)
+          const evidence = `${padding}${mutation}.`
+          input[field].rendered =
+            placement === 'before'
+              ? `${evidence} ${input[field].rendered}`
+              : `${input[field].rendered} ${evidence}`
+          expectIgnoredWithOriginalEvidence(input, `${base}/${field}/${placement}`)
+          expectIgnoredWithOriginalEvidence(
+            { ...input, content: { rendered: `${input.content.rendered} ${base}.` } },
+            `${base}/${field}/${placement}/duplicate`,
+          )
+        }
+      }
+    }
+  }
+}
 // Includes literal/decoded NBSP and HTML/newline boundaries before scanning.
 const whitespace = ['', ' ', '  ', '\t', '\n', '\u00a0', '&nbsp;', '&#160;', '&#xA0;', '<br>']
 
 describe('MoneyDigest conservative parser', () => {
+  it('characterizes frontier field boundaries without borrowing paired context', () => {
+    for (const [left, right] of [
+      ['_buy1 ....', '.... _get1 free'],
+      ['_2nd ....', '.... item'],
+    ]) {
+      const input = withValidity('Singapore pizza 50% off')
+      input.title.rendered += ` ${left}`
+      input.excerpt.rendered = right
+      const parsed = parseMoneyDigestPost(input)
+      expect(parsed.draft).toMatchObject({
+        offerType: 'PERCENT_OFF',
+        priceMinor: null,
+        discountPercent: 50,
+      })
+      expect(readyAtReviewTime(parsed)).toBe(true)
+      expect(evidenceHash(parsed.post)).toBe(evidenceHash(input))
+    }
+  })
+  it('characterizes linear punctuation inventory work on schema-bounded frontier input', () => {
+    const input = withValidity(`Singapore pizza _buy1 ${'.'.repeat(90_000)} and _get1 free`)
+    expect(input.content.rendered.length).toBeLessThanOrEqual(100_000)
+    let punctuationChecks = 0
+    const originalTest = RegExp.prototype.test
+    const spy = vi.spyOn(RegExp.prototype, 'test').mockImplementation(function (
+      this: RegExp,
+      value: string,
+    ) {
+      if (this.source === '^\\p{P}$') punctuationChecks++
+      return originalTest.call(this, value)
+    })
+    try {
+      expect(readyAtReviewTime(parseMoneyDigestPost(input))).toBe(false)
+    } finally {
+      spy.mockRestore()
+    }
+    expect(punctuationChecks).toBeGreaterThan(90_000)
+    expect(punctuationChecks).toBeLessThanOrEqual(input.content.rendered.length * 20)
+  })
+  it.each([
+    '25per_cent off',
+    '25per__cent off',
+    '25p_e_r_c_e_n_t off',
+    '25per\u0301cent off',
+    '25p\u0301er_cen\u0301t off',
+    '25per_centage off',
+    'per_cent25 off',
+    '_per_cent25 discount',
+    'per_cent off',
+    'per_centage discount',
+    'per\u0301cent off',
+    '25per&#95;cent off',
+    '<b>25per_cent</b><br>off',
+    '25per_cent\noff',
+    '25per_cent .... off',
+    '25percentage off',
+    'percent25 off',
+  ])(
+    'vetoes frontier percent word markers without supported suffix or duplicate rescue: "%s"',
+    (mutation) => {
+      expectNoOfferRescue(mutation)
+    },
+  )
+  it.each(['title', 'content', 'excerpt'] as const)(
+    'keeps frontier percent symbol controls and named-product evidence-only grammar in %s',
+    (field) => {
+      for (const amount of [1, 25, 50, 100]) {
+        const parsed = parseMoneyDigestPost(withValidity(`Singapore pizza ${amount}% off`))
+        expect(parsed.draft).toMatchObject({
+          offerType: 'PERCENT_OFF',
+          priceMinor: null,
+          discountPercent: amount,
+        })
+        expect(readyAtReviewTime(parsed)).toBe(true)
+      }
+      for (let words = 1; words <= 8; words++) {
+        const input = withValidity('Singapore pizza 1-for-1')
+        input[field].rendered =
+          `Buy one ${'vanilla '.repeat(words)}and get another free. ${input[field].rendered}`
+        const originalHash = evidenceHash(input)
+        const parsed = parseMoneyDigestPost(input)
+        expect(evidenceHash(parsed.post)).toBe(originalHash)
+        expect(parsed.status).toBe('NEEDS_REVIEW')
+        expect(parsed.draft).toMatchObject({
+          offerType: 'BUY_ONE_GET_ONE',
+          priceMinor: null,
+          discountPercent: null,
+          validFrom: null,
+          validUntil: null,
+        })
+        expect(parsed.draft?.rawValidityText).toContain('Valid from 1 October 2026')
+        expect(readyAtReviewTime(parsed)).toBe(false)
+      }
+    },
+  )
+  it.each([
+    '_2nd .... item requires membership',
+    'item .... _2nd requires membership',
+    ...[0, 1, 3, 4, 5, 16, 512].flatMap((count) => [
+      `x2n_d ${'—'.repeat(count)} items requires membership`,
+      `items ${','.repeat(count)} x2n_d requires membership`,
+    ]),
+    '_2nd<br>....<b>item</b> requires membership',
+    'item\n....<i>_2nd</i> requires membership',
+    'x2n\u0301d .... item requires membership',
+    'item .... x2n\u0301d requires membership',
+  ])(
+    'vetoes frontier ordinal/item qualifiers in both directions without duplicate rescue: "%s"',
+    (mutation) => {
+      expectNoOfferRescue(mutation, 40)
+    },
+  )
+  it.each([
+    'Part _2nd .... warehouse item.',
+    'Part item .... warehouse _2nd.',
+    'Brand 22ndStreet chicken.',
+  ])('keeps frontier ordinal metadata with exact supported amounts: "%s"', (metadata) => {
+    for (const [offer, offerType, priceMinor, discountPercent] of [
+      ['50% off', 'PERCENT_OFF', null, 50],
+      ['promotion S$5.50', 'FIXED_PRICE', 550, null],
+      ['1-for-1', 'BUY_ONE_GET_ONE', null, null],
+    ] as const) {
+      for (const field of ['title', 'content', 'excerpt'] as const) {
+        const input = withValidity(`Singapore pizza ${offer}`)
+        input[field].rendered = `${metadata} ${input[field].rendered}`
+        const originalHash = evidenceHash(input)
+        const parsed = parseMoneyDigestPost(input)
+        expect(evidenceHash(parsed.post)).toBe(originalHash)
+        expect(parsed.draft).toMatchObject({ offerType, priceMinor, discountPercent })
+        expect(readyAtReviewTime(parsed), `${offer}/${field}`).toBe(true)
+      }
+    }
+  })
+  it.each([
+    '_buy1 .... _get1 free',
+    'xbuy1 and xget1 free',
+    ...[0, 1, 3, 4, 5, 16, 512].flatMap((count) => [
+      `_buy1 ${'.'.repeat(count)} _get1 free`,
+      `xbuy1 ${'—'.repeat(count)} and ${','.repeat(count)} xget1 free`,
+    ]),
+    '_buy1 .... get one free',
+    '_b_uy1 .... and .... _g_et1 free',
+    'xb\u0301uy1 .... and .... xg\u0301et1 free',
+    '_buy1<br>....<b>and</b>\n....<i>_get1</i> free',
+    '_buy1 ....\n_get1 free',
+  ])(
+    'vetoes frontier buy/get pairs without delimiter cliffs or duplicate rescue: "%s"',
+    (mutation) => {
+      expectNoOfferRescue(mutation, 40)
+    },
+  )
+  it.each([
+    '4Fingers chicken. Opening hours 11am to 8pm. Outlet B1-K05A.',
+    'Target1 pizza.',
+    'Part _buy1 .... unrelated outlet _get1.',
+    'Part _buy1 and warehouse _get1.',
+  ])('keeps frontier buy/get metadata with exact supported offers: "%s"', (metadata) => {
+    for (const [offer, offerType, priceMinor, discountPercent] of [
+      ['50% off', 'PERCENT_OFF', null, 50],
+      ['promotion S$5.50', 'FIXED_PRICE', 550, null],
+      ['1-for-1', 'BUY_ONE_GET_ONE', null, null],
+    ] as const) {
+      for (const field of ['title', 'content', 'excerpt'] as const) {
+        const input = withValidity(`Singapore pizza ${offer}`)
+        input[field].rendered = `${metadata} ${input[field].rendered}`
+        const originalHash = evidenceHash(input)
+        const parsed = parseMoneyDigestPost(input)
+        expect(parsed.post).toEqual(input)
+        expect(evidenceHash(parsed.post)).toBe(originalHash)
+        expect(parsed.draft).toMatchObject({ offerType, priceMinor, discountPercent })
+        expect(readyAtReviewTime(parsed), `${offer}/${field}`).toBe(true)
+      }
+    }
+  })
+  it.each([
+    '_2nd item 50% off',
+    '_2nd item requires membership',
+    'x2nd item requires membership',
+    '1_2nd item 50% off',
+    '__2_nd item requires membership',
+    'x2n_d item 50% off',
+    '\u03012nd item requires membership',
+    'x2n\u0301d item 50% off',
+    '_2nd, item requires membership',
+    '_2nd — item 50% off',
+    '_2nd<br>item requires membership',
+    '_2&#110;d item 50% off',
+    '_2nditem requires membership',
+    'item2nd requires membership',
+    '_2nd-items 50% off',
+    'item: _2nd requires membership',
+  ])('vetoes prefixed ordinal item qualifications without duplicate rescue: "%s"', (mutation) => {
+    expectNoOfferRescue(mutation)
+  })
+  it.each([
+    'Part x2nd spare parts.',
+    'Outlet unit _2nd; warehouse inventory.',
+    'Part x2nd alpha beta gamma delta item.',
+    'Brand 22ndStreet chicken.',
+  ])('keeps unrelated prefixed ordinal metadata without inventing an offer: "%s"', (metadata) => {
+    expect(parseMoneyDigestPost(post(`Singapore pizza ${metadata}`))).toMatchObject({
+      status: 'IGNORED',
+      draft: null,
+    })
+    for (const offer of ['50% off', 'promotion S$5.50', '1-for-1']) {
+      for (const field of ['title', 'content', 'excerpt'] as const) {
+        const input = withValidity(`Singapore pizza ${offer}`)
+        input[field].rendered = `${metadata} ${input[field].rendered}`
+        const originalHash = evidenceHash(input)
+        const parsed = parseMoneyDigestPost(input)
+        expect(parsed.post).toEqual(input)
+        expect(evidenceHash(parsed.post)).toBe(originalHash)
+        expect(readyAtReviewTime(parsed), `${offer}/${field}`).toBe(true)
+      }
+    }
+  })
+  it.each([
+    '_buy1 _get1 free',
+    'xbuy1 xget1 free',
+    '1buy1 1get1 free',
+    '__buy_1 __get_1 free',
+    'x_buyx1 x_getx1 free',
+    '_b_uy1 _g_et1 free',
+    '\u0301buy1 \u0301get1 free',
+    'xb\u0301uy1 xg\u0301et1 free',
+    '_buy1, _get1 free',
+    '_buy1 — _get1 free',
+    '_buy1<br>_get1 free',
+    '_buy&#49; _get&#49; free',
+    '_buy1 get one free',
+    'buy one _get1 free',
+    '_buy1_get1free',
+    'xbuyone2 xgetone2 free',
+  ])('vetoes prefixed buy/get quantity pairs without duplicate rescue: "%s"', (mutation) => {
+    expectNoOfferRescue(mutation)
+  })
+  it.each([
+    'Target1 chicken.',
+    'Target1 free delivery.',
+    'Outlet unit: B1-K05A; part xget1.',
+    'Part xbuy1; unrelated outlet xget1.',
+    'Part _buy1. Outlet _get1.',
+    'Part xbuy1 alpha beta gamma delta xget1.',
+  ])('keeps incidental prefixed buy/get metadata without inventing an offer: "%s"', (metadata) => {
+    expect(parseMoneyDigestPost(post(`Singapore pizza ${metadata}`))).toMatchObject({
+      status: 'IGNORED',
+      draft: null,
+    })
+    for (const offer of ['50% off', 'promotion S$5.50', '1-for-1']) {
+      for (const field of ['title', 'content', 'excerpt'] as const) {
+        const input = withValidity(`Singapore pizza ${offer}`)
+        input[field].rendered = `${metadata} ${input[field].rendered}`
+        const originalHash = evidenceHash(input)
+        const parsed = parseMoneyDigestPost(input)
+        expect(parsed.post).toEqual(input)
+        expect(evidenceHash(parsed.post)).toBe(originalHash)
+        expect(readyAtReviewTime(parsed), `${offer}/${field}`).toBe(true)
+      }
+    }
+  })
+  it.each([
+    '2nditem 50% off',
+    '2_nd item 50% off',
+    'buyone2 getone2 with 50% off',
+    'buyx1 getx1 with 50% off',
+    '25xpercent off',
+    'percentx25 off',
+    '2e50',
+    '2e 50',
+  ])('retains malformed semantic anchors inside maximal identifiers: "%s"', (mutation) => {
+    expectNoOfferRescue(mutation)
+  })
+  it.each(['title', 'content', 'excerpt'] as const)(
+    'retains named free-item evidence in %s without approval-ready dates',
+    (field) => {
+      for (const offer of [
+        'Buy one vanilla cake and get another free.',
+        'Buy one <b>vanilla</b> cake and get another free.',
+      ]) {
+        for (const base of ['Singapore pizza', 'Singapore pizza 1-for-1']) {
+          const input = withValidity(base)
+          input[field].rendered = `${offer} ${input[field].rendered}`
+          const originalHash = evidenceHash(input)
+          const parsed = parseMoneyDigestPost(input)
+          expect(parsed.post).toEqual(input)
+          expect(evidenceHash(parsed.post)).toBe(originalHash)
+          expect(parsed.status).toBe('NEEDS_REVIEW')
+          expect(parsed.draft).toMatchObject({
+            offerType: 'BUY_ONE_GET_ONE',
+            priceMinor: null,
+            discountPercent: null,
+            validFrom: null,
+            validUntil: null,
+          })
+          expect(parsed.draft?.rawValidityText).toContain('Valid from 1 October 2026')
+          expect(readyAtReviewTime(parsed)).toBe(false)
+        }
+      }
+    },
+  )
+  it.each([
+    'Buy one and get another free',
+    'Buy one vanilla cake then get another free',
+    'Buy one vanilla.cake and get another free',
+    'Buy one cake2 and get another free',
+    'Buy one vanilla cake and get another free2',
+    'Buy one vanilla cake and get another paid',
+    'Buy one vanilla cake and get another at half price',
+    'Buy one vanilla cake and get another free. 2nd item requires membership',
+    'Buy one vanilla cake and get another free. buy1 get1',
+    'Buy one vanilla cake and get another free. 25percent off',
+    'Buy one vanilla cake and get another free. S$5.505 only',
+    'Buy one vanilla cake and get another free. Buy one cupcake with conditions',
+    `Buy one ${'vanilla '.repeat(9)}cake and get another free`,
+  ])('does not rescue unsafe or unsupported named-item evidence: "%s"', (mutation) => {
+    expectNoOfferRescue(mutation)
+  })
+  it.each([
+    '2nd item 50% off',
+    '2nd item requires membership',
+    '2ND item requires membership',
+    '2&#110;d item requires membership',
+  ])(
+    'vetoes complete ordinal qualifications without fallback or duplicate rescue: "%s"',
+    (mutation) => {
+      expectNoOfferRescue(mutation)
+    },
+  )
+  it.each([
+    'buy1 get1 with 50% off',
+    'buy1 get1',
+    'buy1 get1 free',
+    'buy1',
+    'get1',
+    'buy1 get one',
+    'buy one get1',
+    'BUY1 GET1',
+    'buy1<br>get1',
+    'buy&#49; get&#49;',
+    'buy1x get1x',
+    'buy_1 get_1',
+    'buy1get1',
+  ])(
+    'inventories merged buy/get quantities without fallback or duplicate rescue: "%s"',
+    (mutation) => {
+      expectNoOfferRescue(mutation)
+    },
+  )
+  it.each([
+    '25percent off',
+    '25percentage off',
+    '25PERCENT off',
+    '25perce&#110;t off',
+    '25percent discount',
+    '25percentage discount',
+    '2.50percent off',
+    '25_percent off',
+    'percent25 off',
+    'percentage25 off',
+  ])(
+    'inventories merged percent markers without fallback or duplicate rescue: "%s"',
+    (mutation) => {
+      expectNoOfferRescue(mutation)
+    },
+  )
+  it.each(['Opening hours: 11am to 8pm.', '4Fingers chicken.', 'Outlet unit: B1-K05A.'])(
+    'preserves supported offers with unrelated alphanumeric metadata: "%s"',
+    (metadata) => {
+      for (const [offer, offerType, priceMinor, discountPercent] of [
+        ['1-for-1', 'BUY_ONE_GET_ONE', null, null],
+        ['50% off', 'PERCENT_OFF', null, 50],
+        ['promotion S$5.50', 'FIXED_PRICE', 550, null],
+      ] as const) {
+        for (const field of ['title', 'content', 'excerpt'] as const) {
+          const input = withValidity(`Singapore pizza ${offer}`)
+          input[field].rendered = `${metadata} ${input[field].rendered}`
+          const original = JSON.stringify(input)
+          const originalHash = evidenceHash(input)
+          const parsed = parseMoneyDigestPost(input)
+          expect(JSON.stringify(input)).toBe(original)
+          expect(parsed.post).toEqual(input)
+          expect(evidenceHash(parsed.post)).toBe(originalHash)
+          expect(parsed.status).toBe('NEEDS_REVIEW')
+          expect(parsed.draft).toMatchObject({ offerType, priceMinor, discountPercent })
+          expect(readyAtReviewTime(parsed), `${offer}/${field}`).toBe(true)
+        }
+      }
+    },
+  )
+  it.each(['11am% off', 'S$4Fingers only', 'B1-K05A-for-1'])(
+    'still vetoes metadata-shaped identifiers used as malformed offer operands: "%s"',
+    (mutation) => {
+      for (const field of ['title', 'content', 'excerpt'] as const) {
+        const input = withValidity('Singapore pizza 50% off')
+        input[field].rendered += ` ${mutation}.`
+        const parsed = parseMoneyDigestPost(input)
+        expect(parsed.post).toEqual(input)
+        expect(parsed).toMatchObject({ status: 'IGNORED', draft: null })
+        expect(readyAtReviewTime(parsed)).toBe(false)
+      }
+    },
+  )
   it.each([
     'one-forone',
     '1-forone',

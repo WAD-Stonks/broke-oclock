@@ -1,15 +1,51 @@
+import type {
+  IngestionDashboardResponse,
+  IngestionDraft,
+  IngestionDraftsResponse,
+  IngestionRunsResponse,
+} from '@broke-oclock/contracts/ingestion'
 import { expect, type Page, test } from '@playwright/test'
-import type { RouterOutputs } from '@web/lib/api-client'
 
-// Explicitly synthetic browser-boundary responses. These exercise the real SPA/tRPC client,
+// Explicitly synthetic browser-boundary responses. These exercise the real SPA/Axios REST client,
 // not live ingestion, provider delivery, database policies, or real account authentication.
 const installSyntheticBoundary = async (page: Page) => {
+  // Synthetic native identity and method presentation, not connected authentication.
+  await page.route('**/api/auth/get-session**', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        user: {
+          id: 'synthetic-admin',
+          name: 'Synthetic operator',
+          email: 'operator@example.test',
+          role: 'USER',
+        },
+        session: {
+          id: 'synthetic-session',
+          userId: 'synthetic-admin',
+          expiresAt: '2099-01-01T00:00:00.000Z',
+        },
+      }),
+    }),
+  )
+  await page.route('**/api/auth-methods', (route) =>
+    route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        password: true,
+        google: false,
+        emailOtp: false,
+        passwordRecovery: false,
+      }),
+    }),
+  )
+
   const state: {
     access: 'UNAUTHORIZED' | 'FORBIDDEN' | ''
-    dashboard: RouterOutputs['ingestion']['dashboard']
-    drafts: RouterOutputs['ingestion']['queue']['items']
+    dashboard: IngestionDashboardResponse
+    drafts: IngestionDraft[]
     draftNextCursor: string | null
-    draftPages: Map<string, RouterOutputs['ingestion']['queue']>
+    draftPages: Map<string, IngestionDraftsResponse>
     requests: { path: string; input: unknown; method: string }[]
     failures: Map<string, string>
     runGate: Promise<void> | undefined
@@ -37,6 +73,8 @@ const installSyntheticBoundary = async (page: Page) => {
         validUntil: null,
         rawValidityText: 'While stocks last',
         applicability: 'NO_FIXED_LOCATION',
+        merchantId: null,
+        outlet: null,
         reviewStatus: 'PENDING',
         contentVersion: 7,
         sourceUrl: 'https://example.test/source/1',
@@ -52,114 +90,139 @@ const installSyntheticBoundary = async (page: Page) => {
     runGate: undefined,
     accountsForbidden: false,
   }
-  await page.route('**/api/trpc/**', async (route) => {
+  await page.route('**/api/ingestion/**', async (route) => {
     const request = route.request()
     const url = new URL(request.url())
-    const paths = decodeURIComponent(url.pathname.replace('/api/trpc/', '')).split(',')
-    const input: unknown =
-      request.method() === 'POST'
-        ? request.postDataJSON()
-        : JSON.parse(url.searchParams.get('input') ?? '{}')
-    const responses = []
-    for (const [index, path] of paths.entries()) {
-      const value =
-        typeof input === 'object' && input !== null ? Reflect.get(input, String(index)) : undefined
-      state.requests.push({ path, input: value, method: request.method() })
-      const fail = state.failures.get(path)
-      if (fail) state.failures.delete(path)
-      const denied =
-        state.access ||
-        (path === 'ingestion.accounts' && state.accountsForbidden ? 'FORBIDDEN' : '')
-      const code = fail || denied
-      if (code) {
-        responses.push({
-          error: {
-            message: 'Synthetic boundary failure',
-            code: code === 'UNAUTHORIZED' ? -32001 : code === 'FORBIDDEN' ? -32003 : -32603,
-            data: {
-              code,
-              httpStatus: code === 'UNAUTHORIZED' ? 401 : code === 'FORBIDDEN' ? 403 : 500,
-              path,
-            },
-          },
-        })
-        continue
-      }
-      let data: unknown
-      switch (path) {
-        case 'ingestion.dashboard':
-          data = state.dashboard
-          break
-        case 'ingestion.runs':
-          data = { items: [] } satisfies RouterOutputs['ingestion']['runs']
-          break
-        case 'ingestion.queue': {
-          const status =
-            typeof value === 'object' && value !== null ? Reflect.get(value, 'status') : 'PENDING'
-          const cursor =
-            typeof value === 'object' && value !== null ? Reflect.get(value, 'cursor') : undefined
-          data = (typeof cursor === 'string' ? state.draftPages.get(cursor) : undefined) ?? {
-            items: state.drafts.filter((draft) => draft.reviewStatus === status),
-            nextCursor: state.draftNextCursor,
-          }
-          break
-        }
-        case 'ingestion.review': {
-          expect(request.method()).toBe('POST')
-          const decision =
-            typeof value === 'object' && value !== null ? Reflect.get(value, 'decision') : undefined
-          const reviewStatus = decision === 'APPROVE' ? 'APPROVED' : 'REJECTED'
-          state.drafts = state.drafts.map((draft) => ({ ...draft, reviewStatus }))
-          state.dashboard.counts.pending = 0
-          state.dashboard.counts[reviewStatus === 'APPROVED' ? 'approved' : 'rejected'] = 1
-          data = { id: '111111111111111111111111', reviewStatus }
-          break
-        }
-        case 'ingestion.run':
-          expect(request.method()).toBe('POST')
-          if (state.runGate) await state.runGate
-          data = {
-            runId: 'synthetic-run',
-            status: 'COMPLETED',
-            fetchedCount: 1,
-            createdCount: 1,
-            updatedCount: 0,
-            failedCount: 0,
-          }
-          break
-        case 'ingestion.searchLocations':
-          data = {
-            items: [
-              {
-                searchValue: 'Synthetic plaza',
-                address: '123 FIXTURE ROAD',
-                postalCode: '123456',
-                latitude: 1.3,
-                longitude: 103.8,
-              },
-            ],
-          }
-          break
-        case 'ingestion.accounts':
-          data = {
-            items: [
-              {
-                id: 'synthetic-user',
-                name: 'Synthetic Admin',
-                email: 'synthetic@example.test',
-                role: 'ADMIN',
-                createdAt: '2026-01-01T00:00:00Z',
-              },
-            ],
-            nextCursor: null,
-          }
-          break
-        default:
-          throw new Error(`Unexpected browser procedure: ${path}`)
-      }
-      responses.push({ result: { data } })
+    const pathname = url.pathname
+    const method = request.method()
+    const query: Record<string, unknown> = Object.fromEntries(url.searchParams.entries())
+    if (query.limit) query.limit = Number(query.limit)
+    const body: Record<string, unknown> = request.postDataJSON?.() ?? {}
+    let path: string
+    let input: Record<string, unknown>
+    let dealId: string | undefined
+    if (pathname === '/api/ingestion/dashboard' && method === 'GET') {
+      path = 'ingestion.dashboard'
+      input = {}
+    } else if (pathname === '/api/ingestion/runs' && method === 'GET') {
+      path = 'ingestion.runs'
+      input = query
+    } else if (pathname === '/api/ingestion/runs' && method === 'POST') {
+      path = 'ingestion.run'
+      input = {}
+    } else if (pathname === '/api/ingestion/drafts' && method === 'GET') {
+      path = 'ingestion.queue'
+      input = query
+    } else if (
+      pathname.startsWith('/api/ingestion/drafts/') &&
+      pathname.endsWith('/review') &&
+      method === 'POST'
+    ) {
+      dealId = pathname.split('/')[4]
+      path = 'ingestion.review'
+      input = { dealId, ...body }
+    } else if (pathname === '/api/ingestion/locations' && method === 'GET') {
+      path = 'ingestion.searchLocations'
+      input = query
+    } else if (pathname === '/api/ingestion/accounts' && method === 'GET') {
+      path = 'ingestion.accounts'
+      input = query
+    } else {
+      await route.fulfill({
+        status: 404,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'NOT_FOUND', message: 'Not found' } }),
+      })
+      return
     }
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(responses) })
+    state.requests.push({ path, input, method })
+    const fail = state.failures.get(path)
+    if (fail) state.failures.delete(path)
+    const denied =
+      state.access || (path === 'ingestion.accounts' && state.accountsForbidden ? 'FORBIDDEN' : '')
+    const code = fail || denied
+    if (code) {
+      const status =
+        code === 'UNAUTHORIZED' ? 401 : code === 'FORBIDDEN' ? 403 : code === 'CONFLICT' ? 409 : 500
+      await route.fulfill({
+        status,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code, message: 'Synthetic boundary failure' } }),
+      })
+      return
+    }
+    let data: unknown
+    switch (path) {
+      case 'ingestion.dashboard':
+        data = state.dashboard
+        break
+      case 'ingestion.runs':
+        data = { items: [] } satisfies IngestionRunsResponse
+        break
+      case 'ingestion.queue': {
+        const status = typeof input.status === 'string' ? input.status : 'PENDING'
+        const cursor = typeof input.cursor === 'string' ? input.cursor : undefined
+        data = (cursor ? state.draftPages.get(cursor) : undefined) ?? {
+          items: state.drafts.filter((draft) => draft.reviewStatus === status),
+          nextCursor: state.draftNextCursor,
+        }
+        break
+      }
+      case 'ingestion.review': {
+        expect(method).toBe('POST')
+        const decision = input.decision
+        const reviewStatus = decision === 'APPROVE' ? 'APPROVED' : 'REJECTED'
+        state.drafts = state.drafts.map((draft) => ({ ...draft, reviewStatus }))
+        state.dashboard.counts.pending = 0
+        state.dashboard.counts[reviewStatus === 'APPROVED' ? 'approved' : 'rejected'] = 1
+        data = { id: dealId, reviewStatus }
+        break
+      }
+      case 'ingestion.run':
+        expect(method).toBe('POST')
+        if (state.runGate) await state.runGate
+        data = {
+          runId: 'synthetic-run',
+          status: 'COMPLETED',
+          fetchedCount: 1,
+          createdCount: 1,
+          updatedCount: 0,
+          failedCount: 0,
+        }
+        break
+      case 'ingestion.searchLocations':
+        data = {
+          items: [
+            {
+              searchValue: 'Synthetic plaza',
+              address: '123 FIXTURE ROAD',
+              postalCode: '123456',
+              latitude: 1.3,
+              longitude: 103.8,
+            },
+          ],
+        }
+        break
+      case 'ingestion.accounts':
+        data = {
+          items: [
+            {
+              id: 'aaaaaaaaaaaaaaaaaaaaaaaa',
+              name: 'Synthetic Admin',
+              email: 'synthetic@example.test',
+              role: 'ADMIN',
+              createdAt: '2026-01-01T00:00:00Z',
+            },
+          ],
+          nextCursor: null,
+        }
+        break
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(data),
+    })
   })
   return state
 }
@@ -201,7 +264,9 @@ for (const width of [320, 390, 1280]) {
     await page.goto('/admin/ingestion')
     await expect(page.getByRole('button', { name: 'Run ingestion', exact: true })).toBeDisabled()
     await expect(page.getByText('Ingestion is disabled', { exact: true })).toBeVisible()
-    await expect(page.getByText('Content reuse is not approved', { exact: true })).toBeVisible()
+    await expect(
+      page.getByText('Operator reuse attestation is not recorded', { exact: true }),
+    ).toBeVisible()
     const details = page.getByRole('button', { name: /View details:/ })
     await details.focus()
     await details.press('Enter')
@@ -347,7 +412,11 @@ test('pagination preserves stale-review conflict until reloading the current dra
   )
   await expect(approve).toBeDisabled()
   await expect(reject).toBeDisabled()
-  await page.getByRole('article').locator('form').dispatchEvent('submit')
+  await page
+    .getByRole('article')
+    .locator('form')
+    .filter({ has: page.locator('#review-note') })
+    .dispatchEvent('submit')
   await reject.dispatchEvent('click')
   expect(fixture.requests.filter((request) => request.path === 'ingestion.review')).toHaveLength(1)
 
@@ -442,7 +511,11 @@ test('reload drops a superseded second-page draft and requires selection of its 
   await expect(note).toHaveValue('')
   await expect(approve).toBeDisabled()
   await expect(reject).toBeDisabled()
-  await page.getByRole('article').locator('form').dispatchEvent('submit')
+  await page
+    .getByRole('article')
+    .locator('form')
+    .filter({ has: page.locator('#review-note') })
+    .dispatchEvent('submit')
   await reject.dispatchEvent('click')
   expect(fixture.requests.filter((request) => request.path === 'ingestion.review')).toHaveLength(1)
   await note.fill('Review of replacement source evidence')

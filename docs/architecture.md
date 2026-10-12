@@ -15,12 +15,13 @@ broke-oclock/
 │   │       └── assets/       Global Bootstrap/custom styles and local media
 │   └── api/                  Express + Better Auth; server-only configuration
 │       └── src/
-│           ├── trpc/         Context, procedure helpers, root and infrastructure procedures
-│           ├── modules/      Feature routes, validation, services, repositories
+│           ├── rest/         Common REST root and named domain handlers
+│           ├── modules/      Feature validation, services and repositories
 │           └── ...           Generic app/config/auth lifecycle (see actual files)
 ├── packages/
 │   ├── auth/                 Shared Better Auth server/client/types and Node adapter
-│   ├── contracts/            Browser-safe infrastructure API schemas and types
+│   ├── contracts/            Browser-safe API, ingestion and platform-admin schemas
+│   ├── api-client/           Browser-safe typed Axios factory shared with HTTP tests
 │   ├── db/                   Prisma schema, generation and shared DB client
 │   ├── email/                Resend transport/templates; server only, opt-in
 │   ├── integrations/         Read-only external-provider transports; server only
@@ -42,11 +43,11 @@ Start with root [AGENTS.md](../AGENTS.md) for agent workflow, ownership, verific
 
 ## Dependency boundaries
 
-- Browser runtime never imports the API implementation, packages/db, server environment, Prisma or secrets. The web devDependency on the API is exclusively for its AppRouter type via @broke-oclock/api/types, which has no runtime export.
-- Routes/procedures validate input and enforce authorization. Simple handlers may use ctx.db directly; extract services/repositories as business complexity or reuse requires, without mandatory pass-through layers.
+- Browser runtime never imports the API implementation, packages/db, server environment, Prisma or secrets. The web app consumes browser-safe schemas and inferred JSON types from `@broke-oclock/contracts/api`, `/ingestion` and `/platform-admin`; it has no runtime or type dependency on the API workspace.
+- Express route handlers validate HTTP input and enforce authorization. Simple handlers may use the shared typed database client directly; extract services/repositories as business complexity or reuse requires, without mandatory pass-through layers.
 - A feature module can start with a route and service; add repository/DTO files when useful, not empty layers for ceremony.
 - Do not import internals across feature modules. Agree public interfaces and shared contracts first. Use `packages/contracts` for real browser-safe DTO/schema sharing; never export Prisma models to browsers as API contracts.
-- `packages/auth` owns Better Auth setup, its Prisma adapter, Vue client and inferred session/user types. It depends on `packages/db`, never an app. The API injects validated configuration and mounts its Node handler; feature authorization belongs in request handlers/procedures and app-owned domain services. Consume `/client`, `/server`, `/node` and type-only `/types` public entry points.
+- `packages/auth` owns Better Auth setup, its Prisma adapter, Vue client and inferred session/user types. It depends on `packages/db`, never an app. The API injects validated configuration and mounts its Node handler; feature authorization belongs in REST handlers and app-owned domain services. Consume `/client`, `/server`, `/node` and type-only `/types` public entry points.
 - `packages/storage` owns UploadThing SDK setup, upload policy, the browser helper and shared types. Apps share its implementation through this package. Use `/client` in browser code and `/server` only in the API; `/types` is type-only. The API loads credentials and supplies already-authenticated request identity. The package does not import app code or read environment variables.
 - `packages/db` owns the one Prisma schema. The schema owner reviews changes but is not the only person allowed to contribute. See [the implemented persistence foundation](database-schema.md); product workflows are not implemented by schema relations.
 - Use the native MongoDB provider through Prisma 6.19. No raw SQL, `$runCommandRaw`, `$queryRaw`, `$aggregateRaw` or direct-driver shortcuts in application code. Discuss unsupported geo/index operations before choosing a workaround.
@@ -57,12 +58,13 @@ Start with root [AGENTS.md](../AGENTS.md) for agent workflow, ownership, verific
 - `auth`: Better Auth server, Vue client, Node adapters and type-only contracts.
 - `db`: canonical Prisma schema and typed database client.
 - `storage`: UploadThing server/client integration.
-- `contracts`: Zod schemas and inferred types for existing health/readiness/current-user/error responses; the API consumes them. No Prisma exports or invented deal schemas.
+- `contracts`: browser-safe Zod request/response schemas and inferred types shared across API and web boundaries. No Prisma exports or invented deal schemas.
+- `api-client`: the existing explicit Axios factory and safe client errors, consumed by web wiring and API integration tests through its public export. It imports only browser-safe contracts and Axios, never app implementations or server modules. The API dependency is dev-only for actual-client HTTP coverage.
 - `integrations`: server-only, read-only WordPress.com transport with validated public-post responses. Returned HTML remains untrusted. No deal parsing, persistence, scheduling, Telegram scraping or geocoder implementation.
 - `email`: server-only Resend transport and templates, disabled without configured credentials. No auth email flow or sending endpoint is enabled.
 - `ui`: BootstrapVueNext provider/components/styles and the existing AppShell. Product navigation/screens remain app-local; their existing buttons consume BButton.
 
-Root TypeScript/Biome configuration is shared; no additional config or generic utils package is needed. Create future packages around real boundaries, not placeholders. The user explicitly selected these shared packages; their existence does not mean the corresponding assessed product features are implemented.
+Root TypeScript/Biome configuration is shared; no additional global lint configuration or generic utils package is needed. Create future packages around real boundaries, not placeholders. The transport migration extracts the existing client for actual browser and HTTP-test consumers without weakening app-to-app boundaries. Shared infrastructure does not mean the corresponding assessed product features are implemented.
 
 ## Six workstreams
 
@@ -73,7 +75,7 @@ Root TypeScript/Biome configuration is shared; no additional config or generic u
 5. `ingestion-admin`: admin status/review UI. Server `ingestion` owns WordPress/Telegram fetching, parsing, dedupe and scheduling.
 6. `venues-feed`: venue history, search and the non-map feed.
 
-Noah's additional `platform-admin` workstream owns `/admin/accounts`, the `platformAdmin` router, role changes, merchant-request reviews, stall grants and audit history. Kang En retains user-facing merchant requests and Isaac retains merchant promotion management. See [the handoff and authorization contract](platform-admin.md).
+Noah's additional `platform-admin` workstream owns `/admin/accounts`, role changes, merchant-request reviews, stall grants and audit history. Kang En retains user-facing merchant requests and Isaac retains merchant promotion management. See [the handoff and authorization contract](platform-admin.md).
 
 Server module names can follow domain ownership (`deals`, `venues`, `community`, `account`, `ingestion`) rather than duplicating every screen. `deals` serves browse and submit. Coordinate shared routes rather than creating duplicate Deal models.
 
@@ -83,8 +85,6 @@ The supplied team plan is the starting point, not an already frozen contract. It
 
 Do not ship a fake `currentUser` in production. Development fixtures must be explicit, isolated and never bypass real API authorization. The starter supplies a real auth integration boundary instead.
 
-## API-owned tRPC
+## API-owned REST
 
-New domain layout: `src/trpc/routers/<domain>/index.ts` + `procedures/<operation>.ts`. See [How to code here](development-guide.md) for responsibilities, import direction and complete documentation-only examples. No domain folders are pre-created for unimplemented work.
-
-The API owns context, reusable procedures and the root/feature routers under src/trpc. The web owns the framework-independent client and imports only AppRouter through the API type-only export. See [layout, security and usage](trpc.md). Response schemas stay shared only where there are real consumers; no runtime router package or Next/React-specific machinery is required.
+The API exposes conventional JSON resources through a common Express mount. Domain `index.ts` files assemble named handlers, with one handler per file; handlers parse and validate request data, resolve request-scoped identity, enforce authorization, and call the existing app-local domain logic. See [the REST API guide](rest-api.md) for route, error and testing conventions. The browser uses explicit Axios functions grouped by domain and shared contracts from `packages/contracts`; there is no generic RPC dispatcher or inferred router dependency. Better Auth and UploadThing retain their native endpoints, and external-provider transports retain their own clients.

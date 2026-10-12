@@ -49,6 +49,7 @@ describe('site header pill', () => {
       '/',
       '/browse',
       '/getting-started',
+      '/admin',
       '/admin/accounts',
       '/admin/ingestion',
     ])

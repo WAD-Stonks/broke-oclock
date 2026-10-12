@@ -4,7 +4,7 @@ This file applies to the whole repository. Read it before editing. This is a pub
 
 ## Read first
 
-- [How to code here: routers, procedures, index.ts and frontend](docs/development-guide.md)
+- [How to code here: REST routers, handlers, index.ts and frontend](docs/development-guide.md)
 - [Architecture and ownership](docs/architecture.md)
 - [Database schema, roles and invariants](docs/database-schema.md)
 - [Coding standards and import aliases](docs/coding-standards.md#imports-and-aliases)
@@ -29,8 +29,8 @@ apps/api/                  Express HTTP boundary + Better Auth
   src/server.ts            Local Node.js server lifecycle
   src/config.ts            Server environment parsing
   src/auth.ts              Maps validated env config into the shared auth factory
-  src/trpc/                API-owned context, procedure helpers, root and feature routers
-  src/rpc.ts               Official Express middleware and request limits
+  src/rest/                Request-local context, policy, root and domain REST assemblies
+  src/errors.ts            Common HTTP error mapping and safe JSON errors
   src/uploads.ts           Upload auth/origin checks and route mounting
   src/modules/             Domain routes, services and repositories
   tests/unit/              Pure configuration/unit tests
@@ -47,7 +47,8 @@ packages/storage/          Shared UploadThing infrastructure
   src/server.ts            SDK adapter and file policy; server only
   src/client.ts            Typed browser upload helper
   src/types.ts             Type-only public contracts
-packages/contracts/        Zod schemas/inferred JSON types for current infrastructure endpoints
+packages/contracts/        Browser-safe Zod request/response schemas and inferred JSON types
+packages/api-client/       Browser-safe typed Axios factory and public client errors
 packages/integrations/     Read-only external-provider transports; no ingestion logic
 packages/email/            Opt-in Resend transport/templates; no active auth email hooks
 packages/ui/               BootstrapVueNext provider/components and shared AppShell
@@ -57,22 +58,22 @@ docs/                     Decisions, scope, setup and team conventions
 .github/                   PR template and PR-only quality CI
 ```
 
-The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `ingestion-admin` and `venues-feed`. API domains are `deals`, `venues`, `community`, `account` and `ingestion`; they need not mirror screens one-for-one. Read the owning module README before editing. Route handlers/procedures own validation and authorization. They may use ctx.db directly for simple typed queries; extract app-local services/repositories for real complexity or reuse. Do not create empty abstraction layers. See docs/trpc.md for the T3-style layout.
+The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `ingestion-admin` and `venues-feed`. API domains are `deals`, `venues`, `community`, `account` and `ingestion`; they need not mirror screens one-for-one. Read the owning module README before editing. Route handlers own validation and authorization. They may use ctx.db directly for simple typed queries; extract app-local services/repositories for real complexity or reuse. Do not create empty abstraction layers. See docs/rest-api.md for the REST layout.
 
 ## New API domain convention
 
-- Follow docs/development-guide.md: `src/trpc/routers/<domain>/index.ts` assembles named procedures from `procedures/<operation>.ts`; register that router under a namespace in `src/trpc/root.ts`.
-- One named procedure per file. Use `createTRPCRouter`, `publicProcedure` and `protectedProcedure` from `@api/trpc/init`; do not create another tRPC instance or Express mount per feature.
-- Procedure files must not import their parent index or root. Keep index/root focused on assembly; extract substantive app-local logic only when needed.
-- `root.ts` assembles router namespaces only, not individual procedure definitions or procedure spreads. Infrastructure follows `routers/infrastructure/index.ts` plus one procedure per file; use `api.infrastructure.health` and `api.infrastructure.me`. The guide's example router remains illustrative, not a deployed endpoint.
+- Follow docs/development-guide.md: `src/rest/routers/<domain>/index.ts` assembles named HTTP handlers, one handler per file. Register domain routers in `src/rest/root.ts`; mount the common REST root once in `src/app.ts`.
+- Use explicit conventional HTTP methods, shared browser-safe Zod contracts and request-local cookie identity. Keep existing services responsible for business rules, transactions, authorization fences and version races; do not create a generic RPC dispatcher or separate Express mount per feature.
+- Handler files must not import their parent index or root. Keep index/root focused on assembly; extract substantive app-local logic only when needed.
+- Infrastructure follows its domain index plus one handler per file. Keep `/api/health`, `/api/ready` and `/api/me` compatible and use explicit Axios infrastructure functions. The guide's example router remains illustrative, not a deployed endpoint.
 
 ## Imports and package boundaries
 
 - Use extensionless source aliases: `@api/*`, `@web/*`, `@auth/*`, `@db/*`, `@storage/*`, `@contracts/*`, `@integrations/*`, `@email/*`, `@ui/*`, `@scripts/*`. Their canonical paths are in root `tsconfig.json`.
 - Example inside storage: `export type { PhotoFileRouter, PhotoStorageOptions } from '@storage/server'`. Do not use `./server.js`, `./server` or `../` source imports.
 - Keep genuine `.vue`, `.css` and asset extensions. Keep third-party and `node:` package names unchanged.
-- Across workspaces, use public `@broke-oclock/db`, `@broke-oclock/auth/{client,server,node,types}` or `@broke-oclock/storage/{client,server,types}` exports. Other public entry points are `@broke-oclock/contracts/api`, `@broke-oclock/integrations/server`, `@broke-oclock/email/server` and `@broke-oclock/ui`, `@broke-oclock/ui/styles.css`, `@broke-oclock/contracts/rpc`, and the type-only `@broke-oclock/api/types` export. Never reach into another workspace with its private source alias. The sole app-to-app exception is the web devDependency on the API for `import type { AppRouter }` from `@broke-oclock/api/types`; it has no runtime target. All other app-to-app implementation imports are forbidden, and packages must not import apps.
-- Browser code uses auth/storage `/client` and its own tRPC client, type-only router definitions and browser-safe contract schemas, never `/server`, the database, auth-server code, email/integration server modules or secrets. Do not make a mixed client/server barrel.
+- Across workspaces, use public `@broke-oclock/db`, `@broke-oclock/auth/{client,server,node,types}` or `@broke-oclock/storage/{client,server,types}` exports. Other public entry points are `@broke-oclock/api-client`, `@broke-oclock/contracts/api`, `@broke-oclock/contracts/ingestion`, `@broke-oclock/contracts/platform-admin`, `@broke-oclock/integrations/server`, `@broke-oclock/email/server` and `@broke-oclock/ui`, `@broke-oclock/ui/styles.css`. Never reach into another workspace with its private source alias. App-to-app implementation imports are forbidden, and packages must not import apps.
+- Browser code uses auth/storage `/client`, explicit same-origin Axios functions and browser-safe contract schemas, never API/server implementations, the database, auth-server code, email/integration server modules or secrets. Do not make a mixed client/server barrel.
 - The API owns env loading, HTTP mounting and feature authorization; auth owns reusable session/auth machinery, and storage receives already-verified request-scoped identity. Neither package imports an app.
 - TypeScript, tsx, esbuild, Vite and Vitest must all resolve aliases. Run real tests/builds after changing resolution; a typecheck alone is insufficient. Plain Node production artifacts must bundle workspace code and aliases without requiring tsx at runtime.
 - Relative filesystem URLs, package export paths and generated code are not authored module-import style. Do not rename build output or edit generated Prisma files to satisfy this convention.
@@ -83,7 +84,8 @@ The web workstreams are `browse-map`, `add-deal`, `community`, `account`, `inges
 - Install with `pnpm install --frozen-lockfile --ignore-scripts`; run `pnpm run setup` for initial local setup and Prisma generation. Preserve existing `.env` values. Keep isolated workspace linking and install hooks disabled.
 - Use Prisma's MongoDB provider and typed client. MongoDB needs a replica set; tests use disposable replicas. Never run tests or schema changes against production. Do not use raw-query shortcuts.
 - Run `pnpm run format`, `pnpm run check:all`, `pnpm run audit` and `git diff --check` before pushing. `check:all` includes lint, schema validation, all workspace/tool typechecks, unit/integration tests, builds and Playwright.
-- Use `pnpm run test` for Vitest suites; `pnpm run test:tooling` runs Node.js tooling regressions. `pnpm run test:packages` runs email/integration transport tests; RPC policy tests live in the API unit suite. Both are included in the unit-test gate. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
+- Use `pnpm run test` for Vitest suites; `pnpm run test:tooling` runs Node.js tooling regressions. `pnpm run test:packages` runs email/integration transport tests; REST policy tests live in the API unit suite. Both are included in the unit-test gate. Keep regression tests and do not weaken assertions or delete failing coverage to get green CI.
+- Keep real HTTP regressions for trusted-Origin writes, independent concurrent cookie identities, method/Allow behavior, bounded query and JSON/body parsing, sanitized errors and legacy `/api/trpc` 404/no-write retirement. Browser interceptions remain explicitly synthetic; execute standalone and Vercel artifacts with plain Node and disposable replicas.
 - Keep provider mocks explicit. Synthetic UploadThing responses are not proof of a live hosted upload. The existing narrow Prisma CLI audit exception is documented; do not add suppressions casually.
 - Inspect the actual browser import graph after moving shared code. Keep server secrets and modules out of browser bundles.
 

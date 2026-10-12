@@ -178,6 +178,7 @@ model Venue {
   merchant   Merchant    @relation(fields: [merchantId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   name       String
   address    String
+  imageUrl   String?
   area       String?
   postalCode String?
   latitude   Float

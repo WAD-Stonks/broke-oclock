@@ -9,7 +9,7 @@
 
 ## Naming and layout
 
-For API feature work, follow the [router/procedure/index.ts walkthrough](development-guide.md). Use one domain folder with a thin index.ts and one named procedure per operation file; keep root.ts for namespace registration.
+For API feature work, follow the [Express REST route guide](development-guide.md). Use one domain folder with a thin `index.ts` and one named HTTP handler per operation file; keep the API root focused on assembling domain routes and mounting them once in the common Express app.
 
 - Vue SFCs: `PascalCase.vue`, `<script setup lang="ts">`; views end in `Page.vue` where consistent.
 - TypeScript files/folders: `kebab-case`; variables/functions `camelCase`; types `PascalCase`.
@@ -32,7 +32,7 @@ Use extensionless `@`-prefixed aliases for authored TypeScript imports and re-ex
 - `@ui/*` → `packages/ui/src/*`
 - `@scripts/*` → `scripts/*`
 
-These are workspace-internal source aliases. Cross-workspace imports must use public package exports such as `@broke-oclock/db`, `@broke-oclock/auth/client` and `@broke-oclock/storage/client`, `/server` or `/types`, not another workspace's internal alias. The one app-to-app exception is `import type { AppRouter } from '@broke-oclock/api/types'` in the web app, backed by a devDependency and types-only export. Browser code must not import API runtime, database or storage-server implementations, even through an alias.
+These are workspace-internal source aliases. Cross-workspace imports must use public package exports such as `@broke-oclock/db`, `@broke-oclock/auth/client` and `@broke-oclock/storage/client`, `/server` or `/types`, not another workspace's internal alias. The web app has no API workspace dependency; share browser-safe Zod schemas and inferred types through `@broke-oclock/contracts/api`, `/ingestion` and `/platform-admin`. Browser code must not import API runtime, database or storage-server implementations, even through an alias.
 
 ```ts
 // Inside the API
@@ -54,8 +54,8 @@ Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on the
 
 ## API and data safety
 
-- Validate params/query/body, bound page sizes and input lengths, and return stable HTTP status/error codes. Do not trust a frontend-selected owner/user ID.
-- Authenticate protected requests; check record ownership and moderator permissions separately. Router guards are UX, never the security boundary.
+- Define explicit resource paths and HTTP methods. Validate params/query/body, bound page sizes and input lengths, and return stable HTTP status/error codes. Do not trust a frontend-selected owner/user ID.
+- Authenticate protected requests; check record ownership and moderator permissions separately. Browser route guards are UX, never the security boundary.
 - Use typed Prisma operations. Check duplicate-vote/save constraints under concurrency before calling them safe.
 - Use UTC timestamps in storage; document Asia/Singapore interpretation for promotion dates. Store original validity text when parsing is uncertain. Unknown validity must not silently become 'valid now'.
 - Keep commercial expiry, community evidence and moderation separate. An expiry date is not proof an outlet honours the deal; a vote is not ground truth.
@@ -73,7 +73,7 @@ Biome rejects relative module imports/re-exports and `.js`/`.ts` suffixes on the
 
 - Vitest for unit/integration tests; `pnpm run test` invokes Vitest. The separate Node tooling regression suite is included in the unit gate.
 - Playwright for E2E. Prefer role/label selectors, deterministic fixtures, real integration on main journeys and controlled mocks only at external boundaries.
-- Tests for success, invalid input, forbidden ownership and important boundary conditions belong with every feature. Coverage reports inform review; they are not proof of correctness.
+- Test successful reads and writes through the real Express HTTP boundary, plus invalid input, forbidden ownership, origin/method policy and important boundary conditions. Use explicit Axios functions in the web app, with method names that describe each operation. Coverage reports inform review; they are not proof of correctness.
 - Small conventional commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`). Follow [branching and worktree guidance](../AGENTS.md#branching-and-worktrees): start independent work from freshly fetched `origin/main`, use descriptive task branches and reuse the existing PR branch for follow-ups. Open a PR with test evidence; no direct pushes to main, unapproved force-pushes or auto-merging.
 - Before PR: format, `pnpm run check:all`, review the whole diff and check for secrets/generated output. Every teammate codes and tests their slice.
 
