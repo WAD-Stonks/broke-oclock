@@ -8,6 +8,7 @@
     "./ingestion": "./src/ingestion.ts",
     "./platform-admin": "./src/platform-admin.ts",
     "./deals": "./src/deals.ts",
+    "./venues": "./src/venues.ts",
     "./account": "./src/account.ts"
   },
   "scripts": {

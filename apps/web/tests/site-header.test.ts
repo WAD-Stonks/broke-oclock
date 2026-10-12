@@ -26,11 +26,11 @@ async function mountAt(path: string) {
 }
 
 describe('site header pill', () => {
-  it('shows the LoBangers title linking home and keeps the menu collapsed', async () => {
+  it('shows the Lobangers logo linking home and keeps the menu collapsed', async () => {
     const { wrapper } = await mountAt('/browse')
 
     const brand = wrapper.get(`${NAV} a[href="/"]`)
-    expect(brand.text()).toBe('LoBangers')
+    expect(brand.get('img').attributes('alt')).toBe('Lobangers')
 
     const toggle = wrapper.get(TOGGLE)
     expect(toggle.attributes('aria-expanded')).toBe('false')
@@ -53,6 +53,7 @@ describe('site header pill', () => {
     const hrefs = menu.findAll('a').map((link) => link.attributes('href'))
     expect(hrefs).toEqual([
       '/',
+      '/deals',
       '/getting-started',
       '/admin',
       '/admin/accounts',
