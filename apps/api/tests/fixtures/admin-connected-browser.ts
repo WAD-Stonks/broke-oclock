@@ -45,12 +45,7 @@ const jwk = {
 }
 let otpAdmin: { id: string; email: string; password: string; cookie: string }
 let ownedRecordId = ''
-const request = (
-  path: string,
-  body?: object,
-  cookie = '',
-  headers: Record<string, string> = {},
-) =>
+const request = (path: string, body?: object, cookie = '', headers: Record<string, string> = {}) =>
   nativeFetch(`${apiURL}${path}`, {
     method: body ? 'POST' : 'GET',
     headers: { 'Content-Type': 'application/json', Origin: webURL, Cookie: cookie, ...headers },
