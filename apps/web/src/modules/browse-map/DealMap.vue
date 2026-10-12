@@ -5,7 +5,6 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css'
 import L from 'leaflet'
 import 'leaflet.markercluster'
 import { readCartoApiKey, resolveBasemap } from '@web/modules/browse-map/basemap'
-import { configureDefaultMarkerIcon } from '@web/modules/browse-map/leaflet-icons'
 import {
   BOUNDS_VISCOSITY,
   FOCUS_ZOOM,
@@ -18,7 +17,8 @@ import {
   ZOOM_CONTROL_POSITION,
 } from '@web/modules/browse-map/map-config'
 import { SINGAPORE_BOUNDS, toBoundsTuple } from '@web/modules/browse-map/singapore-bounds'
-import type { Coordinates, DealMarker } from '@web/modules/browse-map/types'
+import type { Coordinates, VenuePin } from '@web/modules/browse-map/types'
+import { createVenuePinIcon } from '@web/modules/browse-map/venue-pin'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 // The map always opens fitted to Singapore. `focus` later pans/zooms to a point, for example
@@ -26,14 +26,14 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 // `userPosition` draws the "you are here" dot; `userAccuracyMetres` sizes its halo.
 const props = withDefaults(
   defineProps<{
-    markers?: readonly DealMarker[]
+    pins?: readonly VenuePin[]
     focus?: Coordinates | null
     focusZoom?: number
     userPosition?: Coordinates | null
     userAccuracyMetres?: number | null
   }>(),
   {
-    markers: () => [],
+    pins: () => [],
     focus: null,
     focusZoom: FOCUS_ZOOM,
     userPosition: null,
@@ -56,12 +56,22 @@ const observeResize = (element: HTMLElement) => {
   return observer
 }
 
-const syncMarkers = (markers: readonly DealMarker[]) => {
+// Each outlet is one pin: a tinted category bubble with a price (or deal count) badge below.
+const pinTitle = (pin: VenuePin) =>
+  pin.deals.length === 1 ? `${pin.deals[0]?.title} at ${pin.name}` : `${pin.deals.length} deals at ${pin.name}`
+
+const syncPins = (pins: readonly VenuePin[]) => {
   if (!cluster) return
   cluster.clearLayers()
-  for (const marker of markers) {
-    L.marker([marker.lat, marker.lng], { title: marker.title })
-      .on('click', () => emit('select', marker.id))
+  for (const pin of pins) {
+    const title = pinTitle(pin)
+    L.marker([pin.lat, pin.lng], {
+      icon: createVenuePinIcon(pin),
+      title,
+      alt: title,
+      riseOnHover: true,
+    })
+      .on('click', () => emit('select', pin.id))
       .addTo(cluster)
   }
 }
@@ -88,7 +98,6 @@ const syncUserPosition = (position: Coordinates | null, accuracy: number | null)
 
 onMounted(() => {
   if (!container.value) return
-  configureDefaultMarkerIcon()
   const bounds = L.latLngBounds(
     toBoundsTuple(SINGAPORE_BOUNDS).map(([lat, lng]) => L.latLng(lat, lng)),
   )
@@ -107,12 +116,12 @@ onMounted(() => {
   cluster = L.markerClusterGroup()
   cluster.addTo(map)
   userLayer = L.layerGroup().addTo(map)
-  syncMarkers(props.markers)
+  syncPins(props.pins)
   syncUserPosition(props.userPosition, props.userAccuracyMetres)
   resizeObserver = observeResize(container.value)
 })
 
-watch(() => props.markers, syncMarkers)
+watch(() => props.pins, syncPins)
 watch(
   () => [props.userPosition, props.userAccuracyMetres] as const,
   ([position, accuracy]) => syncUserPosition(position, accuracy),
@@ -141,7 +150,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-/* Fills whatever box the page gives it; the browse canvas decides the size. */
 .deal-map-region,
 .deal-map {
   position: relative;
@@ -149,22 +157,126 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 
-/* Raster tiles cannot be restyled server-side, so the navy cast is a CSS filter on the tile
-   pane. Vectors, markers and controls live in other panes and keep their true colours. */
+
 .deal-map :deep(.leaflet-container) {
+  font-family: var(--font-sans);
   background: var(--map-canvas);
 }
 
-.deal-map :deep(.leaflet-tile-pane) {
-  filter: var(--map-tile-tint);
+
+.deal-map :deep(.deal-map-pin) {
+  background: transparent;
+  border: 0;
 }
 
-/* Leaflet creates the dot outside Vue's template, so reach it with :deep. */
+/* Bubble centred on the outlet, badge hanging just below it. */
+.deal-map :deep(.deal-map-pin__stack) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transform: translate(-50%, -50%);
+  transition: transform 160ms ease;
+}
+
+.deal-map :deep(.deal-map-pin__bubble) {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 52px;
+  height: 52px;
+  color: var(--ink);
+  background: var(--pin-tint, var(--tint-other));
+  border: 4px solid var(--paper-white);
+  border-radius: 50%;
+  box-shadow: var(--shadow-pill);
+}
+
+.deal-map :deep(.deal-map-pin__bubble svg) {
+  width: 22px;
+  height: 22px;
+}
+
+.deal-map :deep(.deal-map-pin__badge) {
+  padding: 3px 10px;
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--paper-white);
+  background: var(--ink);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-pill);
+}
+
+.deal-map :deep(.deal-map-pin:hover .deal-map-pin__stack),
+.deal-map :deep(.deal-map-pin:focus-visible .deal-map-pin__stack) {
+  transform: translate(-50%, -50%) scale(1.06);
+}
+
+/* Cluster bubbles: a soft sunny ring around a solid sunny count. */
+.deal-map :deep(.marker-cluster) {
+  background: var(--sunny-soft);
+}
+
+.deal-map :deep(.marker-cluster div) {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--sunny);
+}
+
+/* "You are here": sky-blue dot with a white ring over the soft accuracy halo. */
 .deal-map :deep(.deal-map-user-dot) {
   box-sizing: border-box;
-  background: var(--color-voltage-blue);
-  border: 2.5px solid var(--color-cream);
+  background: var(--sky);
+  border: 3px solid var(--paper-white);
   border-radius: 50%;
-  box-shadow: 0 0 0 1.5px var(--color-voltage-blue);
+  box-shadow: 0 2px 6px rgba(27, 27, 31, 0.3);
+}
+
+/* Bottom-right controls slide left while the list card covers that corner of the map. */
+.deal-map :deep(.leaflet-right) {
+  right: var(--map-right-inset, 0px);
+  transition: right 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deal-map :deep(.leaflet-right) {
+    transition: none;
+  }
+}
+
+/* Zoom control and attribution restyled as small white paper cards. */
+.deal-map :deep(.leaflet-bar) {
+  border: 0;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-pill);
+  overflow: hidden;
+}
+
+.deal-map :deep(.leaflet-bar a) {
+  color: var(--ink);
+  background: var(--paper-white);
+  border-bottom-color: var(--hairline);
+}
+
+.deal-map :deep(.leaflet-bar a:hover),
+.deal-map :deep(.leaflet-bar a:focus-visible) {
+  background: var(--paper);
+}
+
+.deal-map :deep(.leaflet-control-attribution) {
+  color: var(--ink-muted);
+  background: rgba(255, 255, 255, 0.85);
+  border-top-left-radius: var(--radius-control);
+}
+
+.deal-map :deep(.leaflet-control-attribution a) {
+  color: var(--ink);
 }
 </style>

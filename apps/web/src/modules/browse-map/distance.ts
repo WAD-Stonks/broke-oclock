@@ -1,6 +1,6 @@
-import type { Coordinates, DealMarker } from '@web/modules/browse-map/types'
+import type { Coordinates } from '@web/modules/browse-map/types'
 
-export type NearbyDeal = DealMarker & { readonly distanceMetres: number }
+export type WithDistance<T> = T & { readonly distanceMetres: number }
 
 const EARTH_RADIUS_METRES = 6_371_000
 const KILOMETRE = 1000
@@ -19,12 +19,12 @@ export const distanceMetres = (from: Coordinates, to: Coordinates): number => {
 }
 
 // Returns a new nearest-first array; the input is never reordered.
-export const sortByDistance = (
-  markers: readonly DealMarker[],
+export const sortByDistance = <T extends Coordinates>(
+  items: readonly T[],
   origin: Coordinates,
-): readonly NearbyDeal[] =>
-  markers
-    .map((marker) => ({ ...marker, distanceMetres: distanceMetres(origin, marker) }))
+): readonly WithDistance<T>[] =>
+  items
+    .map((item) => ({ ...item, distanceMetres: distanceMetres(origin, item) }))
     .sort((a, b) => a.distanceMetres - b.distanceMetres)
 
 export const formatDistance = (metres: number): string => {

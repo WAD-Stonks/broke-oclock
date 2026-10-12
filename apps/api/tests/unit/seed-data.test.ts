@@ -62,11 +62,18 @@ describe('seed dataset', () => {
     new Map<string, (typeof rows.dealVenues)[number][]>(),
   )
 
-  it('has at least fifty deals with unique keys and titles labelled as synthetic', () => {
+  it('has at least fifty deals with unique keys and titles', () => {
     expect(rows.deals.length).toBeGreaterThanOrEqual(MINIMUM_DEALS)
     expect(new Set(SEED_DEALS.map((deal) => deal.key)).size).toBe(SEED_DEALS.length)
     expect(new Set(rows.deals.map((deal) => deal.title)).size).toBe(rows.deals.length)
-    for (const deal of rows.deals) expect(deal.description).toContain(SEED_NOTE)
+  })
+
+  it('marks reviewed deals as synthetic in the staff-only review note, not in public text', () => {
+    for (const deal of rows.deals) {
+      expect(deal.description).not.toContain(SEED_NOTE)
+      if (deal.reviewStatus === 'PENDING') expect(deal.reviewNote).toBeNull()
+      else expect(deal.reviewNote).toContain(SEED_NOTE)
+    }
   })
 
   it('keeps every outlet inside Singapore with a real merchant', () => {

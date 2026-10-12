@@ -32,7 +32,8 @@
     "audit": "pnpm audit --audit-level=high",
     "test:packages": "vitest run --config vitest.packages.config.ts",
     "test:tooling": "node --test scripts/tests/*.test.mjs",
-    "build:vercel:api": "pnpm run db:generate && node --import tsx scripts/build-vercel-api.ts"
+    "build:vercel:api": "pnpm run db:generate && node --import tsx scripts/build-vercel-api.ts",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "devDependencies": {
     "@broke-oclock/contracts": "workspace:*",
@@ -43,6 +44,7 @@
     "mongodb-memory-server": "11.2.0",
     "vitest": "4.1.11",
     "tsx": "4.23.15",
-    "esbuild": "0.28.2"
+    "esbuild": "0.28.2",
+    "prisma": "8.0.0-rc.22"
   }
 }

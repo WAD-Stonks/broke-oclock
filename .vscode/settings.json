@@ -11,5 +11,8 @@
   "typescript.preferences.importModuleSpecifier": "non-relative",
   "typescript.preferences.importModuleSpecifierEnding": "minimal",
   "javascript.preferences.importModuleSpecifier": "non-relative",
-  "javascript.preferences.importModuleSpecifierEnding": "minimal"
+  "javascript.preferences.importModuleSpecifierEnding": "minimal",
+  "[vue]": {
+    "editor.defaultFormatter": "Vue.volar"
+  }
 }

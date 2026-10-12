@@ -47,7 +47,6 @@ describe('site header pill', () => {
     const hrefs = menu.findAll('a').map((link) => link.attributes('href'))
     expect(hrefs).toEqual([
       '/',
-      '/browse',
       '/getting-started',
       '/admin',
       '/admin/accounts',
@@ -61,10 +60,10 @@ describe('site header pill', () => {
     const { router, wrapper } = await mountAt('/')
 
     await wrapper.get(TOGGLE).trigger('click')
-    await wrapper.get(`${MENU} a[href="/browse"]`).trigger('click')
+    await wrapper.get(`${MENU} a[href="/getting-started"]`).trigger('click')
     await flushPromises()
 
-    expect(router.currentRoute.value.path).toBe('/browse')
+    expect(router.currentRoute.value.path).toBe('/getting-started')
     expect(wrapper.find(MENU).exists()).toBe(false)
     expect(wrapper.get(TOGGLE).attributes('aria-expanded')).toBe('false')
     wrapper.unmount()

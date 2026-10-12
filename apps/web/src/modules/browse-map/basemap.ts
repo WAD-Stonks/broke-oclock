@@ -1,8 +1,7 @@
-// Basemap selection. CARTO Dark Matter (`dark_all`) is the preferred minimalist style and needs a
-// publishable, domain-restricted key on every tile URL. Without a key the map falls back to
-// OneMap `Night`, the Singapore Land Authority's keyless dark basemap, so the page never goes blank.
-// Raster tiles cannot be restyled by the provider; the navy cast comes from the `--map-tile-tint`
-// CSS filter in main.css, which DealMap.vue applies to Leaflet's tile pane.
+// Basemap selection. CARTO Positron (`light_all`) is the preferred light, low-contrast style and
+// needs a publishable, domain-restricted key on every tile URL. Without a key the map falls back
+// to OneMap `Grey`, the Singapore Land Authority's keyless light basemap, so the page never goes
+// blank. Tiles render untinted; the pins, cards and buttons carry the colour.
 export type BasemapProvider = 'carto' | 'onemap'
 
 export type Basemap = {
@@ -11,16 +10,16 @@ export type Basemap = {
   readonly attribution: string
 }
 
-// Other CARTO raster styles: dark_nolabels, light_all, light_nolabels, voyager, voyager_nolabels.
-// Light styles also work with the tint but read as pale blue; retune `--map-tile-tint` if swapped.
-export const CARTO_STYLE = 'dark_all'
+// Other CARTO raster styles: light_nolabels, dark_all, dark_nolabels, voyager, voyager_nolabels.
+export const CARTO_STYLE = 'light_all'
 const CARTO_TILE_HOST = 'https://basemaps.cartocdn.com/rastertiles'
 // Attribution strings are fixed constants rendered by Leaflet's control, never user content.
 const CARTO_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attribution/">CARTO</a>'
 
-// OneMap styles: Night, Grey, Default, Original. Docs: https://www.onemap.gov.sg/apidocs/maps
-const ONEMAP_TILE_URL = 'https://www.onemap.gov.sg/maps/tiles/Night/{z}/{x}/{y}.png'
+// OneMap styles: Grey, Default, Original, Night. Docs: https://www.onemap.gov.sg/apidocs/maps
+export const ONEMAP_STYLE = 'Grey'
+const ONEMAP_TILE_URL = `https://www.onemap.gov.sg/maps/tiles/${ONEMAP_STYLE}/{z}/{x}/{y}.png`
 const ONEMAP_ATTRIBUTION =
   '<img src="https://www.onemap.gov.sg/web-assets/images/logo/om_logo.png" alt="" style="height:1rem;width:1rem;vertical-align:text-bottom"/> <a href="https://www.onemap.gov.sg/" target="_blank" rel="noopener noreferrer">OneMap</a> &copy; contributors | <a href="https://www.sla.gov.sg/" target="_blank" rel="noopener noreferrer">Singapore Land Authority</a>'
 

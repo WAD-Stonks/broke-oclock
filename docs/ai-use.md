@@ -20,4 +20,12 @@ The 11 October 2026 authentication correction is also AI-assisted: native Reques
 
 The 11 October 2026 venue-image request adds AI-assisted optional `Venue.imageUrl` persistence and disposable-database regression tests. It leaves existing deal-image ownership and UploadThing integration unchanged and does not implement a venue-image endpoint, UI, fetching or upload attachment workflow. Real-deal seeding is a separate operation, with no demo records or fabricated image references supplied by this schema change.
 
+On 12 October 2026 the public deals list (`GET /api/deals`: contract, eligibility module, handler, , typed client function, and the integration and web tests) was written from AI-provided code, reviewed and adapted humanly.
+AI also helped debug the resulting TypeScript errors.
+
+Later on 12 October 2026, AI assistance extended that list with the deal detail fields, ISO end date and read-only vote/comment tallies, fixed the eligibility filter so unset MongoDB dates match (`isSet: false` alongside `null`, as elsewhere in the API), and added the browse drawer's deal detail, photo placeholder and review summary components with their tests. No vote, comment or photo endpoint was added; the review summary only displays counts. Allison reviews and owns this browse-map work.
+
+Also on 12 October 2026, at Allison's request, AI assistance restyled the browse screen to the "Bubbly" direction (category-tinted icon pins with price badges, sunny-yellow primary pills, Fredoka display font, floating list card, highlighted brand mark) and regrouped the map so each outlet is one pin carrying all of its deals, with an outlet view, "more at this outlet" rows and the matching web tests. This is presentation and client-side grouping over the existing deals list; no API behaviour changed.
+
+
 Do not remove this disclosure when adding student code. Record what AI supplied and what students authored/reviewed, and include the required disclosure in the final README.txt. Ask the instructor where a borderline use is unclear.
