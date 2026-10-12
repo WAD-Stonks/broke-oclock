@@ -13,6 +13,7 @@ import ProfilePage from '@web/pages/ProfilePage.vue'
 import RegisterPage from '@web/pages/RegisterPage.vue'
 import ResetPasswordPage from '@web/pages/ResetPasswordPage.vue'
 import SavedDealsPage from '@web/pages/SavedDealsPage.vue'
+import SubmissionForm from '@web/pages/SubmissionForm.vue'
 import VenuePage from '@web/pages/VenuePage.vue'
 import type { RouteRecordRaw } from 'vue-router'
 
@@ -72,6 +73,12 @@ const routes: RouteRecordRaw[] = [
   },
   { path: '/reset-password', name: 'reset-password', component: ResetPasswordPage },
   { path: '/me/profile', name: 'profile', component: ProfilePage, meta: { requiresAuth: true } },
+  {
+    path: '/submit-deal',
+    name: 'submit-deal',
+    component: SubmissionForm,
+    meta: { requiresAuth: true },
+  },
 ]
 
 export default routes

@@ -6,6 +6,9 @@ import { ref } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 // Synthetic signed-out session: these tests cover the shell, not authentication.
+vi.mock('@web/lib/api-client', () => ({
+  api: { deals: { list: vi.fn().mockResolvedValue({ items: [], categories: [] }) } },
+}))
 vi.mock('@web/lib/auth-client', () => ({
   authClient: { useSession: () => ref({ data: null, isPending: false }), signOut: vi.fn() },
 }))
@@ -54,6 +57,7 @@ describe('site header pill', () => {
     expect(hrefs).toEqual([
       '/',
       '/deals',
+      '/submit-deal',
       '/getting-started',
       '/admin',
       '/admin/accounts',
