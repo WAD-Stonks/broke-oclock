@@ -128,3 +128,81 @@ test('synthetic native logout removes operational evidence before sign-in', asyn
     page.locator('a[href="/admin/accounts?requestStatus=PENDING#merchant-requests"]'),
   ).toHaveCount(0)
 })
+
+for (const width of [320, 768, 1024, 1440]) {
+  test(`synthetic restrained admin navigation and sign-in fit ${width}px`, async ({
+    page,
+  }, info) => {
+    await boundary(page)
+    const errors: string[] = []
+    page.on('pageerror', (error) => errors.push(error.message))
+    await page.setViewportSize({ width, height: 900 })
+    for (const path of ['/admin', '/admin/accounts', '/admin/ingestion']) {
+      await page.goto(path)
+      const nav = page.getByRole('navigation', { name: 'Administration', exact: true })
+      const active = nav.locator('[aria-current="page"]')
+      await expect(active).toHaveCount(1)
+      await expect(active).toHaveAttribute('href', path)
+      await expect(nav.locator('a')).toHaveText(['Overview', 'Accounts', 'Ingestion'])
+      await expect(page.locator('.site-header')).toHaveCSS('position', 'relative')
+      await expect(page.locator('.admin-content .card').first()).toBeVisible()
+      const styles = await page.evaluate(() => {
+        const heading = document.querySelector('.admin-shell h1')
+        const activeLink = document.querySelector('.admin-navigation [aria-current="page"]')
+        const card = document.querySelector('.admin-content .card')
+        if (!heading || !activeLink || !card) throw new Error('Admin surfaces missing')
+        return {
+          font: getComputedStyle(heading).fontFamily,
+          accent: getComputedStyle(activeLink).borderBottomColor,
+          navFill: getComputedStyle(activeLink).backgroundColor,
+          navWeight: getComputedStyle(activeLink).fontWeight,
+          navRows: new Set(
+            [...document.querySelectorAll('.admin-navigation a')].map(
+              (link) => link.getBoundingClientRect().top,
+            ),
+          ).size,
+          surface: getComputedStyle(card).backgroundColor,
+          canvas: getComputedStyle(document.querySelector('.site-layout') ?? document.body)
+            .backgroundColor,
+          radius: getComputedStyle(card).borderRadius,
+          fits: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          viewport: innerWidth,
+        }
+      })
+      expect(styles).toEqual({
+        font: expect.stringContaining('-apple-system'),
+        accent: 'rgb(233, 198, 42)',
+        navFill: 'rgba(0, 0, 0, 0)',
+        navWeight: '700',
+        navRows: 1,
+        surface: 'rgb(255, 255, 255)',
+        canvas: 'rgb(243, 242, 239)',
+        radius: '16px',
+        fits: true,
+        viewport: width,
+      })
+      await page.screenshot({
+        path: info.outputPath(`${path.split('/').at(-1)}-${width}.png`),
+        fullPage: true,
+      })
+    }
+    await page.getByTestId('admin-sign-out').click()
+    const signIn = page.getByRole('region', { name: 'Sign in to review ingestion' })
+    await expect(signIn).toBeVisible()
+    await expect(page.getByTestId('admin-sign-out')).toHaveCount(0)
+    const submit = signIn.getByRole('button', { name: 'Sign in', exact: true })
+    await expect(submit).toHaveCSS('background-color', 'rgb(246, 214, 75)')
+    await expect(submit).toHaveCSS('color', 'rgb(27, 27, 31)')
+    await page.getByLabel('Email', { exact: true }).focus()
+    await page.keyboard.press('Tab')
+    await expect(page.getByLabel('Password', { exact: true })).toBeFocused()
+    await expect(page.getByLabel('Password', { exact: true })).toHaveCSS('outline-style', 'solid')
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+      ),
+    ).toBe(true)
+    await page.screenshot({ path: info.outputPath(`sign-in-${width}.png`), fullPage: true })
+    expect(errors).toEqual([])
+  })
+}

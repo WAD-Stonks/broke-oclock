@@ -354,6 +354,8 @@ it('native renewal completion after confirmed logout cannot probe or reopen iden
   sdk.session.mockResolvedValue({ data: { user: { email: 'late@example.test' } }, error: null })
   const wrapper = mount(AdminSessionControls)
   wrappers.push(wrapper)
+  // Wait for the pending native probe's presentation before activating its logout control.
+  await flushPromises()
   await wrapper.get('[data-testid="admin-sign-out"]').trigger('click')
   await flushPromises()
   expect(wrapper.emitted('closing')).toHaveLength(1)
@@ -380,6 +382,7 @@ it('native confirmed absence forwards anonymous after closing protected evidence
   await flushPromises()
   expect(wrapper.emitted('closing')).toHaveLength(1)
   expect(wrapper.emitted('signedOut')).toHaveLength(1)
+  expect(wrapper.find('[data-testid="admin-sign-out"]').exists()).toBe(false)
 })
 it('native atom error fails closed even when refetch resolves void', async () => {
   sdk.renew.mockImplementation(async () => {

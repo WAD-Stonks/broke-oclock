@@ -13,8 +13,6 @@ watch(() => route?.query.requestStatus, value => { s.requestStatus = status(valu
 <template>
   <AdminShell @click.capture="s.logoutStarting" title="Platform admin" :refresh-key="s.sessionRefreshKey" @closing="s.close" @signed-out="s.anonymous" @access-reload="s.load">
   <section aria-label="Platform administration" class="platform-admin">
-    <p>Manage account roles and explicit stall access. Permissions are checked against the current server record for every action.</p>
-    <p>Account deletion is unavailable pending the retention and anonymisation policy.</p>
     <p v-if="s.access === 'loading'" role="status">Loading accounts…</p>
     <SharedSignIn v-else-if="s.access === 'UNAUTHORIZED'" title="Sign in to manage accounts" destination="/admin/accounts" @signed-in="s.signedIn" />
     <p v-else-if="s.access === 'closed'" role="status">Access is closed. Use the session controls to retry or recheck.</p>
@@ -23,7 +21,10 @@ watch(() => route?.query.requestStatus, value => { s.requestStatus = status(valu
       <p>Unable to load platform administration.</p><button type="button" class="btn btn-outline-primary" data-testid="retry-platform-admin" @click="s.load">Retry platform admin</button>
     </div>
     <template v-else-if="s.access === 'allowed'">
+      <p>Manage account roles and explicit stall access. Permissions are checked against the current server record for every action.</p>
+      <p>Account deletion is unavailable pending the retention and anonymisation policy.</p>
       <p v-if="s.notice" role="status">{{ s.notice }}</p>
+      <div class="admin-account-workspace">
       <section aria-label="Accounts" class="card p-3 mb-3">
         <h2 class="h4">Accounts</h2>
         <form id="account-search-form" @submit.prevent="s.searchAccounts" class="mb-3">
@@ -38,12 +39,13 @@ watch(() => route?.query.requestStatus, value => { s.requestStatus = status(valu
         <p v-if="!s.accounts.loading && !s.accounts.error && !s.accounts.data?.items.length">No accounts match these filters.</p>
         <ul class="list-unstyled">
           <li v-for="account in s.accounts.data?.items" :key="account.id" class="mb-2">
-            <button type="button" class="btn btn-outline-primary text-start" :data-testid="`account-${account.id}`" :disabled="s.busy" @click="s.selectAccount(account.id)">View account: {{ account.name }} ({{ account.email }})</button>
-            <span class="ms-2">{{ account.role }}</span>
+            <button type="button" class="btn admin-record-button text-start" :class="{ 'is-selected': s.selectedId === account.id }" :data-testid="`account-${account.id}`" :disabled="s.busy" @click="s.selectAccount(account.id)"><span>View account: {{ account.name }}</span> <small>({{ account.email }})</small></button>
+            <span class="admin-role-label">{{ account.role }}</span>
           </li>
         </ul>
         <button type="button" v-if="s.accounts.data?.nextCursor" data-testid="more-accounts" class="btn btn-outline-secondary" :disabled="s.busy || s.accounts.loading" @click="s.loadAccounts(true)">Load more accounts</button>
       </section>
+      <div class="admin-detail-panel">
       <p v-if="s.detail.loading" role="status">Loading account details…</p>
       <p v-if="s.detail.error" role="alert">{{ s.detail.error }}</p>
       <button type="button" v-if="s.selectedId" data-testid="reload-account" class="btn btn-outline-secondary mb-3" :disabled="s.busy || s.detail.loading" @click="s.selectAccount(s.selectedId)">Reload account</button>
@@ -93,6 +95,10 @@ watch(() => route?.query.requestStatus, value => { s.requestStatus = status(valu
           </fieldset>
         </form>
       </section>
+      <p v-if="!s.selectedId" class="admin-empty-detail">Select an account to review its role and stall access.</p>
+      </div>
+      </div>
+      <div class="admin-secondary-panels">
       <section aria-label="Merchant requests" class="card p-3 mb-3">
         <h2 id="merchant-requests" class="h4">Merchant requests</h2>
         <label for="request-status" class="form-label">Request status</label>
@@ -101,7 +107,7 @@ watch(() => route?.query.requestStatus, value => { s.requestStatus = status(valu
         <p v-if="s.requests.error" role="alert">{{ s.requests.error }}</p>
         <button type="button" class="btn btn-outline-secondary mb-3" :disabled="s.busy || s.requests.loading" data-testid="reload-requests" @click="s.loadRequests()">Reload requests</button>
         <p v-if="!s.requests.loading && !s.requests.error && !s.requests.data?.items.length">No requests match this status.</p>
-        <ul class="list-unstyled"><li v-for="request in s.requests.data?.items" :key="request.id" class="mb-2"><button type="button" class="btn btn-outline-primary text-start" :data-testid="`request-${request.id}`" :disabled="s.busy" @click="s.selectRequest(request.id)">Review request: {{ request.userName }} / {{ request.venueName }} ({{ request.status }})</button></li></ul>
+        <ul class="list-unstyled"><li v-for="request in s.requests.data?.items" :key="request.id" class="mb-2"><button type="button" class="btn admin-record-button text-start" :class="{ 'is-selected': s.selectedRequest?.id === request.id }" :data-testid="`request-${request.id}`" :disabled="s.busy" @click="s.selectRequest(request.id)">Review request: {{ request.userName }} / {{ request.venueName }} ({{ request.status }})</button></li></ul>
         <button type="button" v-if="s.requests.data?.nextCursor" data-testid="more-requests" class="btn btn-outline-secondary mb-3" :disabled="s.busy || s.requests.loading" @click="s.loadRequests(true)">Load more requests</button>
         <article v-if="s.selectedRequest" aria-label="Request details" class="border-top pt-3">
           <h3 class="h5">{{ s.selectedRequest.venueName }} / {{ s.selectedRequest.merchantName }}</h3>
@@ -140,6 +146,7 @@ watch(() => route?.query.requestStatus, value => { s.requestStatus = status(valu
         </li></ul>
         <button type="button" v-if="s.audit.data?.nextCursor" data-testid="more-audit" class="btn btn-outline-secondary" :disabled="s.busy || s.audit.loading" @click="s.loadAudit(true)">Load more audit</button>
       </section>
+      </div>
     </template>
   </section>
   </AdminShell>

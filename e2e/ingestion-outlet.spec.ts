@@ -279,6 +279,8 @@ for (const width of [320, 390, 1280]) {
     try {
       await page.setViewportSize({ width, height: 850 })
       await open(page)
+      await expect(page.locator('[aria-labelledby="outlet-title"]')).toHaveCSS('margin-top', '24px')
+      await expect(page.getByTestId('outlet-search')).toHaveCSS('margin-bottom', '16px')
       await page.getByLabel('Review note (required)').fill('Old version seven consent')
       await choose(page)
       await page.getByRole('button', { name: 'Load more outlets', exact: true }).click()

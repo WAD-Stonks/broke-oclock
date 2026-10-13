@@ -253,7 +253,7 @@ watch([() => props.revision, status], (_value, previous) => {
           <BButton data-testid="reject-draft" type="button" variant="outline-danger" :disabled="!canReview" @click="review('REJECT')">{{ reviewPending ? 'Submitting…' : 'Reject draft' }}</BButton>
         </div>
       </form>
-      <section v-if="associationAllowed" aria-labelledby="outlet-title" class="mb-4">
+      <section v-if="associationAllowed" aria-labelledby="outlet-title" class="admin-outlet-association mb-4">
         <h4 id="outlet-title" class="h6">Associate an existing outlet</h4>
         <p id="outlet-help">Choose only an existing active outlet supported by the named source evidence. This does not approve or publish the draft. OneMap candidates are not outlet records.</p>
         <form data-testid="outlet-search" @submit.prevent="searchOutlets()" :aria-busy="venuePending">

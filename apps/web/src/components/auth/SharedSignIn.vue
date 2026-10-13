@@ -82,7 +82,7 @@ const recovered = () => { recovery.value = false; notice.value = 'Password reset
 </script>
 
 <template>
-  <section :aria-labelledby="recovery ? 'recovery-title' : 'sign-in-title'" class="card p-4">
+  <section :aria-labelledby="recovery ? 'recovery-title' : 'sign-in-title'" class="shared-sign-in card p-4">
     <PasswordRecovery v-if="recovery" @completed="recovered" @cancel="recovery = false" />
     <div v-else>
     <h2 id="sign-in-title" class="h4">{{ title }}</h2>

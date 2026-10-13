@@ -12,6 +12,8 @@ Owner: Noah. Route: `/admin/ingestion`, assembled by `IngestionAdminPage.vue`.
 
 All data comes through the typed same-origin ingestion API. The UI never renders imported content as HTML, decides permissions from a client role, fabricates deals or associates lookup candidates with outlets automatically. Approval readiness is enforced again by the server.
 
+The shared `AdminShell` uses restrained operational styling for sign-in, navigation, session controls, forms and review panels. Admin-only styles in `src/assets/admin.css` retain the shared paper, ink and sunny-yellow palette, with system typography and neutral secondary controls rather than floating map-overlay pills. Existing authentication and review behaviour are preserved. See [admin UI rationale](../../../../../docs/admin-ui-design.md).
+
 ## Boundaries
 
 No role changes, account deletion, draft editing, location attachment, scheduler or public browse workflow is implemented here. Publisher ingestion stays disabled until reuse approval, API opt-in and source enablement are supplied. Live provider checks and production provisioning remain separate from the synthetic UI tests.

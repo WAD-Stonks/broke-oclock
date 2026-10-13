@@ -13,6 +13,8 @@ This is an implementation for PR review, not an agreed team retention or authori
 
 ## Verification boundary
 
+All admin routes share a restrained operational UI through `AdminShell`: inline site chrome, short underline navigation, readable system typography, paper surfaces and sunny-yellow primary actions. Account search and selected details sit side by side on desktop and stack on mobile. Styling is scoped to administration; shared sign-in behaviour and server authorization are unchanged. See [admin UI rationale](../../../../../docs/admin-ui-design.md) for the Apple HIG and Primer research.
+
 `apps/web/tests/platform-admin.test.ts` uses explicitly synthetic REST response fixtures. `e2e/platform-admin.spec.ts` intercepts the browser API boundary while exercising the real SPA and Axios transport. These assert exact mutation identity/version/payloads, stale-state protection, permission-denial rendering, 320/390/1280px layouts and role-change refreshes. They do **not** prove live authentication, database authorization, backend acceptance or real merchant activity. Integration authorization belongs to the API's disposable-database tests. Screenshots/reports belong in scratch, not Git.
 
 Merchant request creation/status belongs to Kang En's separate user-facing flow. This UI only reads and reviews existing server requests. Merchant endpoint enforcement and retention decisions remain separate handoffs.
